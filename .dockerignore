@@ -1,0 +1,28 @@
+.git
+.gitignore
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+dist/
+build/
+*.egg-info/
+.coverage
+htmlcov/
+.pyre/
+.cache/
+
+# Editor/OS
+.vscode/
+.DS_Store
+
+# Tests not needed for runtime image
+tests/
+
+# Docs/metadata
+LICENSE
+README.md

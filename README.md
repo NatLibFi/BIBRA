@@ -21,7 +21,7 @@ uv sync
 ## Usage
 
 ```bash
-python main.py
+uv run uvicorn bibra.main:app
 ```
 
 ## Testing
@@ -29,12 +29,5 @@ python main.py
 Run the test suite with:
 
 ```bash
-uv sync --group dev
 uv run pytest
-```
-
-Or run tests with verbose output:
-
-```bash
-uv run pytest -v
 ```

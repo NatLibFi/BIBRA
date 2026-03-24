@@ -13,7 +13,7 @@ A metadata extraction and verification tool that integrates multiple methods for
 ## Installation
 
 ```bash
-pip install .
+uv sync
 ```
 
 ## Usage

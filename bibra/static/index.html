@@ -35,10 +35,25 @@
             text-decoration: underline;
         }
     </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/v0/')
+                .then(response => response.json())
+                .then(data => {
+                    const versionSpan = document.getElementById('version');
+                    if (versionSpan && data.version) {
+                        versionSpan.textContent = data.version;
+                    }
+                })
+                .catch(err => {
+                    console.error('Failed to fetch version:', err);
+                });
+        });
+    </script>
 </head>
 <body>
     <h1>BIBRA API</h1>
-    <p class="version">Version <span id="version">0.1.0</span></p>
+    <p class="version">Version <span id="version">Loading...</span></p>
     <p>Welcome to the BIBRA API. This is a simple static page served at the root URL.</p>
     <p>Visit the <a href="/v0" class="api-link">API Documentation</a> to explore the available endpoints.</p>
 </body>

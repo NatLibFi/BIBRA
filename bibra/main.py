@@ -3,9 +3,10 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+from bibra import __version__
 from bibra.api.v0.routes import router as v0_router
 
-app = FastAPI(title="BIBRA API", version="0.1.0")
+app = FastAPI(title="BIBRA API", version=__version__)
 
 # Mount static files at /static path
 app.mount("/static", StaticFiles(directory="bibra/static"), name="static")

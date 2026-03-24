@@ -1,5 +1,7 @@
 # BIBRA
 
+> **Note**: The name "BIBRA" is a working title and may still change. The application is still heavily work in progress and not yet functional.
+
 A metadata extraction and verification tool that integrates multiple methods for extracting, verifying, and reconciling metadata.
 
 ## Features

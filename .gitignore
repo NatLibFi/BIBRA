@@ -49,6 +49,10 @@ coverage.xml
 *.py.cover
 .hypothesis/
 .pytest_cache/
+.cover
+htmlcov/
+.tox/
+.nox/
 cover/
 
 # Translations

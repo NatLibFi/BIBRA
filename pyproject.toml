@@ -8,3 +8,10 @@ dependencies = [
     "fastapi==0.135.2",
     "uvicorn==0.42.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.0",
+    "pytest-asyncio>=1.0.0",
+    "httpx>=0.28.0",
+]

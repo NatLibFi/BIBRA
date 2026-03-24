@@ -21,3 +21,18 @@ uv sync
 ```bash
 python main.py
 ```
+
+## Testing
+
+Run the test suite with:
+
+```bash
+uv sync --group dev
+uv run pytest
+```
+
+Or run tests with verbose output:
+
+```bash
+uv run pytest -v
+```

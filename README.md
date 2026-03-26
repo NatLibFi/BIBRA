@@ -31,3 +31,12 @@ Run the test suite with:
 ```bash
 uv run pytest
 ```
+## Use of AI Tools
+
+This project uses AI‑powered development tools, including the [RooCode VSCode extension](https://roocode.com/), to support the development process. AI assistance may be used for tasks such as:
+
+- generating and refactoring code
+- drafting documentation
+- exploring ideas and potential solutions
+
+All AI‑generated content is manually reviewed and approved before being included in the project and the use of AI is disclosed. AI tools do not make decisions independently, as we do not consider their output to be error‑free.

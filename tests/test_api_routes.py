@@ -38,3 +38,20 @@ class TestAPIRoutes:
         # Check that the route uses POST method
         route = extract_routes[0]
         assert isinstance(route, APIRoute)
+
+    async def test_extract_returns_example_metadata(self):
+        """The /extract endpoint should return example publication metadata."""
+        from bibra.api.v0.routes import extract, PublicationMetadata
+        
+        # Verify the function exists and returns correct type
+        result = await extract(files=[], text=None)
+        
+        assert isinstance(result, PublicationMetadata)
+        assert result.language == "en"
+        assert result.title == "Understanding DevOps critical success factors and organizational practices"
+        assert result.creator == ["Nasreen, Azad"]
+        assert result.year == "2022"
+        assert result.publisher == ["IEEE"]
+        assert result.doi == "10.1145/3524614.3528627"
+        assert result.e_isbn == ["9781450393027/22/05"]
+        assert result.type_coar == "conference paper"

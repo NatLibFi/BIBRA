@@ -26,10 +26,31 @@ uv run uvicorn bibra.main:app
 
 ## Testing
 
-Run the test suite with:
+### Python Tests
+
+Run the Python test suite with:
 
 ```bash
 uv run pytest
+```
+
+### Cypress E2E Tests
+
+Run the Cypress end-to-end tests:
+
+**Install dependencies first:**
+```bash
+npm install
+```
+
+**Run Cypress in interactive mode (opens Cypress GUI):**
+```bash
+npm run cy:open
+```
+
+**Run Cypress headless:**
+```bash
+npm run cy:run
 ```
 ## Use of AI Tools
 

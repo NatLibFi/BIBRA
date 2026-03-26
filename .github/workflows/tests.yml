@@ -4,7 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
-
+permissions:
+  contents: read
 jobs:
 
   ruff-checks:
@@ -25,6 +26,7 @@ jobs:
           args: "format --check --diff"
 
   test:
+    name: test on Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     strategy:
       matrix:

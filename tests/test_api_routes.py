@@ -1,5 +1,8 @@
 """Tests for API routes."""
-from bibra.api.v0.routes import router
+import asyncio
+
+from bibra.api.v0.routes import PROJECTS, extract, list_projects, PublicationMetadata
+from fastapi.routing import APIRoute
 
 
 class TestAPIRoutes:
@@ -16,9 +19,6 @@ class TestAPIRoutes:
 
     async def test_list_projects_returns_correct_data(self):
         """The /projects endpoint should return the expected project data."""
-        import asyncio
-        from bibra.api.v0.routes import list_projects, PROJECTS
-
         result = await list_projects()
         assert "projects" in result
         assert len(result["projects"]) == len(PROJECTS)
@@ -32,7 +32,6 @@ class TestAPIRoutes:
 
     def test_extract_route_is_post_method(self):
         """The extract route should use POST method."""
-        from fastapi.routing import APIRoute
         extract_routes = [r for r in router.routes if str(r.path) == "/projects/{project_id}/extract"]
         assert len(extract_routes) >= 1
         # Check that the route uses POST method
@@ -41,7 +40,6 @@ class TestAPIRoutes:
 
     async def test_extract_returns_example_metadata(self):
         """The /projects/{project_id}/extract endpoint should return example publication metadata."""
-        from bibra.api.v0.routes import extract, PublicationMetadata
         
         # Verify the function exists and returns correct type
         result = await extract(project_id="project-001", files=[], text=None)

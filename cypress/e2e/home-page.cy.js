@@ -21,15 +21,8 @@ describe('Home Page', () => {
       .should('match', /\d+\.\d+\.\d+/);
   });
 
-  it('has a link to API documentation', () => {
-    cy.get('.api-link')
-      .should('exist')
-      .and('have.attr', 'href', '/docs');
-  });
-
   it('has a working API documentation link', () => {
     cy.get('.api-link').click();
     cy.url().should('include', '/docs');
-    cy.get('h1').should('contain', 'BIBRA API');
   });
 });

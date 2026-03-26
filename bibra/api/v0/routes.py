@@ -68,15 +68,17 @@ async def list_projects():
     return {"projects": PROJECTS}
 
 
-@router.post("/extract")
+@router.post("/projects/{project_id}/extract")
 async def extract(
+    project_id: str,
     files: List[UploadFile] = File(...),
     text: Optional[str] = Form(None)
 ) -> PublicationMetadata:
     """
-    Extract publication metadata from PDF or image files.
+    Extract publication metadata from PDF or image files for a specific project.
     
     Args:
+        project_id: The ID of the project to extract metadata for
         files: List of PDF or image files to process
         text: Optional additional text context
         

@@ -26,25 +26,25 @@ class TestAPIRoutes:
         assert result["projects"][0]["name"] == "Example Project Alpha"
 
     def test_extract_route_exists(self):
-        """The router should have an extract route."""
+        """The router should have a project-specific extract route."""
         routes = [str(r.path) for r in router.routes]
-        assert "/extract" in routes
+        assert "/projects/{project_id}/extract" in routes
 
     def test_extract_route_is_post_method(self):
         """The extract route should use POST method."""
         from fastapi.routing import APIRoute
-        extract_routes = [r for r in router.routes if str(r.path) == "/extract"]
+        extract_routes = [r for r in router.routes if str(r.path) == "/projects/{project_id}/extract"]
         assert len(extract_routes) >= 1
         # Check that the route uses POST method
         route = extract_routes[0]
         assert isinstance(route, APIRoute)
 
     async def test_extract_returns_example_metadata(self):
-        """The /extract endpoint should return example publication metadata."""
+        """The /projects/{project_id}/extract endpoint should return example publication metadata."""
         from bibra.api.v0.routes import extract, PublicationMetadata
         
         # Verify the function exists and returns correct type
-        result = await extract(files=[], text=None)
+        result = await extract(project_id="project-001", files=[], text=None)
         
         assert isinstance(result, PublicationMetadata)
         assert result.language == "en"

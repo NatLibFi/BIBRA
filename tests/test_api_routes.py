@@ -55,7 +55,7 @@ class TestAPIRoutes:
         assert isinstance(result, PublicationMetadata)
         assert result.language == "en"
         assert (
-            result.title == "Machine Learning Approaches for Software DefectPrediction"
+            result.title == "Machine Learning Approaches for Software Defect Prediction"
         )
         assert result.creator == ["Smith, John", "Johnson, Emily"]
         assert result.year == "2023"

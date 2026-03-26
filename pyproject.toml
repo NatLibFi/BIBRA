@@ -17,3 +17,10 @@ dev = [
     "pytest-cov>=7.0.0",
     "ruff>=0.15.7",
 ]
+
+[tool.ruff]
+line-length = 79
+
+[tool.ruff.lint]
+# Add the `line-too-long` rule to the enforced rule set. 
+extend-select = ["E501"]

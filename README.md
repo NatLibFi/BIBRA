@@ -18,6 +18,12 @@ A metadata extraction and verification tool that integrates multiple methods for
 ```bash
 uv sync
 ```
+### Pre-commit hook
+Automating the Ruff linter and formatter checks on git commits can be enabled by installing the pre-commit hook:
+```bash
+uv run pre-commit install
+```
+Skipping the Ruff checks when committing can be done by adding the `--no-verify` option to the `git commit` command.
 
 ## Usage
 

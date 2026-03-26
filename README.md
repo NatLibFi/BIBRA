@@ -1,4 +1,5 @@
 # BIBRA
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 > **Note**: The name "BIBRA" is a working title and may still change. The application is still heavily work in progress and not yet functional.
 

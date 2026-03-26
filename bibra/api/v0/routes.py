@@ -88,13 +88,13 @@ async def extract(
     
     example_metadata = PublicationMetadata(
         language="en",
-        title="Understanding DevOps critical success factors and organizational practices",
-        creator=["Nasreen, Azad"],
-        year="2022",
-        publisher=["IEEE"],
-        doi="10.1145/3524614.3528627",
-        e_isbn=["9781450393027/22/05"],
-        type_coar="conference paper"
+        title="Machine Learning Approaches for Software Defect Prediction",
+        creator=["Smith, John", "Johnson, Emily"],
+        year="2023",
+        publisher=["Springer", "ACM"],
+        doi="10.1234/example.doi.12345",
+        e_isbn=["978-0-123456-78-9"],
+        type_coar="article"
     )
     
     return example_metadata

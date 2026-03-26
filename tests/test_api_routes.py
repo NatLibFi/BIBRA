@@ -48,13 +48,13 @@ class TestAPIRoutes:
         
         assert isinstance(result, PublicationMetadata)
         assert result.language == "en"
-        assert result.title == "Understanding DevOps critical success factors and organizational practices"
-        assert result.creator == ["Nasreen, Azad"]
-        assert result.year == "2022"
-        assert result.publisher == ["IEEE"]
-        assert result.doi == "10.1145/3524614.3528627"
-        assert result.e_isbn == ["9781450393027/22/05"]
-        assert result.type_coar == "conference paper"
+        assert result.title == "Machine Learning Approaches for Software Defect Prediction"
+        assert result.creator == ["Smith, John", "Johnson, Emily"]
+        assert result.year == "2023"
+        assert result.publisher == ["Springer", "ACM"]
+        assert result.doi == "10.1234/example.doi.12345"
+        assert result.e_isbn == ["978-0-123456-78-9"]
+        assert result.type_coar == "article"
         
         # Verify fields that don't have values are None or empty lists
         assert result.alt_title is None

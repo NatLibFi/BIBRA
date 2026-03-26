@@ -55,3 +55,9 @@ class TestAPIRoutes:
         assert result.doi == "10.1145/3524614.3528627"
         assert result.e_isbn == ["9781450393027/22/05"]
         assert result.type_coar == "conference paper"
+        
+        # Verify fields that don't have values are None or empty lists
+        assert result.alt_title is None
+        assert result.p_isbn == []
+        assert result.e_issn is None
+        assert result.p_issn is None

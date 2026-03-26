@@ -20,7 +20,7 @@ dev = [
 ]
 
 [tool.ruff]
-line-length = 79
+line-length = 88
 
 [tool.ruff.lint]
 # Add the `line-too-long` rule to the enforced rule set. 

@@ -14,21 +14,22 @@ describe('Home Page', () => {
   });
 
   it('fetches and displays the API version', () => {
-    // Wait for the version to be fetched
-    cy.get('#version', { timeout: 10000 })
+    // Wait for the version to be fetched and displayed
+    cy.get('#version')
       .should('not.contain', 'Loading...')
-      .and('match', /\d+\.\d+\.\d+/);
+      .invoke('text')
+      .should('match', /\d+\.\d+\.\d+/);
   });
 
   it('has a link to API documentation', () => {
     cy.get('.api-link')
       .should('exist')
-      .and('have.attr', 'href', '/v0');
+      .and('have.attr', 'href', '/docs');
   });
 
   it('has a working API documentation link', () => {
     cy.get('.api-link').click();
-    cy.url().should('include', '/v0');
+    cy.url().should('include', '/docs');
     cy.get('h1').should('contain', 'BIBRA API');
   });
 });

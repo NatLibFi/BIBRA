@@ -25,5 +25,6 @@ Run Cypress E2E tests in headless mode: `npx cypress run`
 ### Pre-commit Checklist
 
 Before committing code changes, ensure:
-1. ✅ All pytest tests pass (`pytest -v`)
-2. ✅ All Cypress E2E tests pass (`npx cypress run`)
+1. ✅ Ruff linter and formatter checks pass (`ruff check` and `ruff format --check`)
+2. ✅ All pytest tests pass (`pytest -v`)
+3. ✅ All Cypress E2E tests pass (`npx cypress run`)

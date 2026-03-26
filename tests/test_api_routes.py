@@ -1,6 +1,12 @@
 """Tests for API routes."""
 
-from bibra.api.v0.routes import PROJECTS, extract, list_projects, PublicationMetadata, router
+from bibra.api.v0.routes import (
+    PROJECTS,
+    extract,
+    list_projects,
+    PublicationMetadata,
+    router,
+)
 from fastapi.routing import APIRoute
 
 
@@ -31,28 +37,33 @@ class TestAPIRoutes:
 
     def test_extract_route_is_post_method(self):
         """The extract route should use POST method."""
-        extract_routes = [r for r in router.routes if str(r.path) == "/projects/{project_id}/extract"]
+        extract_routes = [
+            r for r in router.routes if str(r.path) == "/projects/{project_id}/extract"
+        ]
         assert len(extract_routes) >= 1
         # Check that the route uses POST method
         route = extract_routes[0]
         assert isinstance(route, APIRoute)
 
     async def test_extract_returns_example_metadata(self):
-        """The /projects/{project_id}/extract endpoint should return example publication metadata."""
-        
+        """The /projects/{project_id}/extract endpoint should return example
+        publication metadata."""
+
         # Verify the function exists and returns correct type
         result = await extract(project_id="project-001", files=[], text=None)
-        
+
         assert isinstance(result, PublicationMetadata)
         assert result.language == "en"
-        assert result.title == "Machine Learning Approaches for Software Defect Prediction"
+        assert (
+            result.title == "Machine Learning Approaches for Software Defect Prediction"
+        )
         assert result.creator == ["Smith, John", "Johnson, Emily"]
         assert result.year == "2023"
         assert result.publisher == ["Springer", "ACM"]
         assert result.doi == "10.1234/example.doi.12345"
         assert result.e_isbn == ["978-0-123456-78-9"]
         assert result.type_coar == "article"
-        
+
         # Verify fields that don't have values are None or empty lists
         assert result.alt_title is None
         assert result.p_isbn == []

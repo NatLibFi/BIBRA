@@ -8,6 +8,7 @@ router = APIRouter()
 # Pydantic models for request/response validation
 class PublicationMetadata(BaseModel):
     """Response model for publication metadata extraction."""
+
     language: Optional[str] = None
     title: Optional[str] = None
     alt_title: Optional[str] = None
@@ -24,6 +25,7 @@ class PublicationMetadata(BaseModel):
 
 class ExtractRequest(BaseModel):
     """Request model for extract endpoint."""
+
     files: List[UploadFile]
     text: Optional[str] = None
 
@@ -35,22 +37,22 @@ PROJECTS: List[Dict[str, Any]] = [
         "name": "Example Project Alpha",
         "description": "This is an example project for testing the API",
         "created_at": "2024-01-15T10:00:00Z",
-        "status": "active"
+        "status": "active",
     },
     {
         "id": "project-002",
         "name": "Example Project Beta",
         "description": "Another example project with different configuration",
         "created_at": "2024-02-20T14:30:00Z",
-        "status": "active"
+        "status": "active",
     },
     {
         "id": "project-003",
         "name": "Example Project Gamma",
         "description": "A third example project",
         "created_at": "2024-03-10T09:15:00Z",
-        "status": "inactive"
-    }
+        "status": "inactive",
+    },
 ]
 
 
@@ -72,22 +74,22 @@ async def list_projects():
 async def extract(
     project_id: str,
     files: List[UploadFile] = File(...),
-    text: Optional[str] = Form(None)
+    text: Optional[str] = Form(None),
 ) -> PublicationMetadata:
     """
     Extract publication metadata from PDF or image files for a specific project.
-    
+
     Args:
         project_id: The ID of the project to extract metadata for
         files: List of PDF or image files to process
         text: Optional additional text context
-        
+
     Returns:
         PublicationMetadata: Extracted metadata as JSON
     """
     # Mockup implementation - always returns example data
     # In a real implementation, this would call an OCR/PDF extraction service
-    
+
     example_metadata = PublicationMetadata(
         language="en",
         title="Machine Learning Approaches for Software Defect Prediction",
@@ -96,7 +98,7 @@ async def extract(
         publisher=["Springer", "ACM"],
         doi="10.1234/example.doi.12345",
         e_isbn=["978-0-123456-78-9"],
-        type_coar="article"
+        type_coar="article",
     )
-    
+
     return example_metadata

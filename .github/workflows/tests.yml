@@ -1,11 +1,17 @@
-name: CI - Lint, format and pytest
+name: CI - Lint, format, pytest and Cypress E2E Tests
 
 on:
   push:
     branches: [main]
   pull_request:
+
+env:
+  PYTHON_VERSION: "3.14"
+  NODE_VERSION: "24"
+
 permissions:
   contents: read
+
 jobs:
 
   ruff-checks:
@@ -25,7 +31,7 @@ jobs:
         with:
           args: "format --check --diff"
 
-  test:
+  pytest:
     name: test on Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     strategy:
@@ -43,7 +49,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867  # v7.1.6
         with:
-          python-version: ${{ inputs.python-version }}
+          python-version: ${{ matrix.python-version }}
 
       - name: Run tests with coverage
         run:
@@ -52,8 +58,42 @@ jobs:
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7  # v5.5.1
         with:
-          file: ./coverage.xml
+          files: ./coverage.xml
           flags: unittests
           name: codecov-umbrella
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  cypress-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548  # v6.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867  # v7.1.6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Python dependencies
+        run: uv sync --dev
+
+      - name: Start the server
+        run: uv run uvicorn bibra.main:app --host 0.0.0.0 --port 8000 &
+        timeout-minutes: 1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install npm dependencies
+        run: npm install
+
+      - name: Run Cypress tests
+        run: npx cypress run

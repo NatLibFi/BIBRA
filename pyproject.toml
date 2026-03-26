@@ -17,6 +17,7 @@ dev = [
     "httpx>=0.28.0",
     "pytest-cov>=7.0.0",
     "ruff>=0.15.7",
+    "pre-commit>=4.5.1",
 ]
 
 [tool.ruff]

@@ -1,5 +1,4 @@
 """Tests for API routes."""
-import asyncio
 
 from bibra.api.v0.routes import PROJECTS, extract, list_projects, PublicationMetadata, router
 from fastapi.routing import APIRoute

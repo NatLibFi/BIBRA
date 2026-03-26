@@ -1,6 +1,4 @@
 """Tests for bibra version handling."""
-from unittest.mock import patch, MagicMock
-import importlib
 
 # Need to reload the module after mocking
 import bibra

@@ -15,4 +15,5 @@ dev = [
     "pytest-asyncio>=1.0.0",
     "httpx>=0.28.0",
     "pytest-cov>=7.0.0",
+    "ruff>=0.15.7",
 ]

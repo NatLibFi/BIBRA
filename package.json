@@ -4,12 +4,10 @@
   "description": "BIBRA - Metadata extraction and verification tool",
   "main": "bibra/main.py",
   "scripts": {
-    "cy:open": "cypress open",
-    "cy:run": "cypress run",
     "start": "uv run uvicorn bibra.main:app"
   },
   "devDependencies": {
-    "cypress": "^13.17.0"
+    "cypress": "15.13.0"
   },
   "keywords": [],
   "author": "",

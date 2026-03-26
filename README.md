@@ -45,12 +45,12 @@ npm install
 
 **Run Cypress in interactive mode (opens Cypress GUI):**
 ```bash
-npm run cy:open
+npx cypress open
 ```
 
 **Run Cypress headless:**
 ```bash
-npm run cy:run
+npx cypress run
 ```
 ## Use of AI Tools
 

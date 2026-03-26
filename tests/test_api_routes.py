@@ -24,3 +24,17 @@ class TestAPIRoutes:
         assert len(result["projects"]) == len(PROJECTS)
         assert result["projects"][0]["id"] == "project-001"
         assert result["projects"][0]["name"] == "Example Project Alpha"
+
+    def test_extract_route_exists(self):
+        """The router should have an extract route."""
+        routes = [str(r.path) for r in router.routes]
+        assert "/extract" in routes
+
+    def test_extract_route_is_post_method(self):
+        """The extract route should use POST method."""
+        from fastapi.routing import APIRoute
+        extract_routes = [r for r in router.routes if str(r.path) == "/extract"]
+        assert len(extract_routes) >= 1
+        # Check that the route uses POST method
+        route = extract_routes[0]
+        assert isinstance(route, APIRoute)

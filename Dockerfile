@@ -20,6 +20,9 @@ ENV PATH="/app/.venv/bin:${PATH}"
 # Copy application code.
 COPY bibra ./bibra
 
+# Install the application package itself (so its version can be determined)
+RUN uv pip install .
+
 # Create a non-root user (OpenShift-friendly) and ensure /app is writable.
 RUN useradd --uid 1001 --create-home --shell /usr/sbin/nologin appuser \
     && chown -R 1001:0 /app

@@ -1,4 +1,5 @@
 # BIBRA
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 > **Note**: The name "BIBRA" is a working title and may still change. The application is still heavily work in progress and not yet functional.
 
@@ -17,6 +18,12 @@ A metadata extraction and verification tool that integrates multiple methods for
 ```bash
 uv sync
 ```
+### Pre-commit hook
+Automating the Ruff linter and formatter checks on git commits can be enabled by installing the pre-commit hook:
+```bash
+uv run pre-commit install
+```
+Skipping the Ruff checks when committing can be done by adding the `--no-verify` option to the `git commit` command.
 
 ## Usage
 

@@ -1,4 +1,4 @@
-name: CI - Tests
+name: CI - Lint, format and pytest
 
 on:
   push:
@@ -6,6 +6,24 @@ on:
   pull_request:
 
 jobs:
+
+  ruff-checks:
+    name: Ruff lint and format check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+
+      - name: Ruff lint
+        uses: astral-sh/ruff-action@4919ec5cf1f49eff0871dbcea0da843445b837e6  # v3.6.1
+        with:
+          args: "check --diff"
+
+      - name: Ruff format check
+        uses: astral-sh/ruff-action@4919ec5cf1f49eff0871dbcea0da843445b837e6  # v3.6.1
+        with:
+          args: "format --check --diff"
+
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -26,7 +44,7 @@ jobs:
           python-version: ${{ inputs.python-version }}
 
       - name: Run tests with coverage
-        run: 
+        run:
           uv run pytest --cov=bibra --cov-report=xml --cov-report=term
 
       - name: Upload coverage to Codecov

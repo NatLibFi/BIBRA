@@ -1,11 +1,16 @@
-name: CI - Lint, format and pytest
+name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
+
+env:
+  NODE_VERSION: "24"
+
 permissions:
   contents: read
+
 jobs:
 
   ruff-checks:
@@ -25,8 +30,8 @@ jobs:
         with:
           args: "format --check --diff"
 
-  test:
-    name: test on Python ${{ matrix.python-version }}
+  pytest:
+    name: Unit tests on Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -43,7 +48,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867  # v7.1.6
         with:
-          python-version: ${{ inputs.python-version }}
+          python-version: ${{ matrix.python-version }}
 
       - name: Run tests with coverage
         run:
@@ -52,8 +57,55 @@ jobs:
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7  # v5.5.1
         with:
-          file: ./coverage.xml
+          files: ./coverage.xml
           flags: unittests
           name: codecov-umbrella
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  cypress-test:
+    name: Cypress end-to-end tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+
+      - name: Build Docker image
+        run: docker build -t bibra:test .
+
+      - name: Start container in background
+        run: |
+          docker run -d --name bibra-test -p 8000:8000 bibra:test
+          echo "Container started, waiting for server to be ready..."
+
+      - name: Wait for server to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:8000/docs > /dev/null 2>&1; then
+              echo "Server is ready!"
+              exit 0
+            fi
+            echo "Waiting for server... attempt $i/30"
+            sleep 2
+          done
+          echo "Server failed to start within timeout"
+          docker logs bibra-test
+          exit 1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install npm dependencies
+        run: npm install
+
+      - name: Run Cypress tests
+        run: npx cypress run
+
+      - name: Cleanup container
+        if: always()
+        run: |
+          docker stop bibra-test || true
+          docker rm bibra-test || true

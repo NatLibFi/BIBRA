@@ -1,0 +1,17 @@
+{
+  "name": "bibra",
+  "version": "0.1.0",
+  "description": "BIBRA - Metadata extraction and verification tool",
+  "main": "bibra/main.py",
+  "scripts": {
+    "start": "uv run uvicorn bibra.main:app",
+    "cy:run": "env -u ELECTRON_RUN_AS_NODE npx cypress run",
+    "cy:verify": "env -u ELECTRON_RUN_AS_NODE npx cypress verify"
+  },
+  "devDependencies": {
+    "cypress": "^15.13.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT"
+}

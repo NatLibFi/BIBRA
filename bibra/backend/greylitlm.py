@@ -1,27 +1,12 @@
 from typing import List
 
-import os
 from openai import AsyncOpenAI
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
+from bibra.backend.config import LLMConfig
 from bibra.types import PublicationMetadata
-
-
-class LLMConfig:
-    """Configuration for LLM endpoint."""
-
-    LLM_ENDPOINT_URL: str = os.getenv(
-        "LLM_ENDPOINT_URL", "http://localhost:5000/api/extract"
-    )
-    LLM_API_KEY: str | None = os.getenv("LLM_API_KEY")
-
-    SYSTEM_PROMPT: str = (
-        "You are a skilled librarian specialized in meticulous cataloguing of"
-        " digital documents."
-    )
-    INSTRUCTION: str = "Extract metadata from this document. Return as JSON.\n\n{}"
 
 
 class GreylitLMBackend:

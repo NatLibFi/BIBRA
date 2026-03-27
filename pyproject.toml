@@ -18,11 +18,12 @@ dev = [
     "pytest-cov>=7.0.0",
     "ruff>=0.15.7",
     "pre-commit>=4.5.1",
+    "schemathesis>=4.13.0",
 ]
 
 [tool.ruff]
 line-length = 88
 
 [tool.ruff.lint]
-# Add the `line-too-long` rule to the enforced rule set. 
+# Add the `line-too-long` rule to the enforced rule set.
 extend-select = ["E501"]

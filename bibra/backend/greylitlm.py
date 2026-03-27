@@ -1,16 +1,31 @@
 from typing import List
 
+import os
 from openai import AsyncOpenAI
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from bibra.backend.config import LLMConfig
 from bibra.types import PublicationMetadata
 
 
+class LLMConfig:
+    """Configuration for LLM endpoint."""
+
+    LLM_ENDPOINT_URL: str = os.getenv(
+        "LLM_ENDPOINT_URL", "http://localhost:5000/api/extract"
+    )
+    LLM_API_KEY: str | None = os.getenv("LLM_API_KEY")
+
+    SYSTEM_PROMPT: str = (
+        "You are a skilled librarian specialized in meticulous cataloguing of"
+        " digital documents."
+    )
+    INSTRUCTION: str = "Extract metadata from this document. Return as JSON.\n\n{}"
+
+
 class GreylitLMBackend:
-    """Backend implementation using GreylitLM (fine-tuned LLM) for metadata extraction."""
+    """Backend for metadata extraction using GreylitLM (fine-tuned LLM)."""
 
     def __init__(self, config: LLMConfig | None = None):
         """Initialize the GreylitLM backend.
@@ -50,7 +65,7 @@ class GreylitLMBackend:
         """Extract publication metadata from files.
 
         Args:
-            files: List of files to process (currently accepts any files, text content is ignored).
+            files: List of files to process. Text content is currently ignored.
 
         Returns:
             PublicationMetadata: Extracted metadata as JSON.

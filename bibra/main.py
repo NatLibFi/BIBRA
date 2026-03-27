@@ -14,7 +14,9 @@ app.mount("/static", StaticFiles(directory="bibra/static"), name="static")
 
 # Mount node_modules for static files (e.g., Bootstrap) if directory exists
 if os.path.isdir("node_modules"):
-    app.mount("/node_modules", StaticFiles(directory="node_modules"), name="node_modules")
+    app.mount(
+        "/node_modules", StaticFiles(directory="node_modules"), name="node_modules"
+    )
 
 
 @app.get("/")

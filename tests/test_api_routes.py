@@ -49,8 +49,8 @@ class TestAPIRoutes:
         """The /projects/{project_id}/extract endpoint should return example
         publication metadata."""
 
-        # Verify the function exists and returns correct type
-        result = await extract(project_id="project-001", files=[])
+        # Use dummy backend for testing (no API calls needed)
+        result = await extract(project_id="dummy", files=[])
 
         assert isinstance(result, PublicationMetadata)
         assert result.language == "en"

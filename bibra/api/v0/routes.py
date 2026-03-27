@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import List, Dict, Any
 
 from bibra.backend.dummy import DummyBackend
+from bibra.backend.greylitlm import GreylitLMBackend
 from bibra.types import PublicationMetadata
 
 router = APIRouter()
@@ -73,7 +74,13 @@ async def extract(
         PublicationMetadata: Extracted metadata as JSON
     """
 
-    # Create dummybackend instance
-    backend = DummyBackend()
-    # Call backend to extract metadata
-    return backend.extract(files)
+    # Choose backend based on project_id
+    if project_id == "dummy":
+        # Use dummy backend for testing
+        backend = DummyBackend()
+        result = backend.extract(files)
+    else:
+        # Use greylitlm backend for real extraction
+        backend = GreylitLMBackend()
+        result = await backend.extract(files)
+    return result

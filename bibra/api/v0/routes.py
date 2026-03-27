@@ -1,6 +1,6 @@
 from fastapi import APIRouter, UploadFile, File
 from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 from bibra.backend.dummy import DummyBackend
 from bibra.types import PublicationMetadata

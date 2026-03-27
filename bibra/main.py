@@ -1,3 +1,4 @@
+import os
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
@@ -11,8 +12,9 @@ app = FastAPI(title="BIBRA API", version=__version__)
 # Mount static files at /static path
 app.mount("/static", StaticFiles(directory="bibra/static"), name="static")
 
-# Mount node_modules for static files (e.g., Bootstrap)
-app.mount("/node_modules", StaticFiles(directory="node_modules"), name="node_modules")
+# Mount node_modules for static files (e.g., Bootstrap) if directory exists
+if os.path.isdir("node_modules"):
+    app.mount("/node_modules", StaticFiles(directory="node_modules"), name="node_modules")
 
 
 @app.get("/")

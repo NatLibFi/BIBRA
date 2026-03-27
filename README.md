@@ -55,10 +55,12 @@ npm install
 npx cypress open
 ```
 
-**Run Cypress headless:**
+**Run Cypress headless**
+
 ```bash
-npx cypress run
+npm run cy:run
 ```
+
 ## Use of AI Tools
 
 This project uses AI‑powered development tools, including the [RooCode VSCode extension](https://roocode.com/), to support the development process. AI assistance may be used for tasks such as:

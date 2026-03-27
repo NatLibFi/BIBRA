@@ -20,11 +20,11 @@ Or run specific test files: `pytest tests/test_<test_file>.py -v`
 
 ### Cypress Tests
 
-Run Cypress E2E tests in headless mode: `npx cypress run`
+Run Cypress E2E tests in headless mode: `npm run cy:run`
 
 ### Pre-commit Checklist
 
 Before committing code changes, ensure:
 1. ✅ Ruff linter and formatter checks pass (`ruff check` and `ruff format --check`)
 2. ✅ All pytest tests pass (`pytest -v`)
-3. ✅ All Cypress E2E tests pass (`npx cypress run`)
+3. ✅ All Cypress E2E tests pass (`npm run cy:run`)

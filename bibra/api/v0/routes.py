@@ -8,7 +8,6 @@ from bibra.types import PublicationMetadata
 router = APIRouter()
 
 
-
 class ExtractRequest(BaseModel):
     """Request model for extract endpoint."""
 

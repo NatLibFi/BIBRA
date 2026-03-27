@@ -21,4 +21,44 @@ describe('Home Page', () => {
     cy.get('.api-link').click();
     cy.url().should('include', '/docs');
   });
+
+  it('shows file preview', () => {
+    // Click dropzone and check that it and url input are no longer visible
+    cy.get('#dropzone').click()
+    cy.get('#dropzone').should('not.exist')
+    cy.get('#fetch-from-url').should('not.exist')
+    // Check that preview is visible
+    cy.get('#file-preview').should('be.visible')
+    cy.get('.btn-clear').should('have.length', 2)
+  })
+
+  it('shows results after submit', () => {
+    cy.get('#dropzone').click()
+    // Check that results are not shown
+    cy.get('#results p').should('be.visible')
+    cy.get('#results table').should('not.exist')
+    // Click submit button
+    cy.get('.btn-submit').click()
+    // Check that results are visible
+    cy.get('#results p').should('not.exist')
+    cy.get('#results table').should('be.visible')
+  })
+
+  it('hides preview and results after clear', () => {
+    cy.get('#dropzone').click()
+    cy.get('.btn-submit').click()
+    // Check that results are visible
+    cy.get('#results p').should('not.exist')
+    cy.get('#results table').should('be.visible')
+    // Click clear button
+    cy.get('.btn-clear').eq(0).click()
+    // Check that results are not visible
+    cy.get('#results p').should('be.visible')
+    cy.get('#results table').should('not.exist')
+    // Check that dropzone and preview is not
+    cy.get('#dropzone').should('be.visible')
+    cy.get('#fetch-from-url').should('be.visible')
+    cy.get('#file-preview').should('not.exist')
+    cy.get('.btn-clear').should('not.exist', 2)
+  })
 });

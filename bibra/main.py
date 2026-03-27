@@ -11,6 +11,9 @@ app = FastAPI(title="BIBRA API", version=__version__)
 # Mount static files at /static path
 app.mount("/static", StaticFiles(directory="bibra/static"), name="static")
 
+# Mount node_modules for static files (e.g., Bootstrap)
+app.mount("/node_modules", StaticFiles(directory="node_modules"), name="node_modules")
+
 
 @app.get("/")
 async def root():

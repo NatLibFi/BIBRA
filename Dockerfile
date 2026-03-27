@@ -1,3 +1,15 @@
+# Build stage for npm dependencies
+FROM node:24-alpine AS node-builder
+
+WORKDIR /build
+
+# Copy package files first for better layer caching
+COPY package.json package-lock.json ./
+
+# Install npm dependencies (including vue, bootstrap, font-awesome)
+RUN npm install --only=production
+
+# Final stage
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -22,6 +34,9 @@ COPY bibra ./bibra
 
 # Install the application package itself (so its version can be determined)
 RUN uv pip install .
+
+# Copy installed npm dependencies from build stage
+COPY --from=node-builder /build/node_modules ./node_modules
 
 # Create a non-root user (OpenShift-friendly) and ensure /app is writable.
 RUN useradd --uid 1001 --create-home --shell /usr/sbin/nologin appuser \

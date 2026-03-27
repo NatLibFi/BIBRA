@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, UploadFile, File
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 
@@ -55,11 +55,13 @@ async def list_projects():
     return {"projects": PROJECTS}
 
 
-@router.post("/projects/{project_id}/extract")
+@router.post(
+    "/projects/{project_id}/extract",
+    responses={400: {"description": "Bad Request - malformed multipart data"}},
+)
 async def extract(
     project_id: str,
     files: List[UploadFile] = File(...),
-    text: Optional[str] = Form(None),
 ) -> PublicationMetadata:
     """
     Extract publication metadata from PDF or image files for a specific project.

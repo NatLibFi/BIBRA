@@ -180,7 +180,7 @@ const mainApp = Vue.createApp({
     </div>
 
     <div id="version-info" class="container d-flex justify-content-end mb-5">
-        <p>Version {{ version ? version : 'Loading...' }}</p>
+        <p>Version <span id="version">{{ version ? version : 'Loading...' }}</span></p>
     </div>
   `
 })

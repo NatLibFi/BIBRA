@@ -5,8 +5,8 @@ describe('Home Page', () => {
     cy.visit('/');
   });
 
-  it('displays the BIBRA API title', () => {
-    cy.get('h1').should('contain', 'BIBRA API');
+  it('displays the BIBRA title', () => {
+    cy.get('h1').should('contain', 'BIBRA');
   });
 
   it('displays a version loading message', () => {

@@ -33,10 +33,15 @@ describe('Home Page', () => {
   })
 
   it('shows results after submit', () => {
+    // Check that submit button is disabled
+    cy.get('.btn-submit').should('have.class', 'disabled')
+    // Click dropzone
     cy.get('#dropzone').click()
     // Check that results are not shown
     cy.get('#results p').should('be.visible')
     cy.get('#results table').should('not.exist')
+    // Check that submit button is not disabled
+    cy.get('.btn-submit').should('not.have.class', 'disabled')
     // Click submit button
     cy.get('.btn-submit').click()
     // Check that results are visible

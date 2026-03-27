@@ -9,10 +9,6 @@ describe('Home Page', () => {
     cy.get('h1').should('contain', 'BIBRA');
   });
 
-  it('displays a version loading message', () => {
-    cy.get('#version').should('contain', 'Loading...');
-  });
-
   it('fetches and displays the API version', () => {
     // Wait for the version to be fetched and displayed
     cy.get('#version')

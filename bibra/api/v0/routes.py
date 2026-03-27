@@ -12,7 +12,6 @@ class ExtractRequest(BaseModel):
     """Request model for extract endpoint."""
 
     files: List[UploadFile]
-    text: Optional[str] = None
 
 
 # Example project data - can be extended as needed
@@ -69,7 +68,6 @@ async def extract(
     Args:
         project_id: The ID of the project to extract metadata for
         files: List of PDF or image files to process
-        text: Optional additional text context
 
     Returns:
         PublicationMetadata: Extracted metadata as JSON
@@ -78,4 +76,4 @@ async def extract(
     # Create dummybackend instance
     backend = DummyBackend()
     # Call backend to extract metadata
-    return backend.extract(files, text)
+    return backend.extract(files)

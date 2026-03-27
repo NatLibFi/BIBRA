@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 
 from bibra.types import PublicationMetadata
 
@@ -6,7 +6,7 @@ from bibra.types import PublicationMetadata
 class DummyBackend:
     """Dummy backend implementation for testing."""
 
-    def extract(self, files: List, text: Optional[str] = None) -> PublicationMetadata:
+    def extract(self, files: List) -> PublicationMetadata:
         """Extract publication metadata from files."""
         return PublicationMetadata(
             language="en",

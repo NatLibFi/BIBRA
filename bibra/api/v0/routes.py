@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import List, Dict, Any
 
 from bibra.backend.dummy import DummyBackend
-from bibra.backend.greylitlm import GreylitLMBackend
+from bibra.backend.greylitlm import GreyLitLMBackend
 from bibra.types import PublicationMetadata
 
 router = APIRouter()
@@ -81,6 +81,6 @@ async def extract(
         result = backend.extract(files)
     else:
         # Use greylitlm backend for real extraction
-        backend = GreylitLMBackend()
+        backend = GreyLitLMBackend()
         result = await backend.extract(files)
     return result

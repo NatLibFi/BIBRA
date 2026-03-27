@@ -9,11 +9,11 @@ from bibra.backend.config import LLMConfig
 from bibra.types import PublicationMetadata
 
 
-class GreylitLMBackend:
-    """Backend for metadata extraction using GreylitLM (fine-tuned LLM)."""
+class GreyLitLMBackend:
+    """Backend for metadata extraction using GreyLitLM (fine-tuned LLM)."""
 
     def __init__(self, config: LLMConfig | None = None):
-        """Initialize the GreylitLM backend.
+        """Initialize the GreyLitLM backend.
 
         Args:
             config: LLM configuration. If None, uses default LLMConfig.

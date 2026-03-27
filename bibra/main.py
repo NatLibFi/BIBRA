@@ -19,7 +19,7 @@ if os.path.isdir("node_modules"):
     )
 
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 async def root():
     """Return the static index.html page."""
     with open("bibra/static/index.html") as f:

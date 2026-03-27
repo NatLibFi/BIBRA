@@ -70,7 +70,10 @@ async def list_projects():
     return {"projects": PROJECTS}
 
 
-@router.post("/projects/{project_id}/extract")
+@router.post(
+    "/projects/{project_id}/extract",
+    responses={400: {"description": "Bad Request - malformed multipart data"}},
+)
 async def extract(
     project_id: str,
     files: List[UploadFile] = File(...),

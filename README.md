@@ -1,4 +1,8 @@
 # BIBRA
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/NatLibFi/BIBRA/actions/workflows/tests.yml/badge.svg)](https://github.com/NatLibFi/BIBRA/actions/workflows/tests.yml)
+[![CodeQL](https://github.com/NatLibFi/BIBRA/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/NatLibFi/BIBRA/actions/workflows/github-code-scanning/codeql)
+[![codecov](https://codecov.io/gh/NatLibFi/BIBRA/branch/main/graph/badge.svg)](https://codecov.io/gh/NatLibFi/BIBRA)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 > **Note**: The name "BIBRA" is a working title and may still change. The application is still heavily work in progress and not yet functional.

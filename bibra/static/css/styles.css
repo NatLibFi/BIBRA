@@ -8,9 +8,9 @@
   --secondary-light-color: #f2f5f7;
   --alert-color: #a0270a;
   --accent-color: #fae196;
-  --muted-accent-color: #fae19680;
   --white-color: #ffffff;
-
+  --accent-color-50: #fae19680;
+  --muted-color-50: #6c778a80;
   /* Font definitions */
   --font-size: 1em; /* same as the browser default font size, often 16px */
   --font-family: 'Public Sans', sans-serif;
@@ -82,7 +82,7 @@ a {
 }
 
 #dropzone:hover {
-  background-color: var(--muted-accent-color);
+  background-color: var(--accent-color-50);
   border: 2px dashed var(--accent-color);
 }
 
@@ -107,7 +107,7 @@ a {
 
 #file-preview iframe {
   width: 100%;
-  height: 500px;
+  height: 450px;
 }
 
 #file-preview .btn-clear {
@@ -145,7 +145,9 @@ a {
 }
 
 .btn-submit.disabled {
-  opacity: 0.75;
+  opacity: 1;
+  background-color: var(--muted-color-50) !important;
+  color: var(--muted-color) !important;
 }
 
 #results p {

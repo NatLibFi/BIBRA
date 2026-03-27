@@ -50,7 +50,7 @@ class TestAPIRoutes:
         publication metadata."""
 
         # Verify the function exists and returns correct type
-        result = await extract(project_id="project-001", files=[], text=None)
+        result = await extract(project_id="project-001", files=[])
 
         assert isinstance(result, PublicationMetadata)
         assert result.language == "en"

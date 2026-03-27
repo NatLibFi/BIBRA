@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, UploadFile, File
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 
@@ -77,7 +77,6 @@ async def list_projects():
 async def extract(
     project_id: str,
     files: List[UploadFile] = File(...),
-    text: Optional[str] = Form(None),
 ) -> PublicationMetadata:
     """
     Extract publication metadata from PDF or image files for a specific project.

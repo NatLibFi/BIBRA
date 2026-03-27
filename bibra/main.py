@@ -12,7 +12,7 @@ app = FastAPI(title="BIBRA API", version=__version__)
 app.mount("/static", StaticFiles(directory="bibra/static"), name="static")
 
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 async def root():
     """Return the static index.html page."""
     with open("bibra/static/index.html") as f:

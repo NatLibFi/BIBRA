@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from bibra.models import PublicationMetadata
+from bibra.types import PublicationMetadata
 
 
 class DummyBackend:

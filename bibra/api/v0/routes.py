@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 
 from bibra.backend.dummy import DummyBackend
-from bibra.models import PublicationMetadata
+from bibra.types import PublicationMetadata
 
 router = APIRouter()
 

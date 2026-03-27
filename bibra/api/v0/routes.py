@@ -1,26 +1,12 @@
 from fastapi import APIRouter, UploadFile, File, Form
-from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
+from typing import List, Dict, Any, Optional
+
+from bibra.backend.dummy import DummyBackend
+from bibra.models import PublicationMetadata
 
 router = APIRouter()
 
-
-# Pydantic models for request/response validation
-class PublicationMetadata(BaseModel):
-    """Response model for publication metadata extraction."""
-
-    language: Optional[str] = None
-    title: Optional[str] = None
-    alt_title: Optional[str] = None
-    creator: List[str] = []
-    year: Optional[str] = None
-    publisher: List[str] = []
-    doi: Optional[str] = None
-    e_isbn: List[str] = []
-    p_isbn: List[str] = []
-    e_issn: Optional[str] = None
-    p_issn: Optional[str] = None
-    type_coar: Optional[str] = None
 
 
 class ExtractRequest(BaseModel):
@@ -87,18 +73,8 @@ async def extract(
     Returns:
         PublicationMetadata: Extracted metadata as JSON
     """
-    # Mockup implementation - always returns example data
-    # In a real implementation, this would call an OCR/PDF extraction service
 
-    example_metadata = PublicationMetadata(
-        language="en",
-        title="Machine Learning Approaches for Software Defect Prediction",
-        creator=["Smith, John", "Johnson, Emily"],
-        year="2023",
-        publisher=["Springer", "ACM"],
-        doi="10.1234/example.doi.12345",
-        e_isbn=["978-0-123456-78-9"],
-        type_coar="article",
-    )
-
-    return example_metadata
+    # Create dummybackend instance
+    backend = DummyBackend()
+    # Call backend to extract metadata
+    return backend.extract(files, text)

@@ -19,4 +19,8 @@ def test_api(case):
         has_files = isinstance(body, dict) and bool(body.get("files"))
         if not has_files:
             return
+        # Use dummy backend for testing to avoid real API calls
+        if hasattr(case, "path") and case.path == "/v0/projects/{project_id}/extract":
+            # Modify the path to use dummy project
+            case.path = "/v0/projects/dummy/extract"
     case.call_and_validate()

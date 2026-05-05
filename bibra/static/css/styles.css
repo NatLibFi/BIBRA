@@ -9,7 +9,7 @@
   --alert-color: #a0270a;
   --accent-color: #fae196;
   --white-color: #ffffff;
-  --accent-color-50: #fae19680;
+  --accent-color-50: #fff2c9;
   --muted-color-50: #6c778a80;
   /* Font definitions */
   --font-size: 1em; /* same as the browser default font size, often 16px */
@@ -127,7 +127,7 @@ a {
   color: var(--secondary-medium-color);
 }
 
-#fetch-from-url button {
+#fetch-from-url input[type='submit'] {
   background-color: var(--secondary-medium-color);
   color: var(--dark-color);
   height: 100%;

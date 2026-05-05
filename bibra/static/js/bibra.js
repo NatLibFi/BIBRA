@@ -47,6 +47,7 @@ const mainApp = Vue.createApp({
       this.fileBlob = null
       URL.revokeObjectURL(this.fileObjectUrl) // Revoke assigned blob URL from uploaded file
       this.fileObjectUrl = null
+      this.fileName = ''
       this.results = null
       this.showPreview = false
       this.showResults = false

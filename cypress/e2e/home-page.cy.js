@@ -74,6 +74,6 @@ describe('Home Page', () => {
     cy.get('#dropzone').should('be.visible')
     cy.get('#fetch-from-url').should('be.visible')
     cy.get('#file-preview').should('not.exist')
-    cy.get('.btn-clear').should('not.exist', 2)
+    cy.get('.btn-clear').should('not.exist')
   })
 })

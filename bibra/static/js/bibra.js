@@ -2,16 +2,16 @@ const mainApp = Vue.createApp({
   data () {
     return {
       projects: [],
-      selectedProject: null,
+      selectedProject: '',
       url: '',
       fileBlob: null,
       fileObjectUrl: null,
-      fineName: '',
-      results: null,
+      fileName: '',
+      results: {},
       showPreview: false,
       showResults: false,
       loadingResults: false,
-      version: null
+      version: '',
     }
   },
   mounted () {
@@ -33,11 +33,12 @@ const mainApp = Vue.createApp({
       .then(data => {
         if (data.projects) {
           this.projects = data.projects
-          this.selectedProject = this.projects[0].id
+          this.selectedProject = data.projects.length > 0 ? this.projects[0].id : ''
         }
       })
       .catch(err => {
         console.error('Failed to fetch projects:', err)
+        // TODO: show error message in UI
       })
   },
   methods: {
@@ -48,9 +49,10 @@ const mainApp = Vue.createApp({
       URL.revokeObjectURL(this.fileObjectUrl) // Revoke assigned blob URL from uploaded file
       this.fileObjectUrl = null
       this.fileName = ''
-      this.results = null
+      this.results = {}
       this.showPreview = false
       this.showResults = false
+      this.loadingResults = false
     },
     handleDropzoneClick (e) {
       e.preventDefault()
@@ -63,26 +65,37 @@ const mainApp = Vue.createApp({
       fetch(this.url)
         .then(res => res.blob())
         .then(res => {
-          // Store the fetched file as a blob and assign a blob URL to it
-          this.fileBlob = res
-          this.fileObjectUrl = URL.createObjectURL(this.fileBlob)
-          this.fileName = this.url.split('/').slice(-1)[0]
-          this.showPreview = true
+          if (res.type === 'application/pdf') {
+            // Store the fetched file as a blob and assign a blob URL to it
+            this.fileBlob = res
+            this.fileObjectUrl = URL.createObjectURL(this.fileBlob)
+            this.fileName = this.url.split('/').slice(-1)[0]
+            this.showPreview = true
+          } else {
+            // TODO: show a warning about file type in UI
+          }
         })
       .catch(err => {
         console.error('Failed to fetch file from URL:', err)
+        // TODO: show error message in UI
       })
     },
     uploadFile (e) {
       const file = e.target.files && e.target.files[0]
-      // Store the uploaded file as a blob and assign a blob URL to it
-      this.fileBlob = file
-      this.fileObjectUrl = URL.createObjectURL(this.fileBlob)
-      this.fileName = this.fileBlob.name
-      this.showPreview = true
-      this.$refs.file.value = '' // Reset file input so the same file can be uploaded again
+      if (file.type === 'application/pdf') {
+        // Store the uploaded file as a blob and assign a blob URL to it
+        this.fileBlob = file
+        this.fileObjectUrl = URL.createObjectURL(this.fileBlob)
+        this.fileName = this.fileBlob.name
+        this.showPreview = true
+        this.$refs.file.value = '' // Reset file input so the same file can be uploaded again
+      } else {
+        // TODO: show a warning about file type in UI
+      }
     },
     extract () {
+      this.results = {}
+      this.showResults = false
       this.loadingResults = true
 
       const formData = new FormData()
@@ -101,6 +114,9 @@ const mainApp = Vue.createApp({
         })
       .catch(err => {
         console.error('Failed to extract data from file:', err)
+
+        this.loadingResults = false
+        // TODO: show error message in UI
       })
     }
   },
@@ -179,7 +195,7 @@ const mainApp = Vue.createApp({
           <template v-if="!showResults">
             <p v-if="!loadingResults">Results will appear here after processing</p>
             <template v-else>
-              <i class="fa-solid fa-spinner fa-spin-pulse"></i>
+              <i class="fa-solid fa-spinner fa-spin-pulse" aria-hidden="true"></i>
               <span class="visually-hidden">Loading results</span>
             </template>
           </template>
@@ -193,13 +209,13 @@ const mainApp = Vue.createApp({
                 </tr>
               </thead>
               <tbody>
-                <template v-for="(value, key) in results">
+                <template v-for="(value, key) in results" :key="key">
                   <tr v-if="value && value.length > 0">
                     <td>{{ key }}</td>
                     <td class="table-col-value">
                       <template v-if="Array.isArray(value)">
-                        <span v-for="(x, index) in value" :key="x">
-                          {{ x }}<br v-if="index < value.length - 1">
+                        <span v-for="(x, i) in value" :key="i">
+                          {{ x }}<br v-if="i < value.length - 1">
                         </span>
                       </template>
                       <template v-else>

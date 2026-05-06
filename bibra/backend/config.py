@@ -31,6 +31,7 @@ class LLMConfig:
         "LLM_ENDPOINT_URL", "http://localhost:5000/api/extract"
     )
     LLM_API_KEY: Optional[str] = os.getenv("LLM_API_KEY")
+    LLM_MODEL: str = os.getenv("LLM_MODEL", "greylitlm")
 
     SYSTEM_PROMPT: str = (
         "You are a skilled librarian specialized in meticulous cataloguing of"

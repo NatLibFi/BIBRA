@@ -1,3 +1,5 @@
+import os
+
 from typing import List
 
 from openai import AsyncOpenAI
@@ -35,7 +37,7 @@ class GreyLitLMBackend:
 
         # Create the model with the custom provider
         model = OpenAIChatModel(
-            model_name="gpt-4o",
+            model_name=os.environ.get("GREYLITLM_MODEL", "greylitlm"),
             provider=provider,
         )
 

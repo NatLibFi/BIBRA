@@ -107,7 +107,6 @@ const mainApp = Vue.createApp({
       })
         .then(res => res.json())
         .then(data => {
-          console.log(data)
           this.results = data
           this.loadingResults = false
           this.showResults = true

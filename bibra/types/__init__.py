@@ -16,6 +16,6 @@ class PublicationMetadata(BaseModel):
     doi: Optional[str] = None
     e_isbn: List[str] = Field(default=[], alias="e-isbn")
     p_isbn: List[str] = Field(default=[], alias="p-isbn")
-    e_issn: Optional[str] = None
-    p_issn: Optional[str] = None
+    e_issn: Optional[str] = Field(default=None, alias="e-issn")
+    p_issn: Optional[str] = Field(default=None, alias="p-issn")
     type_coar: Optional[str] = None

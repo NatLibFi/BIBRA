@@ -12,6 +12,8 @@ try:
 
     load_dotenv()
 except ImportError:
+    # python-dotenv is an optional dependency; if it's not installed,
+    # simply skip loading a .env file and rely on the existing environment.
     pass
 
 import os

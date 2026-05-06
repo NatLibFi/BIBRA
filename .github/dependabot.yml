@@ -1,13 +1,22 @@
 version: 2
-updates:
-  - package-ecosystem: "github-actions"
-    directories:
-      - "/.github/workflows"
+
+multi-ecosystem-groups:
+  all:
     schedule:
       interval: "monthly"
     cooldown:
       default-days: 10
-    groups:
-      github-actions:
-        patterns:
-          - "*"
+
+updates:
+  - package-ecosystem: "github-actions"
+    directories:
+      - "/.github/workflows"
+    multi-ecosystem-group: "all"
+  - package-ecosystem: "uv"
+    directories:
+      - "/"
+    multi-ecosystem-group: "all"
+  - package-ecosystem: "npm"
+    directories:
+      - "/"
+    multi-ecosystem-group: "all"

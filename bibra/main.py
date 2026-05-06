@@ -1,3 +1,8 @@
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logging.getLogger("bibra").setLevel(logging.DEBUG)
+
 import os
 import uvicorn
 from fastapi import FastAPI

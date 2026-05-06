@@ -22,6 +22,11 @@ A metadata extraction and verification tool that integrates multiple methods for
 ```bash
 uv sync
 ```
+
+```bash
+npm install
+```
+
 ### Pre-commit hook
 Automating the Ruff linter and formatter checks on git commits can be enabled by installing the pre-commit hook:
 ```bash
@@ -48,11 +53,6 @@ uv run pytest
 ### Cypress E2E Tests
 
 Run the Cypress end-to-end tests:
-
-**Install dependencies first:**
-```bash
-npm install
-```
 
 **Run Cypress in interactive mode (opens Cypress GUI):**
 ```bash

@@ -66,8 +66,13 @@ def async_mock(return_value):
 
 
 def run_async(coro, *args, **kwargs):
-    """Run an async coroutine in the current event loop."""
-    return asyncio.get_event_loop().run_until_complete(coro(*args, **kwargs))
+    """Run an async coroutine."""
+    loop = asyncio.new_event_loop()
+    try:
+        asyncio.set_event_loop(loop)
+        return loop.run_until_complete(coro(*args, **kwargs))
+    finally:
+        loop.close()
 
 
 def create_backend_with_mock_agent(mock_agent):

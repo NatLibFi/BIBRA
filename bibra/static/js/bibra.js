@@ -12,6 +12,8 @@ const mainApp = Vue.createApp({
       showResults: false,
       loadingResults: false,
       version: '',
+      showDraggingEffect: false,
+      extractPending: false
     }
   },
   mounted () {
@@ -33,7 +35,7 @@ const mainApp = Vue.createApp({
       .then(data => {
         if (data.projects) {
           this.projects = data.projects
-          this.selectedProject = data.projects.length > 0 ? this.projects[0].id : ''
+          this.selectedProject = this.projects[0] && this.projects[0].id
         }
       })
       .catch(err => {
@@ -53,6 +55,44 @@ const mainApp = Vue.createApp({
       this.showPreview = false
       this.showResults = false
       this.loadingResults = false
+    },
+    copy (value) {
+      if (Array.isArray(value)) {
+        navigator.clipboard.writeText(value.join(', '))
+          .catch(err => {
+            console.error(err)
+          })
+      } else {
+        navigator.clipboard.writeText(value)
+          .catch(err => {
+            console.error(err)
+          })
+      }
+    },
+    dragOver(e) {
+      e.stopPropagation()
+      e.preventDefault()
+      this.showDraggingEffect = true
+    },
+    dragLeave(e) {
+      e.stopPropagation()
+      e.preventDefault()
+      this.showDraggingEffect = false
+    },
+    drop (e) {
+      e.stopPropagation()
+      e.preventDefault()
+      this.showDraggingEffect = false
+      
+      const file = e.dataTransfer.files[0]
+      if (file && file.type === 'application/pdf') {
+        this.fileBlob = file
+        this.fileObjectUrl = URL.createObjectURL(this.fileBlob)
+        this.fileName = this.fileBlob.name
+        this.showPreview = true
+      } else {
+        // TODO: show warning about file type
+      }
     },
     handleDropzoneClick (e) {
       e.preventDefault()
@@ -81,14 +121,13 @@ const mainApp = Vue.createApp({
       })
     },
     uploadFile (e) {
-      const file = e.target.files && e.target.files[0]
-      if (file.type === 'application/pdf') {
+      const file = e.target.files[0]
+      if (file && file.type === 'application/pdf') {
         // Store the uploaded file as a blob and assign a blob URL to it
         this.fileBlob = file
         this.fileObjectUrl = URL.createObjectURL(this.fileBlob)
         this.fileName = this.fileBlob.name
         this.showPreview = true
-        this.$refs.file.value = '' // Reset file input so the same file can be uploaded again
       } else {
         // TODO: show a warning about file type in UI
       }
@@ -98,25 +137,32 @@ const mainApp = Vue.createApp({
       this.showResults = false
       this.loadingResults = true
 
-      const formData = new FormData()
-      formData.append('files', this.fileBlob)
+      // Only call extract if a previous call is not pending
+      if (!this.extractPending) {
+        this.extractPending = true
 
-      fetch(`/v0/projects/${this.selectedProject}/extract`, {
-        method: 'POST',
-        body: formData
-      })
-        .then(res => res.json())
-        .then(data => {
-          this.results = data
-          this.loadingResults = false
-          this.showResults = true
+        const formData = new FormData()
+        formData.append('files', this.fileBlob)
+
+        fetch(`/v0/projects/${this.selectedProject}/extract`, {
+          method: 'POST',
+          body: formData
         })
-      .catch(err => {
-        console.error('Failed to extract data from file:', err)
+          .then(res => res.json())
+          .then(data => {
+            this.results = data
+            this.loadingResults = false
+            this.showResults = true
+            this.extractPending = false
+          })
+        .catch(err => {
+          console.error('Failed to extract data from file:', err)
 
-        this.loadingResults = false
-        // TODO: show error message in UI
-      })
+          this.loadingResults = false
+          this.extractPending = false
+          // TODO: show error message in UI
+        })
+      }
     }
   },
   template: `
@@ -136,9 +182,13 @@ const mainApp = Vue.createApp({
 
           <template v-if="!showPreview">
             <div id="dropzone" class="mb-3" role="button" tabindex="0"
+              :class="{ 'dragging': showDraggingEffect }"
               @click="handleDropzoneClick($event)"
               @keydown.space="handleDropzoneClick($event)"
               @keydown.enter="handleDropzoneClick($event)"
+              @drop="drop($event)"
+              @dragover="dragOver($event)"
+              @dragleave="dragLeave($event)"
             >
               <div id="dropzone-background">
                 <i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i>
@@ -163,6 +213,7 @@ const mainApp = Vue.createApp({
                 :data-url="fileObjectUrl"
               ></iframe>
               <button class="btn-clear btn btn-secondary"
+                :aria-label="'Remove ' + fileName"
                 @click="clearInput()"
               >
                 <i class="fa-solid fa-file" aria-hidden="true"></i>
@@ -222,7 +273,7 @@ const mainApp = Vue.createApp({
                       </template>
                     </td>
                     <td class="table-col-copy">
-                      <button class="btn-copy btn btn-secondary">
+                      <button class="btn-copy btn btn-secondary" @click="copy(value)">
                         <i class="fa-regular fa-copy" aria-hidden="true"></i>
                         <span class="visually-hidden">Copy</span>
                       </button>

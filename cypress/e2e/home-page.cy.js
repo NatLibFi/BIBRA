@@ -2,29 +2,38 @@
 
 describe('Home Page', () => {
   beforeEach(() => {
-    cy.visit('/');
-  });
+    cy.visit('/')
+  })
 
   it('displays the BIBRA title', () => {
-    cy.get('h1').should('contain', 'BIBRA');
-  });
+    cy.get('h1').should('contain', 'BIBRA')
+  })
 
   it('fetches and displays the API version', () => {
     // Wait for the version to be fetched and displayed
     cy.get('#version')
       .should('not.contain', 'Loading...')
       .invoke('text')
-      .should('match', /\d+\.\d+\.\d+/);
-  });
+      .should('match', /\d+\.\d+\.\d+/)
+  })
 
   it('has a working API documentation link', () => {
-    cy.get('.api-link').click();
-    cy.url().should('include', '/docs');
-  });
+    cy.get('.api-link').click()
+    cy.url().should('include', '/docs')
+  })
+
+  it('fetches projects', () => {
+    // Check that correct number of projects is found
+    cy.get('#select-method option').should('have.length', 3)
+    // Check that correct projects are fetched
+    cy.get('#select-method option').eq(0).invoke('text').should('contain', 'Example Project Alpha')
+    cy.get('#select-method option').eq(1).invoke('text').should('contain', 'Example Project Beta')
+    cy.get('#select-method option').eq(2).invoke('text').should('contain', 'Example Project Gamma')
+  })
 
   it('shows file preview', () => {
-    // Click dropzone and check that it and url input are no longer visible
-    cy.get('#dropzone').click()
+    // Upload pdf file and check that dropzone and url input are no longer visible
+    cy.get('input[type=file]').selectFile('cypress/fixtures/test-document.pdf', {force: true})
     cy.get('#dropzone').should('not.exist')
     cy.get('#fetch-from-url').should('not.exist')
     // Check that preview is visible
@@ -35,8 +44,8 @@ describe('Home Page', () => {
   it('shows results after submit', () => {
     // Check that submit button is disabled
     cy.get('.btn-submit').should('have.class', 'disabled')
-    // Click dropzone
-    cy.get('#dropzone').click()
+    // Upload pdf file
+    cy.get('input[type=file]').selectFile('cypress/fixtures/test-document.pdf', {force: true})
     // Check that results are not shown
     cy.get('#results p').should('be.visible')
     cy.get('#results table').should('not.exist')
@@ -50,7 +59,8 @@ describe('Home Page', () => {
   })
 
   it('hides preview and results after clear', () => {
-    cy.get('#dropzone').click()
+    // Upload pdf file and submit
+    cy.get('input[type=file]').selectFile('cypress/fixtures/test-document.pdf', {force: true})
     cy.get('.btn-submit').click()
     // Check that results are visible
     cy.get('#results p').should('not.exist')
@@ -64,6 +74,6 @@ describe('Home Page', () => {
     cy.get('#dropzone').should('be.visible')
     cy.get('#fetch-from-url').should('be.visible')
     cy.get('#file-preview').should('not.exist')
-    cy.get('.btn-clear').should('not.exist', 2)
+    cy.get('.btn-clear').should('not.exist')
   })
-});
+})

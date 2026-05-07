@@ -1,7 +1,6 @@
 """Tests for the PDF extractor module."""
 import pytest
 
-import json
 import os
 
 from bibra.backend.pdf_extractor import (

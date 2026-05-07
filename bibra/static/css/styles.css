@@ -189,6 +189,12 @@ a {
   padding: 0.25rem 0.5rem;
 }
 
+#results .btn-copy:active {
+  background-color: var(--dark-color) !important;
+  color: var(--white-color) !important;
+  transition: none;
+}
+
 #version-info {
   color:var(--muted-color);
 }

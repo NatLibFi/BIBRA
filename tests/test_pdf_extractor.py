@@ -1,4 +1,5 @@
 """Tests for the PDF extractor module."""
+
 import pytest
 
 import os

@@ -5,10 +5,14 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "click>=8.1.0",
     "fastapi==0.135.2",
     "python-multipart>=0.0.22",
     "uvicorn==0.42.0",
 ]
+
+[project.scripts]
+bibra = "bibra.cli:cli"
 
 [dependency-groups]
 dev = [
@@ -27,3 +31,6 @@ line-length = 88
 [tool.ruff.lint]
 # Add the `line-too-long` rule to the enforced rule set.
 extend-select = ["E501"]
+
+[tool.setuptools.packages.find]
+include = ["bibra*"]

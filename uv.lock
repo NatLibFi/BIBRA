@@ -47,6 +47,7 @@ name = "bibra"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "click" },
     { name = "fastapi" },
     { name = "python-multipart" },
     { name = "uvicorn" },
@@ -65,6 +66,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "click", specifier = ">=8.1.0" },
     { name = "fastapi", specifier = "==0.135.2" },
     { name = "python-multipart", specifier = ">=0.0.22" },
     { name = "uvicorn", specifier = "==0.42.0" },

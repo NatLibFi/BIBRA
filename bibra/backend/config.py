@@ -23,12 +23,12 @@ class LLMConfig:
     """Configuration for LLM endpoint.
 
     Environment Variables:
-        LLM_ENDPOINT_URL: The URL of the LLM endpoint (default: http://localhost:5000/api/extract)
+        LLM_ENDPOINT_URL: The URL of the LLM endpoint (default: http://localhost:8080/v1/)
         LLM_API_KEY: API key for authentication (optional, can be None)
     """
 
     LLM_ENDPOINT_URL: str = os.getenv(
-        "LLM_ENDPOINT_URL", "http://localhost:5000/api/extract"
+        "LLM_ENDPOINT_URL", "http://localhost:8080/v1/"
     )
     LLM_API_KEY: Optional[str] = os.getenv("LLM_API_KEY")
     LLM_MODEL: str = os.getenv("LLM_MODEL", "greylitlm")

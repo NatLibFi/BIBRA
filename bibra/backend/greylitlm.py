@@ -101,7 +101,7 @@ class GreyLitLMBackend:
                 try:
                     os.unlink(tmp_path)
                 except OSError:
-                    pass
+                    logger.debug("Failed to remove temporary file: %s", tmp_path, exc_info=True)
 
         result = await self.agent.run(prompt_text)
         logger.debug("Agent returned: %s", result.response)

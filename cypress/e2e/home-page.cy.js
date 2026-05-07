@@ -42,6 +42,8 @@ describe('Home Page', () => {
   })
 
   it('uploads files with drag and drop', () => {
+    // Check that file preview is not visible
+    cy.get('#file-preview').should('not.exist')
     // Drop file on dropzone
     cy.get('#dropzone').selectFile('cypress/fixtures/test-document.pdf', { action: 'drag-drop' })
     // Check that preview is visible
@@ -49,6 +51,8 @@ describe('Home Page', () => {
   })
 
   it('fetches files from URL', () => {
+    // Check that file preview is not visible
+    cy.get('#file-preview').should('not.exist')
     // Type in pdf url
     cy.get('#url-input').type('https://pdfobject.com/pdf/sample.pdf')
     // Click button to fetch pdf

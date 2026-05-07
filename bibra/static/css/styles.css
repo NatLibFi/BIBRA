@@ -81,7 +81,7 @@ a {
   cursor: pointer;
 }
 
-#dropzone:hover {
+#dropzone:hover, #dropzone.dragging {
   background-color: var(--accent-color-50);
   border: 2px dashed var(--accent-color);
 }
@@ -135,7 +135,7 @@ a {
 
 #select-method {
   width: 100%;
-  border: none;
+  border: 1px solid var(--secondary-medium-color);
 }
 
 .btn-submit {
@@ -187,6 +187,12 @@ a {
   background-color: var(--secondary-medium-color);
   color: var(--dark-color);
   padding: 0.25rem 0.5rem;
+}
+
+#results .btn-copy:active {
+  background-color: var(--dark-color) !important;
+  color: var(--white-color) !important;
+  transition: none;
 }
 
 #version-info {

@@ -41,6 +41,26 @@ describe('Home Page', () => {
     cy.get('.btn-clear').should('have.length', 2)
   })
 
+  it('uploads files with drag and drop', () => {
+    // Check that file preview is not visible
+    cy.get('#file-preview').should('not.exist')
+    // Drop file on dropzone
+    cy.get('#dropzone').selectFile('cypress/fixtures/test-document.pdf', { action: 'drag-drop' })
+    // Check that preview is visible
+    cy.get('#file-preview').should('be.visible')
+  })
+
+  it('fetches files from URL', () => {
+    // Check that file preview is not visible
+    cy.get('#file-preview').should('not.exist')
+    // Type in pdf url
+    cy.get('#url-input').type('https://pdfobject.com/pdf/sample.pdf')
+    // Click button to fetch pdf
+    cy.get('#button-select-url').click()
+    // Check that preview is visible
+    cy.get('#file-preview').should('be.visible')
+  })
+
   it('shows results after submit', () => {
     // Check that submit button is disabled
     cy.get('.btn-submit').should('have.class', 'disabled')
@@ -56,6 +76,10 @@ describe('Home Page', () => {
     // Check that results are visible
     cy.get('#results p').should('not.exist')
     cy.get('#results table').should('be.visible')
+    // Check that copy buttons copy correct values
+    cy.get('.btn-copy').eq(0).click()
+    cy.window().its('navigator.clipboard').invoke('readText').then((result) => {}).should('equal', 'en');
+
   })
 
   it('hides preview and results after clear', () => {

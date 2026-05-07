@@ -58,7 +58,7 @@ const mainApp = Vue.createApp({
     },
     copy (value) {
       if (Array.isArray(value)) {
-        navigator.clipboard.writeText(value.join(', '))
+        navigator.clipboard.writeText(value.join('\n'))
           .catch(err => {
             console.error(err)
           })

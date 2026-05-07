@@ -46,15 +46,13 @@ class GreyLitLMBackend:
             provider=provider,
         )
 
-        # Create the agent with the model, system prompt, and str output type.
-        # We use str instead of PublicationMetadata because the fine-tuned model
-        # returns JSON in a format that pydantic_ai's structured output parser
-        # cannot reconcile with the schema. Manual parsing via Pydantic handles
-        # aliases correctly.
+        # Create the agent with the model and structured output.
+        # Using PublicationMetadata directly lets pydantic_ai parse the JSON
+        # response into the model, handling aliases via populate_by_name=True.
         self.agent = Agent(
             model,
             instructions=self.config.SYSTEM_PROMPT,
-            output_type=str,
+            output_type=PublicationMetadata,
         )
 
     async def extract(self, files: List) -> PublicationMetadata:
@@ -101,25 +99,12 @@ class GreyLitLMBackend:
                 try:
                     os.unlink(tmp_path)
                 except OSError:
-                    logger.debug("Failed to remove temporary file: %s", tmp_path, exc_info=True)
+                    logger.debug(
+                        "Failed to remove temporary file: %s", tmp_path, exc_info=True
+                    )
 
         result = await self.agent.run(prompt_text)
         logger.debug("Agent returned: %s", result.response)
 
-        # Extract the text content from the response.
-        # result.response is a ModelResponse with parts containing TextPart objects.
-        text_content = None
-        if hasattr(result.response, "parts"):
-            for part in result.response.parts:
-                if hasattr(part, "content"):
-                    text_content = part.content
-                    break
-        if text_content is None:
-            text_content = str(result.response)
-
-        # Manually parse JSON using Pydantic (which respects aliases)
-        try:
-            return PublicationMetadata.model_validate_json(text_content)
-        except Exception as e:
-            logger.error("Failed to parse metadata JSON: %s", e)
-            return PublicationMetadata()
+        # pydantic_ai populates result.data with the parsed PublicationMetadata
+        return result.data

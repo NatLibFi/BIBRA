@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from typing import List
 from unittest.mock import MagicMock
 
+import pytest
+
 
 from bibra.backend.greylitlm import GreyLitLMBackend
 from bibra.backend.config import LLMConfig
@@ -49,8 +51,9 @@ class MockModelResponse:
 class MockRunResult:
     """Mock run result from pydantic_ai Agent.run()."""
 
-    def __init__(self, response: MockModelResponse):
+    def __init__(self, response: MockModelResponse, **kwargs):
         self.response = response
+        self.data = kwargs.get("data", None)
 
 
 def async_mock(return_value):
@@ -108,7 +111,8 @@ class TestGreyLitLMBackend:
             run_id="eb39170b-e7f3-4a16-bb90-350bc61053b0",
         )
 
-        mock_run_result = MockRunResult(response=mock_response)
+        expected = PublicationMetadata(**metadata)
+        mock_run_result = MockRunResult(response=mock_response, data=expected)
 
         # Create a mock agent
         mock_agent = MagicMock()
@@ -129,24 +133,21 @@ class TestGreyLitLMBackend:
         assert result.doi is None
         assert result.p_isbn == []
 
-    def test_extract_returns_empty_metadata_on_invalid_json(self):
-        """Backend should return empty PublicationMetadata on invalid JSON."""
-        mock_response = MockModelResponse(
-            parts=[MockTextPart(content="not valid json {{{")],
-        )
-        mock_run_result = MockRunResult(response=mock_response)
+    def test_extract_raises_on_invalid_json(self):
+        """Backend should raise an error when LLM returns invalid JSON."""
+        # With structured output (output_type=PublicationMetadata), pydantic_ai
+        # will raise a ValidationError if it cannot parse the response.
+        from pydantic_ai import UnexpectedModelBehavior
+
+        async def raise_error(*args, **kwargs):
+            raise UnexpectedModelBehavior("Failed to parse response")
 
         mock_agent = MagicMock()
-        mock_agent.run = async_mock(mock_run_result)
-
+        mock_agent.run = raise_error
         backend = create_backend_with_mock_agent(mock_agent)
 
-        result = run_async(backend.extract, [])
-
-        assert isinstance(result, PublicationMetadata)
-        assert result.language is None
-        assert result.title is None
-        assert result.creator == []
+        with pytest.raises(UnexpectedModelBehavior):
+            run_async(backend.extract, [])
 
     def test_extract_handles_multiple_text_parts(self):
         """Backend should extract content from the first TextPart it finds."""
@@ -162,7 +163,8 @@ class TestGreyLitLMBackend:
                 MockTextPart(content="more ignored"),
             ],
         )
-        mock_run_result = MockRunResult(response=mock_response)
+        expected = PublicationMetadata(**metadata)
+        mock_run_result = MockRunResult(response=mock_response, data=expected)
 
         mock_agent = MagicMock()
         mock_agent.run = async_mock(mock_run_result)
@@ -182,7 +184,8 @@ class TestGreyLitLMBackend:
             '{"language": "sv", "title": "Fallback Test"}'
         )
 
-        mock_run_result = MockRunResult(response=mock_response)
+        expected = PublicationMetadata(language="sv", title="Fallback Test")
+        mock_run_result = MockRunResult(response=mock_response, data=expected)
 
         mock_agent = MagicMock()
         mock_agent.run = async_mock(mock_run_result)
@@ -197,7 +200,9 @@ class TestGreyLitLMBackend:
     def test_extract_with_empty_parts_list(self):
         """Backend should return empty metadata when parts list is empty."""
         mock_response = MockModelResponse(parts=[])
-        mock_run_result = MockRunResult(response=mock_response)
+        mock_run_result = MockRunResult(
+            response=mock_response, data=PublicationMetadata()
+        )
 
         mock_agent = MagicMock()
         mock_agent.run = async_mock(mock_run_result)
@@ -230,7 +235,8 @@ class TestGreyLitLMBackend:
         mock_response = MockModelResponse(
             parts=[MockTextPart(content=json_string)],
         )
-        mock_run_result = MockRunResult(response=mock_response)
+        expected = PublicationMetadata(**metadata)
+        mock_run_result = MockRunResult(response=mock_response, data=expected)
 
         mock_agent = MagicMock()
         mock_agent.run = async_mock(mock_run_result)

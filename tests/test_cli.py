@@ -1,6 +1,7 @@
 """Tests for CLI commands."""
 
 import json
+import importlib
 
 import pytest
 from click.testing import CliRunner
@@ -27,8 +28,10 @@ class TestCli:
     def test_cli_version(self):
         """Test CLI version output."""
         result = self.runner.invoke(cli, ["--version"])
+        expected_version = importlib.metadata.version("bibra")
         assert result.exit_code == 0
         assert not result.exception
+        assert expected_version in result.output
 
     def test_cli_bad_argument(self):
         """Test CLI with bad argument."""

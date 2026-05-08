@@ -1,19 +1,22 @@
 const mainApp = Vue.createApp({
   data () {
     return {
-      projects: [],
-      selectedProject: '',
-      url: '',
+      extractPending: false,
       fileBlob: null,
-      fileObjectUrl: null,
       fileName: '',
+      fileObjectUrl: null,
+      loadingResults: false,
+      projects: [],
       results: {},
+      selectedProject: '',
+      showDraggingEffect: false,
+      showErrorMessageExtract: false,
+      showErrorMessageFileType: false,
+      showErrorMessageURL: false,
       showPreview: false,
       showResults: false,
-      loadingResults: false,
-      version: '',
-      showDraggingEffect: false,
-      extractPending: false
+      url: '',
+      version: ''
     }
   },
   mounted () {
@@ -40,7 +43,7 @@ const mainApp = Vue.createApp({
       })
       .catch(err => {
         console.error('Failed to fetch projects:', err)
-        // TODO: show error message in UI
+        // Should an error message be shown in UI?
       })
   },
   methods: {
@@ -55,6 +58,9 @@ const mainApp = Vue.createApp({
       this.showPreview = false
       this.showResults = false
       this.loadingResults = false
+      this.showErrorMessageFileType = false
+      this.showErrorMessageExtract = false
+      this.showErrorMessageURL = false
     },
     copy (value) {
       if (Array.isArray(value)) {
@@ -83,6 +89,8 @@ const mainApp = Vue.createApp({
       e.stopPropagation()
       e.preventDefault()
       this.showDraggingEffect = false
+      this.showErrorMessageFileType = false
+      this.showErrorMessageURL = false
       
       const file = e.dataTransfer.files[0]
       if (file && file.type === 'application/pdf') {
@@ -91,17 +99,23 @@ const mainApp = Vue.createApp({
         this.fileName = this.fileBlob.name
         this.showPreview = true
       } else {
-        // TODO: show warning about file type
+        this.showErrorMessageFileType = true
       }
     },
     handleDropzoneClick (e) {
+      this.showErrorMessageFileType = false
+      this.showErrorMessageURL = false
+
       e.preventDefault()
       // Click hidden file input to run uploadFile method
       this.$refs.file.click()
     },
     loadFileFromUrl (e) {
-      // Load file from given URL
       e.preventDefault()
+      this.showErrorMessageFileType = false
+      this.showErrorMessageURL = false
+
+      // Load file from given URL
       fetch(this.url)
         .then(res => res.blob())
         .then(res => {
@@ -112,15 +126,18 @@ const mainApp = Vue.createApp({
             this.fileName = this.url.split('/').slice(-1)[0]
             this.showPreview = true
           } else {
-            // TODO: show a warning about file type in UI
+            this.showErrorMessageFileType = true
           }
         })
       .catch(err => {
         console.error('Failed to fetch file from URL:', err)
-        // TODO: show error message in UI
+        this.showErrorMessageURL = true
       })
     },
     uploadFile (e) {
+      this.showErrorMessageFileType = false
+      this.showErrorMessageURL = false
+
       const file = e.target.files[0]
       if (file && file.type === 'application/pdf') {
         // Store the uploaded file as a blob and assign a blob URL to it
@@ -129,13 +146,14 @@ const mainApp = Vue.createApp({
         this.fileName = this.fileBlob.name
         this.showPreview = true
       } else {
-        // TODO: show a warning about file type in UI
+        this.showErrorMessageFileType = true
       }
     },
     extract () {
       this.results = {}
       this.showResults = false
       this.loadingResults = true
+      this.showErrorMessageExtract = false
 
       // Only call extract if a previous call is not pending
       if (!this.extractPending) {
@@ -160,7 +178,7 @@ const mainApp = Vue.createApp({
 
           this.loadingResults = false
           this.extractPending = false
-          // TODO: show error message in UI
+          this.showErrorMessageExtract = true
         })
       }
     }
@@ -205,6 +223,11 @@ const mainApp = Vue.createApp({
                 <input id="button-select-url" class="btn btn-primary" type="submit"  value="Fetch PDF">
               </form>
             </div>
+
+            <div class="error-message mb-3 p-2" role="alert" v-if="showErrorMessageFileType || showErrorMessageURL">
+              <span v-if="showErrorMessageFileType">This file format is not supported. Please select a PDF document.</span>
+              <span v-else>Failed to fetch file from URL.</span>
+            </div>
           </template>
           <template v-else>
             <div id="file-preview" class="mb-3">
@@ -235,7 +258,8 @@ const mainApp = Vue.createApp({
             
             <button class="btn-submit btn btn-primary fw-bold"
               @click="extract()"
-              :class="{ disabled: !showPreview }"
+              :class="{ disabled: !showPreview || loadingResults }"
+              :disabled="!showPreview || loadingResults"
             >Submit</button>
           </div>
         </div>
@@ -243,7 +267,12 @@ const mainApp = Vue.createApp({
         <div id="results" class="col-md-6 ps-4">
           <h2 class="mb-3">Results</h2>
           <template v-if="!showResults">
-            <p v-if="!loadingResults">Results will appear here after processing</p>
+            <template v-if="!loadingResults">
+              <div v-if="showErrorMessageExtract" class="error-message p-2" role="alert">
+                Metadata extraction failed.
+              </div>
+              <p v-else>Results will appear here after processing</p>
+            </template>
             <template v-else>
               <i class="fa-solid fa-spinner fa-spin-pulse" aria-hidden="true"></i>
               <span class="visually-hidden">Loading results</span>

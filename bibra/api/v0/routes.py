@@ -1,8 +1,11 @@
+from bibra import __version__
+
 from fastapi import APIRouter, UploadFile, File
 from pydantic import BaseModel
 from typing import List, Dict, Any
 
 from bibra.backend.dummy import DummyBackend
+from bibra.backend.greylitlm import GreyLitLMBackend
 from bibra.types import PublicationMetadata
 
 router = APIRouter()
@@ -17,25 +20,18 @@ class ExtractRequest(BaseModel):
 # Example project data - can be extended as needed
 PROJECTS: List[Dict[str, Any]] = [
     {
-        "id": "project-001",
-        "name": "Example Project Alpha",
-        "description": "This is an example project for testing the API",
+        "id": "dummy",
+        "name": "Dummy Backend",
+        "description": "Testing project using the dummy backend",
         "created_at": "2024-01-15T10:00:00Z",
         "status": "active",
     },
     {
-        "id": "project-002",
-        "name": "Example Project Beta",
-        "description": "Another example project with different configuration",
-        "created_at": "2024-02-20T14:30:00Z",
+        "id": "greylitlm",
+        "name": "GreyLitLM Backend",
+        "description": "Testing project using the GreyLitLM backend",
+        "created_at": "2024-01-15T10:00:00Z",
         "status": "active",
-    },
-    {
-        "id": "project-003",
-        "name": "Example Project Gamma",
-        "description": "A third example project",
-        "created_at": "2024-03-10T09:15:00Z",
-        "status": "inactive",
     },
 ]
 
@@ -43,8 +39,6 @@ PROJECTS: List[Dict[str, Any]] = [
 @router.get("/")
 async def root():
     """Return the API version information."""
-    from bibra import __version__
-
     return {"version": __version__, "message": "Welcome to BIBRA API v0"}
 
 
@@ -73,7 +67,13 @@ async def extract(
         PublicationMetadata: Extracted metadata as JSON
     """
 
-    # Create dummybackend instance
-    backend = DummyBackend()
-    # Call backend to extract metadata
-    return backend.extract(files)
+    # Choose backend based on project_id
+    if project_id == "dummy":
+        # Use dummy backend for testing
+        backend = DummyBackend()
+        result = backend.extract(files)
+    else:
+        # Use greylitlm backend for real extraction
+        backend = GreyLitLMBackend()
+        result = await backend.extract(files)
+    return result

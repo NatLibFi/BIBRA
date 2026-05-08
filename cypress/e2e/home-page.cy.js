@@ -24,11 +24,10 @@ describe('Home Page', () => {
 
   it('fetches projects', () => {
     // Check that correct number of projects is found
-    cy.get('#select-method option').should('have.length', 3)
+    cy.get('#select-method option').should('have.length', 2)
     // Check that correct projects are fetched
-    cy.get('#select-method option').eq(0).invoke('text').should('contain', 'Example Project Alpha')
-    cy.get('#select-method option').eq(1).invoke('text').should('contain', 'Example Project Beta')
-    cy.get('#select-method option').eq(2).invoke('text').should('contain', 'Example Project Gamma')
+    cy.get('#select-method option').eq(0).invoke('text').should('contain', 'Dummy Backend')
+    cy.get('#select-method option').eq(1).invoke('text').should('contain', 'GreyLitLM Backend')
   })
 
   it('shows file preview', () => {
@@ -99,5 +98,36 @@ describe('Home Page', () => {
     cy.get('#fetch-from-url').should('be.visible')
     cy.get('#file-preview').should('not.exist')
     cy.get('.btn-clear').should('not.exist')
+  })
+
+  it('shows correct error messages', () => {
+    // Upload non-pdf file
+    cy.get('input[type=file]').selectFile('cypress/fixtures/test-document.txt', {force: true})
+    // Check that file preview does not exist
+    cy.get('#file-preview').should('not.exist')
+    // Check that correct error message is displayed
+    cy.get('.error-message').should('have.length', 1)
+    cy.get('.error-message').eq(0).invoke('text').should('contain', 'This file format is not supported. Please select a PDF document.')
+    // Input faulty URL
+    cy.get('#url-input').type('https://example.com/')
+    cy.get('#button-select-url').click()
+    // Check that correct error message is displayed
+    cy.get('.error-message').should('have.length', 1)
+    cy.get('.error-message').eq(0).invoke('text').should('contain', 'Failed to fetch file from URL.')
+
+    // Intercept and block all POST requests
+    cy.intercept({
+    method: 'POST',
+      url: '*'
+    }, req => {
+      req.destroy()
+    })
+    // Upload PDF file and submit it
+    cy.get('input[type=file]').selectFile('cypress/fixtures/test-document.pdf', {force: true})
+    cy.get('.btn-submit').click()
+    // Check that correct error message is displayed
+    cy.get('.error-message').should('have.length', 1)
+    cy.get('.error-message').eq(0).invoke('text').should('contain', 'Metadata extraction failed.')
+    
   })
 })

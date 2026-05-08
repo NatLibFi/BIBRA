@@ -70,6 +70,7 @@ class TestListProjects:
         assert result.exit_code == 0
         # Check that project data is displayed (PROJECTS contains at least one entry)
         assert "test-project" in result.output or "id" in result.output.lower()
+        # TODO - Add more specific checks based on the actual project data in PROJECTS
 
     def test_list_projects_bad_argument(self):
         """Test list-projects with bad argument."""
@@ -195,3 +196,4 @@ class TestExtract:
         # The DummyBackend handles any project ID, so this should succeed
         assert result.exit_code == 0
         assert not result.exception
+        # TODO - In a real implementation, this should return an error for nonexistent project ID

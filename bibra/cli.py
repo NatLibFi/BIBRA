@@ -59,6 +59,7 @@ def list_projects():
 )
 def extract(project_id: str, files: tuple[str, ...], output: str | None):
     """Extract publication metadata from PDF or image files."""
+    # TODO - In a real implementation, select the backend based on project_id
     backend = DummyBackend()
     result = backend.extract(list(files))
     json_output = result.model_dump_json(indent=2)

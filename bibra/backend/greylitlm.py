@@ -108,6 +108,5 @@ class GreyLitLMBackend:
 
         result = await self.agent.run(prompt_text)
         logger.debug("Agent returned: %s", result.response)
-
-        # pydantic_ai populates result.data with the parsed PublicationMetadata
-        return result.data
+        # pydantic_ai populates result.output with the parsed PublicationMetadata
+        return result.output

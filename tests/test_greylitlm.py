@@ -54,7 +54,7 @@ class MockRunResult:
 
     def __init__(self, response: MockModelResponse, **kwargs):
         self.response = response
-        self.data = kwargs.get("data", None)
+        self.output = kwargs.get("output", None)
 
 
 def async_mock(return_value):
@@ -118,7 +118,7 @@ class TestGreyLitLMBackend:
         )
 
         expected = PublicationMetadata(**metadata)
-        mock_run_result = MockRunResult(response=mock_response, data=expected)
+        mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         # Create a mock agent
         mock_agent = MagicMock()
@@ -169,7 +169,7 @@ class TestGreyLitLMBackend:
             ],
         )
         expected = PublicationMetadata(**metadata)
-        mock_run_result = MockRunResult(response=mock_response, data=expected)
+        mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         mock_agent = MagicMock()
         mock_agent.run = async_mock(mock_run_result)
@@ -190,7 +190,7 @@ class TestGreyLitLMBackend:
         )
 
         expected = PublicationMetadata(language="sv", title="Fallback Test")
-        mock_run_result = MockRunResult(response=mock_response, data=expected)
+        mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         mock_agent = MagicMock()
         mock_agent.run = async_mock(mock_run_result)
@@ -206,7 +206,7 @@ class TestGreyLitLMBackend:
         """Backend should return empty metadata when parts list is empty."""
         mock_response = MockModelResponse(parts=[])
         mock_run_result = MockRunResult(
-            response=mock_response, data=PublicationMetadata()
+            response=mock_response, output=PublicationMetadata()
         )
 
         mock_agent = MagicMock()
@@ -241,7 +241,7 @@ class TestGreyLitLMBackend:
             parts=[MockTextPart(content=json_string)],
         )
         expected = PublicationMetadata(**metadata)
-        mock_run_result = MockRunResult(response=mock_response, data=expected)
+        mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         mock_agent = MagicMock()
         mock_agent.run = async_mock(mock_run_result)

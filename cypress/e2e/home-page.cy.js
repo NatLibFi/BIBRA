@@ -100,4 +100,35 @@ describe('Home Page', () => {
     cy.get('#file-preview').should('not.exist')
     cy.get('.btn-clear').should('not.exist')
   })
+
+  it('shows correct error messages', () => {
+    // Upload non-pdf file
+    cy.get('input[type=file]').selectFile('cypress/fixtures/test-document.txt', {force: true})
+    // Check that file preview does not exist
+    cy.get('#file-preview').should('not.exist')
+    // Check that correct error message is displayed
+    cy.get('.error-message').should('have.length', 1)
+    cy.get('.error-message').eq(0).invoke('text').should('contain', 'This file format is not supported. Please select a PDF document.')
+    // Input faulty URL
+    cy.get('#url-input').type('https://example.com/')
+    cy.get('#button-select-url').click()
+    // Check that correct error message is displayed
+    cy.get('.error-message').should('have.length', 1)
+    cy.get('.error-message').eq(0).invoke('text').should('contain', 'Failed to fetch file from URL.')
+
+    // Intercept and block all POST requests
+    cy.intercept({
+    method: 'POST',
+      url: '*'
+    }, req => {
+      req.destroy()
+    })
+    // Upload PDF file and submit it
+    cy.get('input[type=file]').selectFile('cypress/fixtures/test-document.pdf', {force: true})
+    cy.get('.btn-submit').click()
+    // Check that correct error message is displayed
+    cy.get('.error-message').should('have.length', 1)
+    cy.get('.error-message').eq(0).invoke('text').should('contain', 'Metadata extraction failed.')
+    
+  })
 })

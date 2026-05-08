@@ -1,8 +1,7 @@
-from bibra.main import app
-
 """Tests for main FastAPI application."""
 
 from fastapi import FastAPI
+from bibra.main import app
 
 
 class TestMainApp:

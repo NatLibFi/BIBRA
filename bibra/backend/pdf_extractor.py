@@ -22,6 +22,7 @@ PAGES: list[int] = [0, 1, 2, 3, 4, 5, -2, -1]
 TOKEN_BUDGET: int = 1536
 # Which OpenAI LLM tokenizer to use for counting approx tokens
 TOKEN_MODEL: str = "gpt-4o-mini"
+TOKEN_ENCODING = tiktoken.encoding_for_model(TOKEN_MODEL)
 # PDF metadata fields not to include in extracted text
 PDF_METADATA_SKIP: set[str] = {"format", "creator", "producer"}
 
@@ -90,8 +91,7 @@ def _split_text(text: str) -> list[str]:
 
 def _count_tokens(text: str) -> int:
     """Approximate token count using the specified model's tokenizer."""
-    encoding = tiktoken.encoding_for_model(TOKEN_MODEL)
-    return len(encoding.encode(text))
+    return len(TOKEN_ENCODING.encode(text))
 
 
 def extract_content(file_path: str) -> dict[str, Any]:

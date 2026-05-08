@@ -256,6 +256,7 @@ const mainApp = Vue.createApp({
             <button class="btn-submit btn btn-primary fw-bold"
               @click="extract()"
               :class="{ disabled: !showPreview || loadingResults }"
+              :disabled="!showPreview || loadingResults"
             >Submit</button>
           </div>
         </div>

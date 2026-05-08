@@ -10,7 +10,16 @@ For JavaScript dependencies (e.g., Cypress for E2E testing), use `npm install`.
 
 ## Code Style
 
-Python code style follows Ruff format. Max line length 88 chars.
+Python code style follows Ruff format. Max line length 88 chars. Imports on top of file unless there are special reasons (document reason with comment). Modules and classes must have docstrings.
+
+## Code Quality Enforcement
+
+**Ruff checks are a mandatory gate before claiming any task complete.** Every agentic tool invocation must run both:
+
+1. `ruff check --fix` — linting (auto-fix where possible)
+2. `ruff format` — formatting (auto-format)
+
+Run the checks again with `ruff check` and `ruff format --check` to verify everything passes. Do **not** claim a task complete until both pass.
 
 ## Testing
 
@@ -29,6 +38,9 @@ Run Cypress E2E tests in headless mode: `npm run cy:run`
 ### Task Completion / Pre-commit Checklist
 
 Before considering a task completed, ensure:
-1. ✅ Ruff linter and formatter checks pass (`ruff check` and `ruff format --check`)
-2. ✅ All pytest tests pass (`uv run pytest -v`)
-3. ✅ All Cypress E2E tests pass (`npm run cy:run`)
+1. ✅ `ruff check --fix` applied and `ruff check` passes
+2. ✅ `ruff format` applied and `ruff format --check` passes
+3. ✅ All pytest tests pass (`uv run pytest -v`)
+4. ✅ All Cypress E2E tests pass (`npm run cy:run`)
+
+**Note: Steps 1–2 must pass before steps 3–4. Ruff should auto-fix issues where possible; manually fix anything it can't.

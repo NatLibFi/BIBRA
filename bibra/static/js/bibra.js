@@ -103,6 +103,9 @@ const mainApp = Vue.createApp({
       }
     },
     handleDropzoneClick (e) {
+      this.showErrorMessageFileType = false
+      this.showErrorMessageURL = false
+
       e.preventDefault()
       // Click hidden file input to run uploadFile method
       this.$refs.file.click()
@@ -221,7 +224,7 @@ const mainApp = Vue.createApp({
               </form>
             </div>
 
-            <div class="error-message mb-3 p-2" v-if="showErrorMessageFileType || showErrorMessageURL">
+            <div class="error-message mb-3 p-2" role="alert" v-if="showErrorMessageFileType || showErrorMessageURL">
               <span v-if="showErrorMessageFileType">This file format is not supported. Please select a PDF document.</span>
               <span v-else>Failed to fetch file from URL.</span>
             </div>
@@ -265,7 +268,7 @@ const mainApp = Vue.createApp({
           <h2 class="mb-3">Results</h2>
           <template v-if="!showResults">
             <template v-if="!loadingResults">
-              <div v-if="showErrorMessageExtract" class="error-message p-2">
+              <div v-if="showErrorMessageExtract" class="error-message p-2" role="alert">
                 Metadata extraction failed.
               </div>
               <p v-else>Results will appear here after processing</p>

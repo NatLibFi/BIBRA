@@ -27,8 +27,10 @@ class TestAPIRoutes:
         result = await list_projects()
         assert "projects" in result
         assert len(result["projects"]) == len(PROJECTS)
-        assert result["projects"][0]["id"] == "project-001"
-        assert result["projects"][0]["name"] == "Example Project Alpha"
+        assert result["projects"][0]["id"] == "dummy"
+        assert result["projects"][0]["name"] == "Dummy Backend"
+        assert result["projects"][1]["id"] == "greylitlm"
+        assert result["projects"][1]["name"] == "GreyLitLM Backend"
 
     def test_extract_route_exists(self):
         """The router should have a project-specific extract route."""
@@ -49,8 +51,8 @@ class TestAPIRoutes:
         """The /projects/{project_id}/extract endpoint should return example
         publication metadata."""
 
-        # Verify the function exists and returns correct type
-        result = await extract(project_id="project-001", files=[])
+        # Use dummy backend for testing (no API calls needed)
+        result = await extract(project_id="dummy", files=[])
 
         assert isinstance(result, PublicationMetadata)
         assert result.language == "en"

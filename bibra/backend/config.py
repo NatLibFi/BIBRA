@@ -4,19 +4,13 @@ This module provides configuration handling using environment variables
 with support for .env files via python-dotenv.
 """
 
-from typing import Optional
-
-# Load environment variables from .env file if present
-try:
-    from dotenv import load_dotenv
-
-    load_dotenv()
-except ImportError:
-    # python-dotenv is an optional dependency; if it's not installed,
-    # simply skip loading a .env file and rely on the existing environment.
-    pass
+from dotenv import load_dotenv
 
 import os
+
+from typing import Optional
+
+load_dotenv()
 
 
 class LLMConfig:

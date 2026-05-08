@@ -10,7 +10,6 @@ import uvicorn
 
 
 logging.basicConfig(level=logging.INFO)
-logging.getLogger("bibra").setLevel(logging.DEBUG)
 
 
 app = FastAPI(title="BIBRA API", version=__version__)

@@ -20,16 +20,16 @@ class ExtractRequest(BaseModel):
 # Example project data - can be extended as needed
 PROJECTS: List[Dict[str, Any]] = [
     {
-        "id": "dummy",
-        "name": "Dummy Backend",
-        "description": "Testing project using the dummy backend",
+        "id": "greylitlm",
+        "name": "GreyLitLM Backend",
+        "description": "Testing project using the GreyLitLM backend",
         "created_at": "2024-01-15T10:00:00Z",
         "status": "active",
     },
     {
-        "id": "greylitlm",
-        "name": "GreyLitLM Backend",
-        "description": "Testing project using the GreyLitLM backend",
+        "id": "dummy",
+        "name": "Dummy Backend",
+        "description": "Testing project using the dummy backend",
         "created_at": "2024-01-15T10:00:00Z",
         "status": "active",
     },

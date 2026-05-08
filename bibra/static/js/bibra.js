@@ -104,9 +104,6 @@ const mainApp = Vue.createApp({
     },
     handleDropzoneClick (e) {
       e.preventDefault()
-      this.showErrorMessageFileType = false
-      this.showErrorMessageURL = false
-
       // Click hidden file input to run uploadFile method
       this.$refs.file.click()
     },
@@ -258,7 +255,7 @@ const mainApp = Vue.createApp({
             
             <button class="btn-submit btn btn-primary fw-bold"
               @click="extract()"
-              :class="{ disabled: !showPreview }"
+              :class="{ disabled: !showPreview || loadingResults }"
             >Submit</button>
           </div>
         </div>

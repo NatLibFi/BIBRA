@@ -69,8 +69,8 @@ class TestListProjects:
         result = self.runner.invoke(list_projects)
         assert result.exit_code == 0
         # Check that project data is displayed (PROJECTS contains at least one entry)
-        assert "test-project" in result.output or "id" in result.output.lower()
-        # TODO - Add more specific checks based on the actual project data in PROJECTS
+        assert "dummy" in result.output
+        assert "greylitlm" in result.output
 
     def test_list_projects_bad_argument(self):
         """Test list-projects with bad argument."""
@@ -117,7 +117,7 @@ class TestExtract:
         test_file = tmp_path / "test.pdf"
         test_file.write_bytes(b"dummy pdf content")
 
-        result = self.runner.invoke(extract, ["test-project", str(test_file)])
+        result = self.runner.invoke(extract, ["dummy", str(test_file)])
         assert result.exit_code == 0
         assert not result.exception
 
@@ -141,7 +141,7 @@ class TestExtract:
         output_file = tmp_path / "output.json"
 
         result = self.runner.invoke(
-            extract, ["test-project", str(test_file), "--output", str(output_file)]
+            extract, ["dummy", str(test_file), "--output", str(output_file)]
         )
         assert result.exit_code == 0
         assert not result.exception
@@ -165,7 +165,7 @@ class TestExtract:
         output_file = tmp_path / "output.json"
 
         result = self.runner.invoke(
-            extract, ["test-project", str(test_file), "-o", str(output_file)]
+            extract, ["dummy", str(test_file), "-o", str(output_file)]
         )
         assert result.exit_code == 0
         assert not result.exception
@@ -181,7 +181,7 @@ class TestExtract:
         test_file2.write_bytes(b"dummy pdf content 2")
 
         result = self.runner.invoke(
-            extract, ["test-project", str(test_file1), str(test_file2)]
+            extract, ["dummy", str(test_file1), str(test_file2)]
         )
         assert result.exit_code == 0
         assert not result.exception
@@ -193,7 +193,5 @@ class TestExtract:
         test_file.write_bytes(b"dummy pdf content")
 
         result = self.runner.invoke(extract, ["nonexistent-project", str(test_file)])
-        # The DummyBackend handles any project ID, so this should succeed
-        assert result.exit_code == 0
-        assert not result.exception
-        # TODO - In a real implementation, this should return an error for nonexistent project ID
+        assert result.exit_code != 0
+        assert result.exception

@@ -1,7 +1,10 @@
+import asyncio
+
 import click
 
 from bibra.api.v0.routes import PROJECTS
 from bibra.backend.dummy import DummyBackend
+from bibra.backend.greylitlm import GreyLitLMBackend
 
 
 def _make_list_template(column_headings: tuple, *rows: tuple) -> str:
@@ -59,9 +62,19 @@ def list_projects():
 )
 def extract(project_id: str, files: tuple[str, ...], output: str | None):
     """Extract publication metadata from PDF or image files."""
-    # TODO - In a real implementation, select the backend based on project_id
-    backend = DummyBackend()
-    result = backend.extract(list(files))
+
+    # Choose backend based on project_id
+    if project_id == "dummy":
+        # Use dummy backend for testing (synchronous)
+        backend = DummyBackend()
+        result = backend.extract(list(files))
+    elif project_id == "greylitlm":
+        # Use greylitlm backend for real extraction (async)
+        backend = GreyLitLMBackend()
+        result = asyncio.run(backend.extract(list(files)))
+    else:
+        raise click.UsageError(f"Unknown project ID: {project_id}")
+
     json_output = result.model_dump_json(indent=2)
 
     if output:

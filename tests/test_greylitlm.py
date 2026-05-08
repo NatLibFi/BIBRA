@@ -1,5 +1,5 @@
 """Tests for the GreyLitLM backend module."""
-
+from pydantic_ai import UnexpectedModelBehavior
 import asyncio
 import json
 from datetime import datetime, timezone
@@ -142,7 +142,6 @@ class TestGreyLitLMBackend:
         """Backend should raise an error when LLM returns invalid JSON."""
         # With structured output (output_type=PublicationMetadata), pydantic_ai
         # will raise a ValidationError if it cannot parse the response.
-        from pydantic_ai import UnexpectedModelBehavior
 
         async def raise_error(*args, **kwargs):
             raise UnexpectedModelBehavior("Failed to parse response")

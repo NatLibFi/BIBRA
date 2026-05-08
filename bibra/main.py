@@ -1,16 +1,17 @@
 import logging
+import os
+
+from bibra import __version__
+from bibra.api.v0.routes import router as v0_router
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+import uvicorn
+
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("bibra").setLevel(logging.DEBUG)
 
-import os
-import uvicorn
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
-
-from bibra import __version__
-from bibra.api.v0.routes import router as v0_router
 
 app = FastAPI(title="BIBRA API", version=__version__)
 

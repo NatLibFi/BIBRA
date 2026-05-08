@@ -1,3 +1,7 @@
+"""Backend for metadata extraction from grey literature using fine-tuned LLMs."""
+
+import json
+
 import logging
 import tempfile
 import os
@@ -84,7 +88,6 @@ class GreyLitLMBackend:
             try:
                 # Extract PDF content (metadata + selected text chunks)
                 content = extract_content(tmp_path)
-                import json
 
                 prompt_text = self.config.INSTRUCTION.format(
                     json.dumps(content, ensure_ascii=False, indent=2)

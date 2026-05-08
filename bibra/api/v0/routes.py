@@ -1,3 +1,5 @@
+from bibra import __version__
+
 from fastapi import APIRouter, UploadFile, File
 from pydantic import BaseModel
 from typing import List, Dict, Any
@@ -37,8 +39,6 @@ PROJECTS: List[Dict[str, Any]] = [
 @router.get("/")
 async def root():
     """Return the API version information."""
-    from bibra import __version__
-
     return {"version": __version__, "message": "Welcome to BIBRA API v0"}
 
 

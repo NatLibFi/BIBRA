@@ -133,13 +133,7 @@ def extract_content(file_path: str) -> dict[str, Any]:
     # Score all chunks
     all_chunks: list[dict[str, Any]] = []
     for page in page_texts:
-        # pymupdf4llm may use 'page' or 'pageno' for the page number in metadata
-        meta = page.get("metadata", {})
-        page_num = meta.get("page") if meta else None
-        if page_num is None:
-            page_num = meta.get("pageno") if meta else None
-        if page_num is None:
-            page_num = 0  # fallback
+        page_num = page.get("metadata", {}).get("page_number", 0)
 
         for chunk in _split_text(page["text"]):
             score, feats = _chunk_score(chunk, page_num)

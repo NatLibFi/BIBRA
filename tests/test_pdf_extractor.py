@@ -230,6 +230,16 @@ class TestExtractContent:
         page_numbers = [p["page"] for p in result["pages"]]
         assert page_numbers == sorted(page_numbers)
 
+    def test_extract_content_pages_have_correct_numbers(self):
+        """Pages should use pymupdf4llm's 1-indexed page_number."""
+        if not os.path.exists(SAMPLE_PDF):
+            pytest.skip(f"Sample PDF not found: {SAMPLE_PDF}")
+        result = extract_content(SAMPLE_PDF)
+        page_numbers = [p["page"] for p in result["pages"]]
+        # PAGES = [0,1,2,3,4,5,-2,-1] → deduplicated/sorted = [0,1,2,3,4,5]
+        # pymupdf4llm returns 1-indexed page_number, so result is [1,2,3,4,5,6]
+        assert page_numbers == [1, 2, 3, 4, 5, 6]
+
     def test_extract_content_within_token_budget(self):
         """Total tokens should not exceed TOKEN_BUDGET."""
         if not os.path.exists(SAMPLE_PDF):

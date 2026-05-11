@@ -93,7 +93,7 @@ class TestExtract:
         assert not result.exception
         assert "Extract publication metadata" in result.output
         assert "PROJECT_ID" in result.output
-        assert "FILES" in result.output
+        assert "FILE_PATH" in result.output
         assert "--output" in result.output
         assert "-o" in result.output
 
@@ -183,8 +183,8 @@ class TestExtract:
         result = self.runner.invoke(
             extract, ["dummy", str(test_file1), str(test_file2)]
         )
-        assert result.exit_code == 0
-        assert not result.exception
+        assert result.exit_code != 0
+        assert result.exception
 
     def test_extract_with_nonexistent_project(self, tmp_path):
         """Test extract command with a nonexistent project ID."""

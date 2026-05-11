@@ -52,7 +52,9 @@ def list_projects():
 
 @cli.command("extract")
 @click.argument("project_id")
-@click.argument("files", type=click.Path(exists=True), nargs=-1, required=True)
+@click.argument(
+    "file_path", type=click.Path(exists=True, dir_okay=False), nargs=1, required=True
+)
 @click.option(
     "--output",
     "-o",
@@ -60,18 +62,18 @@ def list_projects():
     default=None,
     help="Write JSON output to file instead of stdout",
 )
-def extract(project_id: str, files: tuple[str, ...], output: str | None):
-    """Extract publication metadata from PDF or image files."""
+def extract(project_id: str, file_path: str, output: str | None):
+    """Extract publication metadata from a PDF or image file."""
 
     # Choose backend based on project_id
     if project_id == "dummy":
         # Use dummy backend for testing (synchronous)
         backend = DummyBackend()
-        result = backend.extract(list(files))
+        result = backend.extract([file_path])
     elif project_id == "greylitlm":
         # Use greylitlm backend for real extraction (async)
         backend = GreyLitLMBackend()
-        result = asyncio.run(backend.extract(list(files)))
+        result = asyncio.run(backend.extract([file_path]))
     else:
         raise click.UsageError(f"Unknown project ID: {project_id}")
 

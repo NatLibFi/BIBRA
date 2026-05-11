@@ -58,7 +58,7 @@ def list_projects():
 @click.option(
     "--output",
     "-o",
-    type=click.Path(),
+    type=click.Path(dir_okay=False, writable=True, resolve_path=True),
     default=None,
     help="Write JSON output to file instead of stdout",
 )

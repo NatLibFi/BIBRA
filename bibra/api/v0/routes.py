@@ -1,3 +1,7 @@
+import logging
+import tempfile
+import os
+
 from bibra import __version__
 
 from fastapi import APIRouter, UploadFile, File
@@ -7,6 +11,8 @@ from typing import List, Dict, Any
 from bibra.backend.dummy import DummyBackend
 from bibra.backend.greylitlm import GreyLitLMBackend
 from bibra.types import PublicationMetadata
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -66,14 +72,31 @@ async def extract(
     Returns:
         PublicationMetadata: Extracted metadata as JSON
     """
+    # Save uploaded files to temporary paths for backend processing
+    temp_files: List[str] = []
+    try:
+        for upload_file in files:
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+                content = await upload_file.read()
+                tmp.write(content)
+                temp_files.append(tmp.name)
 
-    # Choose backend based on project_id
-    if project_id == "dummy":
-        # Use dummy backend for testing
-        backend = DummyBackend()
-        result = backend.extract(files)
-    else:
-        # Use greylitlm backend for real extraction
-        backend = GreyLitLMBackend()
-        result = await backend.extract(files)
-    return result
+        # Choose backend based on project_id
+        if project_id == "dummy":
+            # Use dummy backend for testing
+            backend = DummyBackend()
+            result = backend.extract(temp_files)
+        else:
+            # Use greylitlm backend for real extraction
+            backend = GreyLitLMBackend()
+            result = await backend.extract(temp_files)
+        return result
+    finally:
+        # Clean up all temporary files
+        for tmp_path in temp_files:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                logger.debug(
+                    "Failed to remove temporary file: %s", tmp_path, exc_info=True
+                )

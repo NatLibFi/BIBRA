@@ -3,6 +3,7 @@
 import asyncio
 import json
 import os
+import tempfile
 from datetime import datetime, timezone
 from typing import List
 from unittest.mock import MagicMock, patch
@@ -18,17 +19,6 @@ from bibra.types import PublicationMetadata
 TEST_PDF_PATH = os.path.join(
     os.path.dirname(__file__), "..", "cypress", "fixtures", "test-document.pdf"
 )
-
-
-class MockUploadFile:
-    """Mock file upload class for testing."""
-
-    def __init__(self, filename: str, content: bytes):
-        self.filename = filename
-        self._content = content
-
-    async def read(self) -> bytes:
-        return self._content
 
 
 class MockTextPart:
@@ -281,13 +271,6 @@ class TestGreyLitLMBackend:
 
     def test_extract_successfully_processes_pdf_file(self):
         """Backend should successfully process a real PDF file."""
-        # Read the test PDF
-        with open(TEST_PDF_PATH, "rb") as f:
-            pdf_content = f.read()
-
-        # Create a mock PDF file
-        mock_pdf_file = MockUploadFile("test.pdf", pdf_content)
-
         # Mock the extract_content function to return sample content
         with patch("bibra.backend.greylitlm.extract_content") as mock_extract:
             mock_extract.return_value = {"text": "Sample PDF content"}
@@ -304,7 +287,7 @@ class TestGreyLitLMBackend:
 
             backend = create_backend_with_mock_agent(mock_agent)
 
-            result = run_async(backend.extract, [mock_pdf_file])
+            result = run_async(backend.extract, [TEST_PDF_PATH])
 
             assert result.language == "en"
             assert result.title == "Test PDF Title"
@@ -312,9 +295,6 @@ class TestGreyLitLMBackend:
 
     def test_extract_handles_pdf_extraction_failure(self):
         """Backend should handle errors when extract_content fails."""
-        # Create a mock PDF file
-        mock_pdf_file = MockUploadFile("test.pdf", b"fake pdf content")
-
         # Mock extract_content to raise an exception
         with patch("bibra.backend.greylitlm.extract_content") as mock_extract:
             mock_extract.side_effect = Exception("PDF parsing failed")
@@ -331,126 +311,27 @@ class TestGreyLitLMBackend:
 
             backend = create_backend_with_mock_agent(mock_agent)
 
-            result = run_async(backend.extract, [mock_pdf_file])
+            result = run_async(backend.extract, [TEST_PDF_PATH])
 
             # Should still return a result, using fallback prompt
             assert result is not None
 
-    def test_extract_cleans_up_temp_file_on_success(self):
-        """Backend should clean up temporary file after successful extraction."""
-        # Read the test PDF
-        with open(TEST_PDF_PATH, "rb") as f:
-            pdf_content = f.read()
-
-        mock_pdf_file = MockUploadFile("test.pdf", pdf_content)
-
-        with patch("bibra.backend.greylitlm.extract_content") as mock_extract:
-            mock_extract.return_value = {"text": "Sample content"}
-
-            metadata = {"language": "en", "title": "Test Title"}
-            json_string = json.dumps(metadata)
-            mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
-            expected = PublicationMetadata(**metadata)
-            mock_run_result = MockRunResult(response=mock_response, output=expected)
-
-            mock_agent = MagicMock()
-            mock_agent.run = async_mock(mock_run_result)
-
-            backend = create_backend_with_mock_agent(mock_agent)
-
-            result = run_async(backend.extract, [mock_pdf_file])
-
-            assert result is not None
-
-    def test_extract_cleans_up_temp_file_on_failure(self):
-        """Backend should clean up temporary file even when extraction fails."""
-        mock_pdf_file = MockUploadFile("test.pdf", b"fake pdf content")
-
-        with patch("bibra.backend.greylitlm.extract_content") as mock_extract:
-            mock_extract.side_effect = Exception("Extraction failed")
-
-            metadata = {"language": "en", "title": "Test Title"}
-            json_string = json.dumps(metadata)
-            mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
-            expected = PublicationMetadata(**metadata)
-            mock_run_result = MockRunResult(response=mock_response, output=expected)
-
-            mock_agent = MagicMock()
-            mock_agent.run = async_mock(mock_run_result)
-
-            backend = create_backend_with_mock_agent(mock_agent)
-
-            result = run_async(backend.extract, [mock_pdf_file])
-
-            assert result is not None
-
     def test_extract_uses_first_pdf_only(self):
         """Backend should only process the first PDF when multiple files given."""
-        # Create two mock PDF files
-        mock_pdf1 = MockUploadFile("first.pdf", b"pdf content 1")
-        mock_pdf2 = MockUploadFile("second.pdf", b"pdf content 2")
+        # Create temp files with different extensions
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as pdf1:
+            pdf1.write(b"pdf content 1")
+            pdf1_path = pdf1.name
 
-        with patch("bibra.backend.greylitlm.extract_content") as mock_extract:
-            mock_extract.return_value = {"text": "First PDF content"}
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as pdf2:
+            pdf2.write(b"pdf content 2")
+            pdf2_path = pdf2.name
 
-            metadata = {"language": "en", "title": "First PDF Title"}
-            json_string = json.dumps(metadata)
-            mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
-            expected = PublicationMetadata(**metadata)
-            mock_run_result = MockRunResult(response=mock_response, output=expected)
+        try:
+            with patch("bibra.backend.greylitlm.extract_content") as mock_extract:
+                mock_extract.return_value = {"text": "First PDF content"}
 
-            mock_agent = MagicMock()
-            mock_agent.run = async_mock(mock_run_result)
-
-            backend = create_backend_with_mock_agent(mock_agent)
-
-            result = run_async(backend.extract, [mock_pdf1, mock_pdf2])
-
-            assert result.title == "First PDF Title"
-            # Should only be called once for the first PDF
-            mock_extract.assert_called_once()
-
-    def test_extract_returns_empty_metadata_when_no_pdf(self):
-        """Backend should handle case when no PDF files are provided."""
-        # Create a mock non-PDF file
-        mock_txt_file = MockUploadFile("document.txt", b"text content")
-
-        # Mock extract_content to track if it's called
-        with patch("bibra.backend.greylitlm.extract_content") as mock_extract:
-            metadata = {"language": "en", "title": "No PDF Title"}
-            json_string = json.dumps(metadata)
-            mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
-            expected = PublicationMetadata(**metadata)
-            mock_run_result = MockRunResult(response=mock_response, output=expected)
-
-            mock_agent = MagicMock()
-            mock_agent.run = async_mock(mock_run_result)
-
-            backend = create_backend_with_mock_agent(mock_agent)
-
-            result = run_async(backend.extract, [mock_txt_file])
-
-            # Should return a result with fallback content
-            assert result is not None
-            # extract_content should NOT be called since no PDF found
-            mock_extract.assert_not_called()
-
-    def test_extract_handles_cleanup_failure(self):
-        """Backend should handle OSError when cleaning up temp file."""
-        # Read the test PDF
-        with open(TEST_PDF_PATH, "rb") as f:
-            pdf_content = f.read()
-
-        mock_pdf_file = MockUploadFile("test.pdf", pdf_content)
-
-        with patch("bibra.backend.greylitlm.extract_content") as mock_extract:
-            mock_extract.return_value = {"text": "Sample content"}
-
-            # Mock os.unlink to raise OSError
-            with patch("bibra.backend.greylitlm.os.unlink") as mock_unlink:
-                mock_unlink.side_effect = OSError("Permission denied")
-
-                metadata = {"language": "en", "title": "Test Title"}
+                metadata = {"language": "en", "title": "First PDF Title"}
                 json_string = json.dumps(metadata)
                 mock_response = MockModelResponse(
                     parts=[MockTextPart(content=json_string)]
@@ -463,8 +344,62 @@ class TestGreyLitLMBackend:
 
                 backend = create_backend_with_mock_agent(mock_agent)
 
-                # Should not raise exception, just log debug message
-                result = run_async(backend.extract, [mock_pdf_file])
+                result = run_async(backend.extract, [pdf1_path, pdf2_path])
 
+                assert result.title == "First PDF Title"
+                # Should only be called once for the first PDF
+                mock_extract.assert_called_once()
+        finally:
+            os.unlink(pdf1_path)
+            os.unlink(pdf2_path)
+
+    def test_extract_returns_fallback_when_no_pdf(self):
+        """Backend should handle case when no PDF files are provided."""
+        # Create a temp non-PDF file
+        with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as txt:
+            txt.write(b"text content")
+            txt_path = txt.name
+
+        try:
+            # Mock extract_content to track if it's called
+            with patch("bibra.backend.greylitlm.extract_content") as mock_extract:
+                metadata = {"language": "en", "title": "No PDF Title"}
+                json_string = json.dumps(metadata)
+                mock_response = MockModelResponse(
+                    parts=[MockTextPart(content=json_string)]
+                )
+                expected = PublicationMetadata(**metadata)
+                mock_run_result = MockRunResult(response=mock_response, output=expected)
+
+                mock_agent = MagicMock()
+                mock_agent.run = async_mock(mock_run_result)
+
+                backend = create_backend_with_mock_agent(mock_agent)
+
+                result = run_async(backend.extract, [txt_path])
+
+                # Should return a result with fallback content
                 assert result is not None
-                mock_unlink.assert_called_once()
+                # extract_content should NOT be called since no PDF found
+                mock_extract.assert_not_called()
+        finally:
+            os.unlink(txt_path)
+
+    def test_extract_returns_fallback_when_empty_list(self):
+        """Backend should handle case when an empty file list is provided."""
+        with patch("bibra.backend.greylitlm.extract_content") as mock_extract:
+            metadata = {"language": "en", "title": "Empty List Title"}
+            json_string = json.dumps(metadata)
+            mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
+            expected = PublicationMetadata(**metadata)
+            mock_run_result = MockRunResult(response=mock_response, output=expected)
+
+            mock_agent = MagicMock()
+            mock_agent.run = async_mock(mock_run_result)
+
+            backend = create_backend_with_mock_agent(mock_agent)
+
+            result = run_async(backend.extract, [])
+
+            assert result is not None
+            mock_extract.assert_not_called()

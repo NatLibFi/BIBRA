@@ -77,9 +77,9 @@ async def extract(
     try:
         for upload_file in files:
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+                temp_files.append(tmp.name)
                 content = await upload_file.read()
                 tmp.write(content)
-                temp_files.append(tmp.name)
 
         # Choose backend based on project_id
         if project_id == "dummy":

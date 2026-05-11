@@ -83,6 +83,8 @@ describe('Home Page', () => {
   })
 
   it('hides preview and results after clear', () => {
+    // Select Dummy project
+    cy.get('select').select('Dummy Backend')
     // Upload pdf file and submit
     cy.get('input[type=file]').selectFile('cypress/fixtures/test-document.pdf', {force: true})
     cy.get('.btn-submit').click()

@@ -9,7 +9,7 @@
     "cy:verify": "env -u ELECTRON_RUN_AS_NODE npx cypress verify"
   },
   "devDependencies": {
-    "cypress": "^15.13.0"
+    "cypress": "^15.14.2"
   },
   "keywords": [],
   "author": "",
@@ -17,6 +17,6 @@
   "dependencies": {
     "@fortawesome/fontawesome-free": "^7.2.0",
     "bootstrap": "^5.3.8",
-    "vue": "^3.5.31"
+    "vue": "^3.5.34"
   }
 }

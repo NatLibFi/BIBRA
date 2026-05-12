@@ -11,12 +11,18 @@ updates:
   - package-ecosystem: "github-actions"
     directories:
       - "/.github/workflows"
+    patterns:
+      - "*"
     multi-ecosystem-group: "all"
   - package-ecosystem: "uv"
     directories:
       - "/"
+    patterns:
+      - "*"
     multi-ecosystem-group: "all"
   - package-ecosystem: "npm"
     directories:
       - "/"
+    patterns:
+      - "*"
     multi-ecosystem-group: "all"

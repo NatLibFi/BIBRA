@@ -6,7 +6,7 @@ import importlib
 import pytest
 from click.testing import CliRunner
 
-from bibra.cli import cli, extract, list_projects
+from bibra.cli import cli, extract, list_projects, _make_list_template
 
 
 class TestCli:
@@ -195,3 +195,24 @@ class TestExtract:
         result = self.runner.invoke(extract, ["nonexistent-project", str(test_file)])
         assert result.exit_code != 0
         assert result.exception
+
+
+class TestMakeListTemplate:
+    """Tests for the _make_list_template helper function."""
+
+    def test_make_list_template_no_rows(self):
+        """Test _make_list_template with no rows covers the empty rows branch."""
+        column_headings = ("ID", "Name", "Value")
+        template = _make_list_template(column_headings)
+        # Template should create format strings based on heading lengths
+        expected = "{:<2}  {:<4}  {:<5}"
+        assert template == expected
+
+    def test_make_list_template_with_rows(self):
+        """Test _make_list_template with rows calculates max widths."""
+        column_headings = ("ID", "Name")
+        rows = (("1", "A very long name"), ("2", "Short"))
+        template = _make_list_template(column_headings, *rows)
+        # Should use max of heading and row lengths
+        expected = "{:<2}  {:<16}"
+        assert template == expected

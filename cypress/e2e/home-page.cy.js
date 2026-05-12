@@ -2,29 +2,37 @@
 
 describe('Home Page', () => {
   beforeEach(() => {
-    cy.visit('/');
-  });
+    cy.visit('/')
+  })
 
   it('displays the BIBRA title', () => {
-    cy.get('h1').should('contain', 'BIBRA');
-  });
+    cy.get('h1').should('contain', 'BIBRA')
+  })
 
   it('fetches and displays the API version', () => {
     // Wait for the version to be fetched and displayed
     cy.get('#version')
       .should('not.contain', 'Loading...')
       .invoke('text')
-      .should('match', /\d+\.\d+\.\d+/);
-  });
+      .should('match', /\d+\.\d+\.\d+/)
+  })
 
   it('has a working API documentation link', () => {
-    cy.get('.api-link').click();
-    cy.url().should('include', '/docs');
-  });
+    cy.get('.api-link').click()
+    cy.url().should('include', '/docs')
+  })
+
+  it('fetches projects', () => {
+    // Check that correct number of projects is found
+    cy.get('#select-method option').should('have.length', 2)
+    // Check that correct projects are fetched
+    cy.get('#select-method option').eq(0).invoke('text').should('contain', 'Dummy Backend')
+    cy.get('#select-method option').eq(1).invoke('text').should('contain', 'GreyLitLM Backend')
+  })
 
   it('shows file preview', () => {
-    // Click dropzone and check that it and url input are no longer visible
-    cy.get('#dropzone').click()
+    // Upload pdf file and check that dropzone and url input are no longer visible
+    cy.get('input[type=file]').selectFile('cypress/fixtures/test-document.pdf', {force: true})
     cy.get('#dropzone').should('not.exist')
     cy.get('#fetch-from-url').should('not.exist')
     // Check that preview is visible
@@ -32,11 +40,31 @@ describe('Home Page', () => {
     cy.get('.btn-clear').should('have.length', 2)
   })
 
+  it('uploads files with drag and drop', () => {
+    // Check that file preview is not visible
+    cy.get('#file-preview').should('not.exist')
+    // Drop file on dropzone
+    cy.get('#dropzone').selectFile('cypress/fixtures/test-document.pdf', { action: 'drag-drop' })
+    // Check that preview is visible
+    cy.get('#file-preview').should('be.visible')
+  })
+
+  it('fetches files from URL', () => {
+    // Check that file preview is not visible
+    cy.get('#file-preview').should('not.exist')
+    // Type in pdf url
+    cy.get('#url-input').type('https://pdfobject.com/pdf/sample.pdf')
+    // Click button to fetch pdf
+    cy.get('#button-select-url').click()
+    // Check that preview is visible
+    cy.get('#file-preview').should('be.visible')
+  })
+
   it('shows results after submit', () => {
     // Check that submit button is disabled
     cy.get('.btn-submit').should('have.class', 'disabled')
-    // Click dropzone
-    cy.get('#dropzone').click()
+    // Upload pdf file
+    cy.get('input[type=file]').selectFile('cypress/fixtures/test-document.pdf', {force: true})
     // Check that results are not shown
     cy.get('#results p').should('be.visible')
     cy.get('#results table').should('not.exist')
@@ -47,10 +75,15 @@ describe('Home Page', () => {
     // Check that results are visible
     cy.get('#results p').should('not.exist')
     cy.get('#results table').should('be.visible')
+    // Check that copy buttons copy correct values
+    cy.get('.btn-copy').eq(0).click()
+    cy.window().its('navigator.clipboard').invoke('readText').then((result) => {}).should('equal', 'en');
+
   })
 
   it('hides preview and results after clear', () => {
-    cy.get('#dropzone').click()
+    // Upload pdf file and submit
+    cy.get('input[type=file]').selectFile('cypress/fixtures/test-document.pdf', {force: true})
     cy.get('.btn-submit').click()
     // Check that results are visible
     cy.get('#results p').should('not.exist')
@@ -64,6 +97,37 @@ describe('Home Page', () => {
     cy.get('#dropzone').should('be.visible')
     cy.get('#fetch-from-url').should('be.visible')
     cy.get('#file-preview').should('not.exist')
-    cy.get('.btn-clear').should('not.exist', 2)
+    cy.get('.btn-clear').should('not.exist')
   })
-});
+
+  it('shows correct error messages', () => {
+    // Upload non-pdf file
+    cy.get('input[type=file]').selectFile('cypress/fixtures/test-document.txt', {force: true})
+    // Check that file preview does not exist
+    cy.get('#file-preview').should('not.exist')
+    // Check that correct error message is displayed
+    cy.get('.error-message').should('have.length', 1)
+    cy.get('.error-message').eq(0).invoke('text').should('contain', 'This file format is not supported. Please select a PDF document.')
+    // Input faulty URL
+    cy.get('#url-input').type('https://example.com/')
+    cy.get('#button-select-url').click()
+    // Check that correct error message is displayed
+    cy.get('.error-message').should('have.length', 1)
+    cy.get('.error-message').eq(0).invoke('text').should('contain', 'Failed to fetch file from URL.')
+
+    // Intercept and block all POST requests
+    cy.intercept({
+    method: 'POST',
+      url: '*'
+    }, req => {
+      req.destroy()
+    })
+    // Upload PDF file and submit it
+    cy.get('input[type=file]').selectFile('cypress/fixtures/test-document.pdf', {force: true})
+    cy.get('.btn-submit').click()
+    // Check that correct error message is displayed
+    cy.get('.error-message').should('have.length', 1)
+    cy.get('.error-message').eq(0).invoke('text').should('contain', 'Metadata extraction failed.')
+    
+  })
+})

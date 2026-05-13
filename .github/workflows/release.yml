@@ -18,8 +18,18 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    env:
+      PYTHON-VERSION: "3.14"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - name: Set up Python ${{ PYTHON-VERSION }}
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+        with:
+          python-version: ${{ PYTHON-VERSION }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b  # v8.1.0
+        with:
+          python-version: ${{ PYTHON-VERSION }}
       - name: Build distributions
         run: |
           uv build

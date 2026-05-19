@@ -47,6 +47,7 @@ name = "bibra"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "click" },
     { name = "fastapi" },
     { name = "pydantic-ai-slim", extra = ["openai"] },
     { name = "pymupdf" },
@@ -71,6 +72,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "click", specifier = ">=8.1.0" },
     { name = "fastapi", specifier = "==0.136.1" },
     { name = "pydantic-ai-slim", extras = ["openai"], specifier = ">=1.93.0" },
     { name = "pymupdf", specifier = ">=1.27.2" },

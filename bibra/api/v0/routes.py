@@ -1,3 +1,7 @@
+import logging
+import tempfile
+import os
+
 from bibra import __version__
 
 from fastapi import APIRouter, UploadFile, File
@@ -7,6 +11,8 @@ from typing import List, Dict, Any
 from bibra.backend.dummy import DummyBackend
 from bibra.backend.greylitlm import GreyLitLMBackend
 from bibra.types import PublicationMetadata
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -20,16 +26,16 @@ class ExtractRequest(BaseModel):
 # Example project data - can be extended as needed
 PROJECTS: List[Dict[str, Any]] = [
     {
-        "id": "dummy",
-        "name": "Dummy Backend",
-        "description": "Testing project using the dummy backend",
+        "id": "greylitlm",
+        "name": "GreyLitLM Backend",
+        "description": "Testing project using the GreyLitLM backend",
         "created_at": "2024-01-15T10:00:00Z",
         "status": "active",
     },
     {
-        "id": "greylitlm",
-        "name": "GreyLitLM Backend",
-        "description": "Testing project using the GreyLitLM backend",
+        "id": "dummy",
+        "name": "Dummy Backend",
+        "description": "Testing project using the dummy backend",
         "created_at": "2024-01-15T10:00:00Z",
         "status": "active",
     },
@@ -66,14 +72,31 @@ async def extract(
     Returns:
         PublicationMetadata: Extracted metadata as JSON
     """
+    # Save uploaded files to temporary paths for backend processing
+    temp_files: List[str] = []
+    try:
+        for upload_file in files:
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+                temp_files.append(tmp.name)
+                while chunk := await upload_file.read(1024 * 1024):
+                    tmp.write(chunk)
 
-    # Choose backend based on project_id
-    if project_id == "dummy":
-        # Use dummy backend for testing
-        backend = DummyBackend()
-        result = backend.extract(files)
-    else:
-        # Use greylitlm backend for real extraction
-        backend = GreyLitLMBackend()
-        result = await backend.extract(files)
-    return result
+        # Choose backend based on project_id
+        if project_id == "dummy":
+            # Use dummy backend for testing
+            backend = DummyBackend()
+            result = backend.extract(temp_files)
+        else:
+            # Use greylitlm backend for real extraction
+            backend = GreyLitLMBackend()
+            result = await backend.extract(temp_files)
+        return result
+    finally:
+        # Clean up all temporary files
+        for tmp_path in temp_files:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                logger.debug(
+                    "Failed to remove temporary file: %s", tmp_path, exc_info=True
+                )

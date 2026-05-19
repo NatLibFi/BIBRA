@@ -26,8 +26,8 @@ describe('Home Page', () => {
     // Check that correct number of projects is found
     cy.get('#select-method option').should('have.length', 2)
     // Check that correct projects are fetched
-    cy.get('#select-method option').eq(0).invoke('text').should('contain', 'Dummy Backend')
-    cy.get('#select-method option').eq(1).invoke('text').should('contain', 'GreyLitLM Backend')
+    cy.get('#select-method option').eq(0).invoke('text').should('contain', 'GreyLitLM Backend')
+    cy.get('#select-method option').eq(1).invoke('text').should('contain', 'Dummy Backend')
   })
 
   it('shows file preview', () => {
@@ -63,6 +63,8 @@ describe('Home Page', () => {
   it('shows results after submit', () => {
     // Check that submit button is disabled
     cy.get('.btn-submit').should('have.class', 'disabled')
+    // Select Dummy project
+    cy.get('select').select('Dummy Backend')
     // Upload pdf file
     cy.get('input[type=file]').selectFile('cypress/fixtures/test-document.pdf', {force: true})
     // Check that results are not shown
@@ -78,10 +80,11 @@ describe('Home Page', () => {
     // Check that copy buttons copy correct values
     cy.get('.btn-copy').eq(0).click()
     cy.window().its('navigator.clipboard').invoke('readText').then((result) => {}).should('equal', 'en');
-
   })
 
   it('hides preview and results after clear', () => {
+    // Select Dummy project
+    cy.get('select').select('Dummy Backend')
     // Upload pdf file and submit
     cy.get('input[type=file]').selectFile('cypress/fixtures/test-document.pdf', {force: true})
     cy.get('.btn-submit').click()
@@ -128,6 +131,5 @@ describe('Home Page', () => {
     // Check that correct error message is displayed
     cy.get('.error-message').should('have.length', 1)
     cy.get('.error-message').eq(0).invoke('text').should('contain', 'Metadata extraction failed.')
-    
   })
 })

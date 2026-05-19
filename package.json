@@ -9,11 +9,7 @@
     "cy:verify": "env -u ELECTRON_RUN_AS_NODE npx cypress verify"
   },
   "devDependencies": {
-<<<<<<< dependabot/all-66b88de979
     "cypress": "^15.15.0"
-=======
-    "cypress": "^15.14.2"
->>>>>>> main
   },
   "keywords": [],
   "author": "",

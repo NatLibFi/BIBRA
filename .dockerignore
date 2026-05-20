@@ -22,7 +22,3 @@ htmlcov/
 
 # Tests not needed for runtime image
 tests/
-
-# Docs/metadata
-LICENSE
-README.md

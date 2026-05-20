@@ -22,7 +22,7 @@ Install development dependencies:
 ```bash
 uv sync
 ```
-Install as a CLI tool in editable mode:
+Alternatively, install as a global CLI tool (in editable mode) so prefixing CLI commands with `uv run` is not needed:
 ```bash
 uv tool install -e .
 ```
@@ -41,7 +41,7 @@ Skipping the Ruff checks when committing can be done by adding the `--no-verify`
 ## Usage
 See the available CLI commands:
 ```bash
-bibra
+uv run bibra
 ```
 Start up the server:
 ```bash

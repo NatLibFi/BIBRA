@@ -1,6 +1,6 @@
 [project]
 name = "bibra"
-version = "0.1.0"
+version = "0.1.0-dev"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -43,7 +43,7 @@ extend-select = ["E501"]
 include = ["bibra*"]
 
 [tool.bumpversion]
-current_version = "0.1.0"
+current_version = "0.1.0-dev"
 parse = """(?x)
     (?P<major>0|[1-9]\\d*)\\.
     (?P<minor>0|[1-9]\\d*)\\.

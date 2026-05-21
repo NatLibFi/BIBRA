@@ -50,12 +50,11 @@ parse = """(?x)
     (?P<patch>0|[1-9]\\d*)
     (?:
         -                             # dash separator for pre-release section
-        (?P<pre_l>[a-zA-Z-]+)         # pre-release label
-        (?P<pre_n>0|[1-9]\\d*)        # pre-release version number
+        (?P<release>[a-zA-Z-]+)       # pre-release label
     )?                                # pre-release section is optional
 """
 serialize = [
-    "{major}.{minor}.{patch}-{pre_l}{pre_n}",
+    "{major}.{minor}.{patch}-{release}",
     "{major}.{minor}.{patch}",
 ]
 search = "{current_version}"
@@ -77,5 +76,6 @@ pre_commit_hooks = []
 post_commit_hooks = []
 allow_shell_hooks = true
 
-[tool.bumpversion.parts.pre_l]
-values = ["dev"]
+[tool.bumpversion.parts.release]
+values = ["dev", "prod"]
+optional_value = "prod"

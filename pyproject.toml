@@ -57,24 +57,11 @@ serialize = [
     "{major}.{minor}.{patch}-{release}",
     "{major}.{minor}.{patch}",
 ]
-search = "{current_version}"
-replace = "{new_version}"
-regex = false
-ignore_missing_version = false
-ignore_missing_files = false
-tag = false
-sign_tags = false
-tag_name = "v{new_version}"
-tag_message = "Bump version: {current_version} → {new_version}"
-allow_dirty = false
-commit = false
-message = "Bump version: {current_version} → {new_version}"
-moveable_tags = []
-commit_args = ""
-setup_hooks = []
-pre_commit_hooks = []
-post_commit_hooks = []
-allow_shell_hooks = true
+search = "version = {current_version}"
+replace = "version = {new_version}"
+tag = true
+sign_tags = true
+commit = true
 
 [tool.bumpversion.parts.release]
 values = ["dev", "prod"]

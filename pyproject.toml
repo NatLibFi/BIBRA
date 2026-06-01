@@ -5,16 +5,16 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "click>=8.1.0",
-    "fastapi==0.136.1",
-    "pydantic-ai-slim[openai]>=1.93.0",
+    "click>=8.4.1",
+    "fastapi==0.136.3",
+    "pydantic-ai-slim[openai]>=1.104.0",
     "python-dotenv>=1.2.2",
-    "python-multipart>=0.0.28",
-    "uvicorn==0.46.0",
+    "python-multipart>=0.0.30",
+    "uvicorn==0.48.0",
     "pymupdf>=1.27.2",
     "pymupdf4llm>=1.27.2",
     "regex>=2026.5.9",
-    "tiktoken>=0.12.0",
+    "tiktoken>=0.13.0",
 ]
 
 [project.scripts]
@@ -23,12 +23,12 @@ bibra = "bibra.cli:cli"
 [dependency-groups]
 dev = [
     "pytest>=9.0.3",
-    "pytest-asyncio>=1.0.0",
+    "pytest-asyncio>=1.4.0",
     "httpx>=0.28.0",
     "pytest-cov>=7.0.0",
-    "ruff>=0.15.12",
+    "ruff>=0.15.15",
     "pre-commit>=4.6.0",
-    "schemathesis>=4.18.1",
+    "schemathesis>=4.21.0",
 ]
 
 [tool.ruff]

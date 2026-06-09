@@ -65,44 +65,6 @@ npx cypress open
 npm run cy:run
 ```
 
-## Release Process
-<details>
-<summary>See steps:</summary>
-
-### Normal release (minor version)
-
-1. Make a new version with bumpversion:
-    ```bash
-    bump-my-version bump release
-    ```
-2. Check that the new version number matches your expectations:
-    ```
-    git show
-    ```
-3. Push the commit to GitHub:
-    ```
-    git push
-    ```
-4. Push the version tag too:
-    ```
-    git push --tags
-    ```
-5. Wait for [GitHub Actions jobs](https://github.com/NatLibFi/BIBRA/actions) to complete. The version tag should trigger a distribution and Docker builds that are uploaded to [PyPI](https://pypi.org/project/BIBRA/) and [Quay.io](https://quay.io/repository/natlibfi/bibra).
-6. In GitHub Releases tab, turn the tag into a release and add release notes.
-7. Close the [milestone](https://github.com/NatLibFi/BIBRA/milestones) corresponding to the release and create a new one for the next release.
-8. Announce the release.
-9. Prepare the main branch for the next development release:
-    ```
-    bump-my-version --no-tag minor
-    ```
-    (this should increment the second part of the version number and add a `-dev` suffix, but not create a new tag).
-10. Check with git log that the new version number matches your expectations.
-    Push the commit to GitHub:
-    ```
-    git push
-    ```
-</details>
-
 ## Use of AI Tools
 
 This project uses AI‑powered development tools, including the [RooCode VSCode extension](https://roocode.com/), to support the development process. AI assistance may be used for tasks such as:

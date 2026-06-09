@@ -29,7 +29,8 @@ RUN uv sync --no-dev --no-install-project
 # Make virtualenv executables available to shell and entrypoint
 ENV PATH="/app/.venv/bin:${PATH}"
 
-# Copy application code.
+# Copy some metadata files and the application code.
+COPY README.md LICENSE ./
 COPY bibra ./bibra
 
 # Install the application package itself (so its version can be determined)

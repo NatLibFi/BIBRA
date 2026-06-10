@@ -18,11 +18,15 @@ A metadata extraction and verification tool that integrates multiple methods for
 - **REST API**: Backend microservice for integration with cataloging tools and data enrichment processes
 
 ## Installation
-
+Install development dependencies:
 ```bash
 uv sync
 ```
-
+Alternatively, install as a global CLI tool (in editable mode) so prefixing CLI commands with `uv run` is not needed:
+```bash
+uv tool install -e .
+```
+Install web UI dependencies:
 ```bash
 npm install
 ```
@@ -35,7 +39,11 @@ uv run pre-commit install
 Skipping the Ruff checks when committing can be done by adding the `--no-verify` option to the `git commit` command.
 
 ## Usage
-
+See the available CLI commands:
+```bash
+uv run bibra
+```
+Start up the server:
 ```bash
 uv run uvicorn bibra.main:app
 ```

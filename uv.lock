@@ -44,8 +44,8 @@ wheels = [
 
 [[package]]
 name = "bibra"
-version = "0.1.0"
-source = { virtual = "." }
+version = "0.1.0.dev0"
+source = { editable = "." }
 dependencies = [
     { name = "click" },
     { name = "fastapi" },

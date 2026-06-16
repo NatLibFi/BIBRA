@@ -1,6 +1,6 @@
 [project]
 name = "bibra"
-version = "0.1.0"
+version = "0.1.0-dev"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -29,6 +29,7 @@ dev = [
     "ruff>=0.15.12",
     "pre-commit>=4.6.0",
     "schemathesis>=4.18.1",
+    "bump-my-version>=1.3.0",
 ]
 
 [build-system]
@@ -47,3 +48,31 @@ extend-select = ["E501"]
 
 [tool.setuptools.packages.find]
 include = ["bibra*"]
+
+[tool.bumpversion]
+current_version = "0.1.0-dev"
+parse = """(?x)
+    (?P<major>0|[1-9]\\d*)\\.
+    (?P<minor>0|[1-9]\\d*)\\.
+    (?P<patch>0|[1-9]\\d*)
+    (?:
+        -                             # dash separator for pre-release section
+        (?P<release>[a-zA-Z-]+)       # pre-release label
+    )?                                # pre-release section is optional
+"""
+serialize = [
+    "{major}.{minor}.{patch}-{release}",
+    "{major}.{minor}.{patch}",
+]
+tag = true
+sign_tags = true
+commit = true
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = "version = \"{current_version}\""
+replace = "version = \"{new_version}\""
+
+[tool.bumpversion.parts.release]
+values = ["dev", "prod"]
+optional_value = "prod"

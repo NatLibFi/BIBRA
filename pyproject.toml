@@ -68,6 +68,11 @@ tag = true
 sign_tags = true
 commit = true
 
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = "version = \"{current_version}\""
+replace = "version = \"{new_version}\""
+
 [tool.bumpversion.parts.release]
 values = ["dev", "prod"]
 optional_value = "prod"

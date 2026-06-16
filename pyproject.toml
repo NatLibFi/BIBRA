@@ -64,8 +64,6 @@ serialize = [
     "{major}.{minor}.{patch}-{release}",
     "{major}.{minor}.{patch}",
 ]
-search = "version = {current_version}"
-replace = "version = {new_version}"
 tag = true
 sign_tags = true
 commit = true

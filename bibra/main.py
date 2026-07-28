@@ -1,13 +1,13 @@
 import logging
 import os
 
-from bibra import __version__
-from bibra.api.v0.routes import router as v0_router
+import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-import uvicorn
 
+from bibra import __version__
+from bibra.api.v0.routes import router as v0_router
 
 logging.basicConfig(level=logging.INFO)
 

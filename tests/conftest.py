@@ -1,6 +1,7 @@
 """Test configuration and fixtures."""
 
 import asyncio
+
 import pytest
 from fastapi.testclient import TestClient
 

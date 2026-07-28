@@ -4,16 +4,14 @@ import asyncio
 import json
 import os
 import tempfile
-from datetime import datetime, timezone
-from typing import List
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from pydantic_ai import UnexpectedModelBehavior
 
-from bibra.backend.greylitlm import GreyLitLMBackend
 from bibra.backend.config import LLMConfig
+from bibra.backend.greylitlm import GreyLitLMBackend
 from bibra.types import PublicationMetadata
 
 TEST_PDF_PATH = os.path.join(
@@ -39,13 +37,13 @@ class MockRequestUsage:
 class MockModelResponse:
     """Mock ModelResponse from pydantic_ai."""
 
-    def __init__(self, parts: List[MockTextPart], **kwargs):
+    def __init__(self, parts: list[MockTextPart], **kwargs):
         self.parts = parts
         self.usage = kwargs.get("usage", MockRequestUsage())
         self.model_name = kwargs.get("model_name", "test-model")
         self.timestamp = kwargs.get(
             "timestamp",
-            datetime(2026, 5, 6, 12, 3, 26, 843532, tzinfo=timezone.utc),
+            datetime(2026, 5, 6, 12, 3, 26, 843532, tzinfo=UTC),
         )
         self.provider_name = kwargs.get("provider_name", "openai")
         self.provider_url = kwargs.get("provider_url", "https://example.com/v1/")

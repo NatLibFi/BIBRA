@@ -3,7 +3,6 @@
 import json
 import logging
 from pathlib import Path
-from typing import List
 
 from openai import AsyncOpenAI
 from pydantic_ai import Agent
@@ -56,7 +55,7 @@ class GreyLitLMBackend:
             output_type=PublicationMetadata,
         )
 
-    async def extract(self, file_paths: List[str]) -> PublicationMetadata:
+    async def extract(self, file_paths: list[str]) -> PublicationMetadata:
         """Extract publication metadata from files.
 
         Args:

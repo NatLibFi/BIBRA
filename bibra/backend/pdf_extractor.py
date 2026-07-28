@@ -128,6 +128,7 @@ def extract_content(file_path: str) -> dict[str, Any]:
             show_progress=False,
             ignore_images=True,
             ignore_graphics=True,
+            use_ocr=False,
         )
 
     # Score all chunks

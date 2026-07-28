@@ -25,11 +25,13 @@ jobs:
         uses: astral-sh/ruff-action@0ce1b0bf8b818ef400413f810f8a11cdbda0034b  # v4.0.0
         with:
           args: "check --diff"
+          version-file: "./uv.lock"
 
       - name: Ruff format check
         uses: astral-sh/ruff-action@0ce1b0bf8b818ef400413f810f8a11cdbda0034b  # v4.0.0
         with:
           args: "format --check --diff"
+          version-file: "./uv.lock"
 
   pytest:
     name: Unit tests on Python ${{ matrix.python-version }}

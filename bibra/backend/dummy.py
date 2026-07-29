@@ -1,4 +1,3 @@
-
 from bibra.types import PublicationMetadata
 
 

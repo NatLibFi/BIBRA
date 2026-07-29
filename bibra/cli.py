@@ -5,6 +5,7 @@ import click
 from bibra.api.v0.routes import PROJECTS
 from bibra.backend.dummy import DummyBackend
 from bibra.backend.greylitlm import GreyLitLMBackend
+from bibra.backend.nuextract import NuExtractBackend
 
 
 def _make_list_template(column_headings: tuple, *rows: tuple) -> str:
@@ -73,6 +74,10 @@ def extract(project_id: str, file_path: str, output: str | None):
     elif project_id == "greylitlm":
         # Use greylitlm backend for real extraction (async)
         backend = GreyLitLMBackend()
+        result = asyncio.run(backend.extract([file_path]))
+    elif project_id == "nuextract":
+        # Use nuextract vision backend (async)
+        backend = NuExtractBackend()
         result = asyncio.run(backend.extract([file_path]))
     else:
         raise click.UsageError(f"Unknown project ID: {project_id}")

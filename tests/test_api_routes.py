@@ -30,8 +30,10 @@ class TestAPIRoutes:
         assert len(result["projects"]) == len(PROJECTS)
         assert result["projects"][0]["id"] == "greylitlm"
         assert result["projects"][0]["name"] == "GreyLitLM Backend"
-        assert result["projects"][1]["id"] == "dummy"
-        assert result["projects"][1]["name"] == "Dummy Backend"
+        assert result["projects"][1]["id"] == "nuextract"
+        assert result["projects"][1]["name"] == "NuExtract Backend"
+        assert result["projects"][2]["id"] == "dummy"
+        assert result["projects"][2]["name"] == "Dummy Backend"
 
     def test_extract_route_exists(self):
         """The router should have a project-specific extract route."""

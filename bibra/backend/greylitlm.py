@@ -42,7 +42,7 @@ class GreyLitLMBackend:
 
         # Create the model with the custom provider
         model = OpenAIChatModel(
-            model_name=self.config.LLM_MODEL,
+            model_name=self.config.GREYLITLM_MODEL,
             provider=provider,
         )
 

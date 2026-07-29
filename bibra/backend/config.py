@@ -21,7 +21,8 @@ class LLMConfig:
 
     LLM_ENDPOINT_URL: str = os.getenv("LLM_ENDPOINT_URL", "http://localhost:8080/v1/")
     LLM_API_KEY: str | None = os.getenv("LLM_API_KEY")
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "greylitlm")
+    NUEXTRACT_MODEL: str = os.getenv("NUEXTRACT_MODEL", "nuextract3")
+    GREYLITLM_MODEL: str = os.getenv("GREYLITLM_MODEL", "greylitlm")
 
     SYSTEM_PROMPT: str = (
         "You are a skilled librarian specialized in meticulous cataloguing of"

@@ -8,6 +8,7 @@ from fastapi import APIRouter, File, UploadFile
 from bibra import __version__
 from bibra.backend.dummy import DummyBackend
 from bibra.backend.greylitlm import GreyLitLMBackend
+from bibra.backend.nuextract import NuExtractBackend
 from bibra.types import PublicationMetadata
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,13 @@ PROJECTS: list[dict[str, Any]] = [
         "id": "greylitlm",
         "name": "GreyLitLM Backend",
         "description": "Testing project using the GreyLitLM backend",
+        "created_at": "2024-01-15T10:00:00Z",
+        "status": "active",
+    },
+    {
+        "id": "nuextract",
+        "name": "NuExtract Backend",
+        "description": "Testing project using the NuExtract vision backend",
         "created_at": "2024-01-15T10:00:00Z",
         "status": "active",
     },
@@ -78,6 +86,9 @@ async def extract(
             # Use dummy backend for testing
             backend = DummyBackend()
             result = backend.extract(temp_files)
+        elif project_id == "nuextract":
+            backend = NuExtractBackend()
+            result = await backend.extract(temp_files)
         else:
             # Use greylitlm backend for real extraction
             backend = GreyLitLMBackend()

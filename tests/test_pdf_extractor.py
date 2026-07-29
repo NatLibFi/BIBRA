@@ -2,6 +2,7 @@
 
 import os
 
+import pymupdf
 import pytest
 
 from bibra.backend.pdf_extractor import (
@@ -257,7 +258,7 @@ class TestExtractContent:
 
     def test_extract_content_nonexistent_file(self):
         """extract_content should raise exception for non-existent file."""
-        with pytest.raises(Exception):  # pymupdf raises its own FileNotFoundError
+        with pytest.raises(pymupdf.FileNotFoundError):
             extract_content("/nonexistent/file.pdf")
 
 

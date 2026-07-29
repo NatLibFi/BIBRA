@@ -1,12 +1,12 @@
 """Tests for CLI commands."""
 
-import json
 import importlib
+import json
 
 import pytest
 from click.testing import CliRunner
 
-from bibra.cli import cli, extract, list_projects, _make_list_template
+from bibra.cli import _make_list_template, cli, extract, list_projects
 
 
 class TestCli:

@@ -17,5 +17,12 @@ class TestVersion:
 
     def test_version_not_unknown_when_package_installed(self):
         """Version should be set when package is properly installed."""
-        # When running in development, version should be set
-        assert bibra.__version__ != "unknown" or True  # May be unknown in dev env
+        from importlib.metadata import PackageNotFoundError, version
+
+        try:
+            version("bibra")
+            # Package is installed, version should not be "unknown"
+            assert bibra.__version__ != "unknown"
+        except PackageNotFoundError:
+            # Development install, version is expected to be "unknown"
+            assert bibra.__version__ == "unknown"

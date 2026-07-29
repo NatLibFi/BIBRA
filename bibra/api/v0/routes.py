@@ -1,13 +1,12 @@
 import logging
-import tempfile
 import os
+import tempfile
+from typing import Annotated, Any
+
+from fastapi import APIRouter, File, UploadFile
+from pydantic import BaseModel
 
 from bibra import __version__
-
-from fastapi import APIRouter, UploadFile, File
-from pydantic import BaseModel
-from typing import List, Dict, Any
-
 from bibra.backend.dummy import DummyBackend
 from bibra.backend.greylitlm import GreyLitLMBackend
 from bibra.types import PublicationMetadata
@@ -20,11 +19,11 @@ router = APIRouter()
 class ExtractRequest(BaseModel):
     """Request model for extract endpoint."""
 
-    files: List[UploadFile]
+    files: list[UploadFile]
 
 
 # Example project data - can be extended as needed
-PROJECTS: List[Dict[str, Any]] = [
+PROJECTS: list[dict[str, Any]] = [
     {
         "id": "greylitlm",
         "name": "GreyLitLM Backend",
@@ -60,7 +59,7 @@ async def list_projects():
 )
 async def extract(
     project_id: str,
-    files: List[UploadFile] = File(...),
+    files: Annotated[list[UploadFile], File(...)],
 ) -> PublicationMetadata:
     """
     Extract publication metadata from PDF or image files for a specific project.
@@ -73,7 +72,7 @@ async def extract(
         PublicationMetadata: Extracted metadata as JSON
     """
     # Save uploaded files to temporary paths for backend processing
-    temp_files: List[str] = []
+    temp_files: list[str] = []
     try:
         for upload_file in files:
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:

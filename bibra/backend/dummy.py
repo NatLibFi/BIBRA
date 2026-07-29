@@ -1,12 +1,10 @@
-from typing import List
-
 from bibra.types import PublicationMetadata
 
 
 class DummyBackend:
     """Dummy backend implementation for testing."""
 
-    def extract(self, files: List) -> PublicationMetadata:
+    def extract(self, files: list) -> PublicationMetadata:
         """Extract publication metadata from files."""
         return PublicationMetadata(
             language="en",

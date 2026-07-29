@@ -4,11 +4,9 @@ This module provides configuration handling using environment variables
 with support for .env files via python-dotenv.
 """
 
-from dotenv import load_dotenv
-
 import os
 
-from typing import Optional
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -22,7 +20,7 @@ class LLMConfig:
     """
 
     LLM_ENDPOINT_URL: str = os.getenv("LLM_ENDPOINT_URL", "http://localhost:8080/v1/")
-    LLM_API_KEY: Optional[str] = os.getenv("LLM_API_KEY")
+    LLM_API_KEY: str | None = os.getenv("LLM_API_KEY")
     LLM_MODEL: str = os.getenv("LLM_MODEL", "greylitlm")
 
     SYSTEM_PROMPT: str = (

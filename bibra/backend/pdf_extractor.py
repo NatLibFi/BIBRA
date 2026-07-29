@@ -116,9 +116,8 @@ def extract_content(file_path: str) -> dict[str, Any]:
 
         # Extract valid pages, remove duplicates, and sort numerically
         all_pages = list(range(len(doc)))
-        pages_to_extract = list(
-            sorted({all_pages[idx] for idx in PAGES if -len(doc) <= idx < len(doc)})
-        )
+        valid_indices = [idx for idx in PAGES if -len(doc) <= idx < len(doc)]
+        pages_to_extract = sorted({all_pages[idx] for idx in valid_indices})
 
         # Extract text from selected pages
         page_texts = pymupdf4llm.to_markdown(

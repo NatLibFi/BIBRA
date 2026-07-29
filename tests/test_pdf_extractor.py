@@ -1,14 +1,15 @@
 """Tests for the PDF extractor module."""
 
-import pytest
-
 import os
 
+import pymupdf
+import pytest
+
 from bibra.backend.pdf_extractor import (
+    PAGES,
+    PDF_METADATA_SKIP,
     TOKEN_BUDGET,
     TOKEN_MODEL,
-    PDF_METADATA_SKIP,
-    PAGES,
     _chunk_score,
     _comma_proportion,
     _count_tokens,
@@ -16,7 +17,6 @@ from bibra.backend.pdf_extractor import (
     _split_text,
     extract_content,
 )
-
 
 FIXTURE_DIR = os.path.join(os.path.dirname(__file__), "..", "cypress", "fixtures")
 SAMPLE_PDF = os.path.join(FIXTURE_DIR, "test-document.pdf")
@@ -258,7 +258,7 @@ class TestExtractContent:
 
     def test_extract_content_nonexistent_file(self):
         """extract_content should raise exception for non-existent file."""
-        with pytest.raises(Exception):  # pymupdf raises its own FileNotFoundError
+        with pytest.raises(pymupdf.FileNotFoundError):
             extract_content("/nonexistent/file.pdf")
 
 

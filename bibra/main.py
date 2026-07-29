@@ -1,13 +1,13 @@
 import logging
 import os
 
+import uvicorn
+from fastapi import FastAPI
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+
 from bibra import __version__
 from bibra.api.v0.routes import router as v0_router
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
-import uvicorn
-
 
 logging.basicConfig(level=logging.INFO)
 
@@ -27,9 +27,7 @@ if os.path.isdir("node_modules"):
 @app.get("/", response_class=HTMLResponse)
 async def root():
     """Return the static index.html page."""
-    with open("bibra/static/index.html") as f:
-        html_content = f.read()
-    return HTMLResponse(content=html_content, status_code=200)
+    return FileResponse("bibra/static/index.html")
 
 
 app.include_router(v0_router, prefix="/v0")

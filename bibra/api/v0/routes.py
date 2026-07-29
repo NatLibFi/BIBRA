@@ -1,7 +1,7 @@
 import logging
 import os
 import tempfile
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, File, UploadFile
 from pydantic import BaseModel
@@ -59,7 +59,7 @@ async def list_projects():
 )
 async def extract(
     project_id: str,
-    files: list[UploadFile] = File(...),
+    files: Annotated[list[UploadFile], File(...)],
 ) -> PublicationMetadata:
     """
     Extract publication metadata from PDF or image files for a specific project.

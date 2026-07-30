@@ -63,6 +63,10 @@ NUEXTRACT_TEMPLATE = {
 }
 
 
+# Pages to render: first six pages + last two pages
+PAGES = [0, 1, 2, 3, 4, 5, -2, -1]
+
+
 def _pdf_pages_to_binary_content(pdf_path: str, dpi: int = 170) -> list[BinaryContent]:
     """Render each page of a PDF as a BinaryContent for pydantic_ai.
 
@@ -76,7 +80,12 @@ def _pdf_pages_to_binary_content(pdf_path: str, dpi: int = 170) -> list[BinaryCo
     contents: list[BinaryContent] = []
 
     with pymupdf.open(pdf_path) as doc:
-        for page in doc:
+        all_pages = list(range(len(doc)))
+        valid_indices = [idx for idx in PAGES if -len(doc) <= idx < len(doc)]
+        pages_to_render = sorted({all_pages[idx] for idx in valid_indices})
+
+        for idx in pages_to_render:
+            page = doc[idx]
             pix = page.get_pixmap(dpi=dpi, alpha=False)
             png_bytes = pix.tobytes("png")
             contents.append(BinaryContent(data=png_bytes, media_type="image/png"))

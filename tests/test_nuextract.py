@@ -276,6 +276,10 @@ class TestPdfPagesToBinaryContent:
             mock_doc.__enter__ = MagicMock(return_value=mock_doc)
             mock_doc.__exit__ = MagicMock(return_value=None)
             mock_doc.__iter__ = MagicMock(return_value=iter([mock_page]))
+            mock_doc.__len__ = MagicMock(return_value=1)
+            mock_doc.__getitem__ = MagicMock(
+                side_effect=lambda idx: mock_page if idx in (0, -1) else None
+            )
             mock_open.return_value = mock_doc
 
             contents = _pdf_pages_to_binary_content("/fake/path.pdf")
@@ -293,7 +297,7 @@ class TestPdfPagesToBinaryContent:
             mock_doc = MagicMock()
             mock_doc.__enter__ = MagicMock(return_value=mock_doc)
             mock_doc.__exit__ = MagicMock(return_value=None)
-            mock_doc.__iter__ = MagicMock(return_value=iter([]))
+            mock_doc.__len__ = MagicMock(return_value=0)
             mock_open.return_value = mock_doc
 
             contents = _pdf_pages_to_binary_content("/fake/path.pdf")
@@ -313,6 +317,10 @@ class TestPdfPagesToBinaryContent:
             mock_doc.__enter__ = MagicMock(return_value=mock_doc)
             mock_doc.__exit__ = MagicMock(return_value=None)
             mock_doc.__iter__ = MagicMock(return_value=iter([mock_page]))
+            mock_doc.__len__ = MagicMock(return_value=1)
+            mock_doc.__getitem__ = MagicMock(
+                side_effect=lambda idx: mock_page if idx in (0, -1) else None
+            )
             mock_open.return_value = mock_doc
 
             _pdf_pages_to_binary_content("/fake/path.pdf", dpi=300)

@@ -41,6 +41,8 @@ class LLMConfig:
     )
     INSTRUCTION: str = "Extract metadata from this document. Return as JSON.\n\n{}"
 
+    NUEXTRACT_INSTRUCTIONS: str = os.getenv("NUEXTRACT_INSTRUCTIONS", "")
+
 
 def get_llm_config() -> LLMConfig:
     """Get the LLM configuration.

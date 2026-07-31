@@ -259,6 +259,58 @@ class TestNuExtractBackend:
         assert result.p_issn == "8765-4321"
         assert result.type_coar == "journal article"
 
+    def test_extract_with_instructions_passes_instructions(self):
+        """Backend should pass instructions when NUEXTRACT_INSTRUCTIONS is set."""
+        from unittest.mock import patch
+
+        metadata = {"language": "en", "title": "Test Title"}
+        json_string = json.dumps(metadata)
+        mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
+        expected = PublicationMetadata(**metadata)
+        mock_run_result = MockRunResult(response=mock_response, output=expected)
+
+        mock_agent = MagicMock()
+        mock_run = MagicMock(return_value=async_mock(mock_run_result))
+        mock_agent.run = mock_run
+
+        backend = create_backend_with_mock_agent(mock_agent)
+
+        instructions = "Custom instructions"
+        with patch.object(backend.config, "NUEXTRACT_INSTRUCTIONS", instructions):
+            run_async(backend.extract, [TEST_PDF_PATH])
+
+        # Verify that run was called with instructions in chat_template_kwargs
+        call_kwargs = mock_run.call_args[1]
+        extra_body = call_kwargs["model_settings"]["extra_body"]
+        chat_template = extra_body["chat_template_kwargs"]
+        assert "instructions" in chat_template
+        assert chat_template["instructions"] == "Custom instructions"
+
+    def test_extract_without_instructions_omits_instructions(self):
+        """Backend should not pass instructions when NUEXTRACT_INSTRUCTIONS is empty."""
+        from unittest.mock import patch
+
+        metadata = {"language": "en", "title": "Test Title"}
+        json_string = json.dumps(metadata)
+        mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
+        expected = PublicationMetadata(**metadata)
+        mock_run_result = MockRunResult(response=mock_response, output=expected)
+
+        mock_agent = MagicMock()
+        mock_run = MagicMock(return_value=async_mock(mock_run_result))
+        mock_agent.run = mock_run
+
+        backend = create_backend_with_mock_agent(mock_agent)
+
+        with patch.object(backend.config, "NUEXTRACT_INSTRUCTIONS", ""):
+            run_async(backend.extract, [TEST_PDF_PATH])
+
+        # Verify that run was called without instructions in chat_template_kwargs
+        call_kwargs = mock_run.call_args[1]
+        extra_body = call_kwargs["model_settings"]["extra_body"]
+        chat_template = extra_body["chat_template_kwargs"]
+        assert "instructions" not in chat_template
+
 
 class TestPdfPagesToBinaryContent:
     """Tests for the _pdf_pages_to_binary_content helper function."""

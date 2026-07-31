@@ -153,7 +153,13 @@ class NuExtractBackend:
             logger.warning("No pages extracted from PDF: %s", pdf_path)
             return PublicationMetadata()
 
-        # Build user message with text + images
+        chat_template_kwargs: dict = {
+            "template": json.dumps(NUEXTRACT_TEMPLATE, indent=4),
+            "enable_thinking": self.config.NUEXTRACT_THINKING,
+        }
+        if self.config.NUEXTRACT_INSTRUCTIONS:
+            chat_template_kwargs["instructions"] = self.config.NUEXTRACT_INSTRUCTIONS
+
         user_message = [
             "Extract metadata from this document. Return as JSON.",
             *image_contents,
@@ -164,10 +170,7 @@ class NuExtractBackend:
                 user_message,
                 model_settings={
                     "extra_body": {
-                        "chat_template_kwargs": {
-                            "template": json.dumps(NUEXTRACT_TEMPLATE, indent=4),
-                            "enable_thinking": self.config.NUEXTRACT_THINKING,
-                        }
+                        "chat_template_kwargs": chat_template_kwargs,
                     }
                 },
             )

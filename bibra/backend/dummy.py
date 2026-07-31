@@ -1,10 +1,13 @@
+"""Dummy backend for testing."""
+
+from bibra.backend.base import BaseBackend
 from bibra.types import PublicationMetadata
 
 
-class DummyBackend:
+class DummyBackend(BaseBackend):
     """Dummy backend implementation for testing."""
 
-    def extract(self, files: list) -> PublicationMetadata:
+    async def extract(self, files: list) -> PublicationMetadata:
         """Extract publication metadata from files."""
         return PublicationMetadata(
             language="en",

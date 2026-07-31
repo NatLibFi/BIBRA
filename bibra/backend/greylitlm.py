@@ -1,3 +1,5 @@
+from bibra.backend.base import BaseBackend
+
 """Backend for metadata extraction from grey literature using fine-tuned LLMs."""
 
 import json
@@ -16,7 +18,7 @@ from bibra.types import PublicationMetadata
 logger = logging.getLogger(__name__)
 
 
-class GreyLitLMBackend:
+class GreyLitLMBackend(BaseBackend):
     """Backend for metadata extraction using GreyLitLM (fine-tuned LLM)."""
 
     def __init__(

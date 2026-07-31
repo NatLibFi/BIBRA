@@ -1,45 +1,21 @@
+"""API routes for BIBRA."""
+
 import logging
 import os
 import tempfile
 from typing import Annotated, Any
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File, HTTPException, UploadFile
+from pydantic import BaseModel
 
 from bibra import __version__
-from bibra.backend.dummy import DummyBackend
-from bibra.backend.greylitlm import GreyLitLMBackend
-from bibra.backend.nuextract import NuExtractBackend
+from bibra.config import ProjectRegistry
 from bibra.types import PublicationMetadata
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-# Example project data - can be extended as needed
-PROJECTS: list[dict[str, Any]] = [
-    {
-        "id": "greylitlm",
-        "name": "GreyLitLM Backend",
-        "description": "Testing project using the GreyLitLM backend",
-        "created_at": "2024-01-15T10:00:00Z",
-        "status": "active",
-    },
-    {
-        "id": "nuextract",
-        "name": "NuExtract Backend",
-        "description": "Testing project using the NuExtract vision backend",
-        "created_at": "2024-01-15T10:00:00Z",
-        "status": "active",
-    },
-    {
-        "id": "dummy",
-        "name": "Dummy Backend",
-        "description": "Testing project using the dummy backend",
-        "created_at": "2024-01-15T10:00:00Z",
-        "status": "active",
-    },
-]
+registry = ProjectRegistry()
 
 
 @router.get("/")
@@ -50,8 +26,14 @@ async def root():
 
 @router.get("/projects")
 async def list_projects():
-    """Return a list of available projects."""
-    return {"projects": PROJECTS}
+    """Return a list of configured projects."""
+    return {"projects": registry.list_projects()}
+
+
+class ExtractRequest(BaseModel):
+    """Request model for extract endpoint."""
+
+    files: list[UploadFile]
 
 
 @router.post(
@@ -72,7 +54,6 @@ async def extract(
     Returns:
         PublicationMetadata: Extracted metadata as JSON
     """
-    # Save uploaded files to temporary paths for backend processing
     temp_files: list[str] = []
     try:
         for upload_file in files:
@@ -81,18 +62,14 @@ async def extract(
                 while chunk := await upload_file.read(1024 * 1024):
                     tmp.write(chunk)
 
-        # Choose backend based on project_id
-        if project_id == "dummy":
-            # Use dummy backend for testing
-            backend = DummyBackend()
-            result = backend.extract(temp_files)
-        elif project_id == "nuextract":
-            backend = NuExtractBackend()
-            result = await backend.extract(temp_files)
-        else:
-            # Use greylitlm backend for real extraction
-            backend = GreyLitLMBackend()
-            result = await backend.extract(temp_files)
+        # Get backend for the project
+        try:
+            backend = registry.get_backend(project_id)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+        # Extract metadata using the backend
+        result = await backend.extract(temp_files)
         return result
     finally:
         # Clean up all temporary files

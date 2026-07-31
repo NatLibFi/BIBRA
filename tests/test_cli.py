@@ -52,7 +52,7 @@ class TestListProjects:
         result = self.runner.invoke(list_projects, ["--help"])
         assert result.exit_code == 0
         assert not result.exception
-        assert "List available projects" in result.output
+        assert "List configured projects" in result.output
 
     def test_list_projects(self):
         """Test list-projects command output."""
@@ -62,13 +62,13 @@ class TestListProjects:
         assert "Project ID" in result.output
         assert "Project Name" in result.output
         assert "Description" in result.output
-        assert "Created At" in result.output
 
     def test_list_projects_shows_projects(self):
         """Test that list-projects displays project entries."""
         result = self.runner.invoke(list_projects)
         assert result.exit_code == 0
-        # Check that project data is displayed (PROJECTS contains at least one entry)
+        # Check that project data is displayed (projects.toml contains at least
+        # dummy, greylitlm, nuextract)
         assert "dummy" in result.output
         assert "greylitlm" in result.output
 
@@ -183,8 +183,8 @@ class TestExtract:
         result = self.runner.invoke(
             extract, ["dummy", str(test_file1), str(test_file2)]
         )
-        assert result.exit_code != 0
-        assert result.exception
+        # Dummy backend accepts any number of files
+        assert result.exit_code == 0
 
     def test_extract_with_nonexistent_project(self, tmp_path):
         """Test extract command with a nonexistent project ID."""

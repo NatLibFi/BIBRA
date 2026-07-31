@@ -1,3 +1,5 @@
+from bibra.backend.base import BaseBackend
+
 """Backend for metadata extraction using nuextract3 vision model."""
 
 import json
@@ -98,7 +100,7 @@ def _pdf_pages_to_binary_content(pdf_path: str, dpi: int = 170) -> list[BinaryCo
     return contents
 
 
-class NuExtractBackend:
+class NuExtractBackend(BaseBackend):
     """Backend for metadata extraction using nuextract3 vision model."""
 
     def __init__(

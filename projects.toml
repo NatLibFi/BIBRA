@@ -1,0 +1,13 @@
+[greylitlm]
+name = "GreyLitLM Backend"
+backend = "greylitlm"
+model = "greylitlm"
+
+[nuextract]
+name = "NuExtract Backend"
+backend = "nuextract"
+model = "nuextract3"
+
+[dummy]
+name = "Dummy Backend"
+backend = "dummy"

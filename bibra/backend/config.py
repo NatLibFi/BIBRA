@@ -11,6 +11,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def _parse_bool(value: str | None, default: bool) -> bool:
+    """Parse a boolean from an env var string (1/0/true/false, case insensitive)."""
+    if value is None:
+        return default
+    return value.strip().lower() in ("1", "true")
+
+
 class LLMConfig:
     """Configuration for LLM endpoint.
 
@@ -23,6 +30,10 @@ class LLMConfig:
     LLM_API_KEY: str | None = os.getenv("LLM_API_KEY")
     NUEXTRACT_MODEL: str = os.getenv("NUEXTRACT_MODEL", "nuextract3")
     GREYLITLM_MODEL: str = os.getenv("GREYLITLM_MODEL", "greylitlm")
+
+    NUEXTRACT_THINKING: bool = _parse_bool(
+        os.getenv("NUEXTRACT_THINKING"), default=False
+    )
 
     SYSTEM_PROMPT: str = (
         "You are a skilled librarian specialized in meticulous cataloguing of"

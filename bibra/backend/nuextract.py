@@ -166,7 +166,7 @@ class NuExtractBackend:
                     "extra_body": {
                         "chat_template_kwargs": {
                             "template": json.dumps(NUEXTRACT_TEMPLATE, indent=4),
-                            "enable_thinking": False,
+                            "enable_thinking": self.config.NUEXTRACT_THINKING,
                         }
                     }
                 },

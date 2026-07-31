@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 from pydantic_ai import UnexpectedModelBehavior
 
-from bibra.backend.config import LLMConfig
+from bibra.backend.config import GlobalLLMConfig, NuExtractConfig
 from bibra.backend.nuextract import NuExtractBackend
 from bibra.types import PublicationMetadata
 
@@ -82,7 +82,8 @@ def run_async(coro, *args, **kwargs):
 def create_backend_with_mock_agent(mock_agent):
     """Create a NuExtractBackend instance with a pre-configured mock agent."""
     backend = NuExtractBackend.__new__(NuExtractBackend)
-    backend.config = LLMConfig()
+    backend.global_cfg = GlobalLLMConfig()
+    backend.nuextract_cfg = NuExtractConfig()
     backend.agent = mock_agent
     return backend
 
@@ -93,7 +94,8 @@ class TestNuExtractBackend:
     def test_init_with_default_config(self):
         """Backend should initialize with default LLMConfig."""
         backend = NuExtractBackend()
-        assert backend.config is not None
+        assert backend.global_cfg is not None
+        assert backend.nuextract_cfg is not None
         assert backend.agent is not None
 
     def test_extract_returns_parsed_metadata(self):
@@ -261,7 +263,6 @@ class TestNuExtractBackend:
 
     def test_extract_with_instructions_passes_instructions(self):
         """Backend should pass instructions when NUEXTRACT_INSTRUCTIONS is set."""
-        from unittest.mock import patch
 
         metadata = {"language": "en", "title": "Test Title"}
         json_string = json.dumps(metadata)
@@ -275,9 +276,9 @@ class TestNuExtractBackend:
 
         backend = create_backend_with_mock_agent(mock_agent)
 
-        instructions = "Custom instructions"
-        with patch.object(backend.config, "NUEXTRACT_INSTRUCTIONS", instructions):
-            run_async(backend.extract, [TEST_PDF_PATH])
+        backend.nuextract_cfg = NuExtractConfig(instructions="Custom instructions")
+
+        run_async(backend.extract, [TEST_PDF_PATH])
 
         # Verify that run was called with instructions in chat_template_kwargs
         call_kwargs = mock_run.call_args[1]
@@ -288,7 +289,6 @@ class TestNuExtractBackend:
 
     def test_extract_without_instructions_omits_instructions(self):
         """Backend should not pass instructions when NUEXTRACT_INSTRUCTIONS is empty."""
-        from unittest.mock import patch
 
         metadata = {"language": "en", "title": "Test Title"}
         json_string = json.dumps(metadata)
@@ -302,8 +302,10 @@ class TestNuExtractBackend:
 
         backend = create_backend_with_mock_agent(mock_agent)
 
-        with patch.object(backend.config, "NUEXTRACT_INSTRUCTIONS", ""):
-            run_async(backend.extract, [TEST_PDF_PATH])
+        # Instructions are handled via config, no need to patch
+        backend.nuextract_cfg = NuExtractConfig(instructions="")
+
+        run_async(backend.extract, [TEST_PDF_PATH])
 
         # Verify that run was called without instructions in chat_template_kwargs
         call_kwargs = mock_run.call_args[1]

@@ -9,7 +9,7 @@ from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from bibra.backend.config import LLMConfig
+from bibra.backend.config import GlobalLLMConfig, GreyLitLMConfig
 from bibra.backend.pdf_extractor import extract_content
 from bibra.types import PublicationMetadata
 
@@ -19,21 +19,27 @@ logger = logging.getLogger(__name__)
 class GreyLitLMBackend:
     """Backend for metadata extraction using GreyLitLM (fine-tuned LLM)."""
 
-    def __init__(self, config: LLMConfig | None = None):
+    def __init__(
+        self,
+        global_cfg: GlobalLLMConfig | None = None,
+        greylitlm_cfg: GreyLitLMConfig | None = None,
+    ):
         """Initialize the GreyLitLM backend.
 
         Args:
-            config: LLM configuration. If None, uses default LLMConfig.
+            global_cfg: Global LLM configuration. If None, uses defaults.
+            greylitlm_cfg: GreylitLM-specific configuration. If None, uses defaults.
         """
-        self.config = config or LLMConfig()
+        self.global_cfg = global_cfg or GlobalLLMConfig()
+        self.greylitlm_cfg = greylitlm_cfg or GreyLitLMConfig()
 
         # The OpenAI client requires an api_key even for custom endpoints
         # Use a dummy value if no API key is configured
-        api_key = self.config.LLM_API_KEY or "dummy-api-key"
+        api_key = self.global_cfg.api_key or "dummy-api-key"
 
         # Create a custom OpenAI client with the configured base URL
         openai_client = AsyncOpenAI(
-            base_url=self.config.LLM_ENDPOINT_URL,
+            base_url=self.global_cfg.endpoint_url,
             api_key=api_key,
         )
 
@@ -42,7 +48,7 @@ class GreyLitLMBackend:
 
         # Create the model with the custom provider
         model = OpenAIChatModel(
-            model_name=self.config.GREYLITLM_MODEL,
+            model_name=self.greylitlm_cfg.model,
             provider=provider,
         )
 
@@ -51,7 +57,7 @@ class GreyLitLMBackend:
         # response into the model, handling aliases via populate_by_name=True.
         self.agent = Agent(
             model,
-            instructions=self.config.SYSTEM_PROMPT,
+            instructions=self.greylitlm_cfg.system_prompt,
             output_type=PublicationMetadata,
         )
 
@@ -73,16 +79,18 @@ class GreyLitLMBackend:
 
         if pdf_path is None:
             logger.warning("No PDF file found in uploaded files")
-            prompt_text = self.config.INSTRUCTION.format("No PDF content available.")
+            prompt_text = self.greylitlm_cfg.instructions.format(
+                "No PDF content available."
+            )
         else:
             try:
                 content = extract_content(pdf_path)
-                prompt_text = self.config.INSTRUCTION.format(
+                prompt_text = self.greylitlm_cfg.instructions.format(
                     json.dumps(content, ensure_ascii=False, indent=2)
                 )
             except Exception:
                 logger.exception("Failed to extract PDF content: %s", pdf_path)
-                prompt_text = self.config.INSTRUCTION.format(
+                prompt_text = self.greylitlm_cfg.instructions.format(
                     "Failed to extract PDF content."
                 )
 

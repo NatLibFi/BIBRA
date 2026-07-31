@@ -10,7 +10,7 @@ from pydantic_ai import Agent, BinaryContent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from bibra.backend.config import LLMConfig
+from bibra.backend.config import GlobalLLMConfig, NuExtractConfig
 from bibra.types import PublicationMetadata
 
 logger = logging.getLogger(__name__)
@@ -96,25 +96,31 @@ def _pdf_pages_to_binary_content(pdf_path: str, dpi: int = 170) -> list[BinaryCo
 class NuExtractBackend:
     """Backend for metadata extraction using nuextract3 vision model."""
 
-    def __init__(self, config: LLMConfig | None = None):
+    def __init__(
+        self,
+        global_cfg: GlobalLLMConfig | None = None,
+        nuextract_cfg: NuExtractConfig | None = None,
+    ):
         """Initialize the NuExtract backend.
 
         Args:
-            config: LLM configuration. If None, uses default LLMConfig.
+            global_cfg: Global LLM configuration. If None, uses defaults.
+            nuextract_cfg: NuExtract-specific configuration. If None, uses defaults.
         """
-        self.config = config or LLMConfig()
+        self.global_cfg = global_cfg or GlobalLLMConfig()
+        self.nuextract_cfg = nuextract_cfg or NuExtractConfig()
 
-        api_key = self.config.LLM_API_KEY or "dummy-api-key"
+        api_key = self.global_cfg.api_key or "dummy-api-key"
 
         openai_client = AsyncOpenAI(
-            base_url=self.config.LLM_ENDPOINT_URL,
+            base_url=self.global_cfg.endpoint_url,
             api_key=api_key,
         )
 
         provider = OpenAIProvider(openai_client=openai_client)
 
         model = OpenAIChatModel(
-            model_name=self.config.NUEXTRACT_MODEL,
+            model_name=self.nuextract_cfg.model,
             provider=provider,
         )
 
@@ -155,10 +161,10 @@ class NuExtractBackend:
 
         chat_template_kwargs: dict = {
             "template": json.dumps(NUEXTRACT_TEMPLATE, indent=4),
-            "enable_thinking": self.config.NUEXTRACT_THINKING,
+            "enable_thinking": self.nuextract_cfg.thinking,
         }
-        if self.config.NUEXTRACT_INSTRUCTIONS:
-            chat_template_kwargs["instructions"] = self.config.NUEXTRACT_INSTRUCTIONS
+        if self.nuextract_cfg.instructions:
+            chat_template_kwargs["instructions"] = self.nuextract_cfg.instructions
 
         user_message = [
             "Extract metadata from this document. Return as JSON.",

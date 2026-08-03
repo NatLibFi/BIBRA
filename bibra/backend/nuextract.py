@@ -80,15 +80,19 @@ def _pdf_pages_to_binary_content(pdf_path: str, dpi: int = 170) -> list[BinaryCo
     contents: list[BinaryContent] = []
 
     with pymupdf.open(pdf_path) as doc:
-        all_pages = list(range(len(doc)))
-        valid_indices = [idx for idx in PAGES if -len(doc) <= idx < len(doc)]
-        pages_to_render = sorted({all_pages[idx] for idx in valid_indices})
+        valid_indices = sorted(
+            {
+                idx if idx >= 0 else len(doc) + idx
+                for idx in PAGES
+                if -len(doc) <= idx < len(doc)
+            }
+        )
 
-        for idx in pages_to_render:
-            page = doc[idx]
-            pix = page.get_pixmap(dpi=dpi, alpha=False)
-            png_bytes = pix.tobytes("png")
-            contents.append(BinaryContent(data=png_bytes, media_type="image/png"))
+        for page_idx in valid_indices:
+            pix = doc[page_idx].get_pixmap(dpi=dpi, alpha=False)
+            contents.append(
+                BinaryContent(data=pix.tobytes("png"), media_type="image/png")
+            )
 
     return contents
 

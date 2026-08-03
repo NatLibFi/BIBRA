@@ -21,17 +21,23 @@ def _parse_bool(value: str | None, default: bool) -> bool:
 def _parse_int(value: str | None, default: int) -> int:
     """Parse an integer from an env var string, falling back to default on failure.
 
+    Non-positive values are also treated as invalid and fall back to the default.
+
     Args:
         value: The string value to parse.
         default: The default value to return on failure.
 
     Returns:
-        The parsed integer, or the default if parsing fails.
+        The parsed integer, or the default if parsing fails or the value is
+        non-positive.
     """
     if value is None:
         return default
     try:
-        return int(value.strip())
+        result = int(value.strip())
+        if result <= 0:
+            return default
+        return result
     except (ValueError, TypeError):
         return default
 

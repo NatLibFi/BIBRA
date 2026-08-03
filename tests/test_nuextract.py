@@ -356,10 +356,16 @@ class TestNuExtractConfigEmptyStrings:
         assert cfg.dpi == 170
 
     def test_dpi_negative_value(self, monkeypatch):
-        """Config should handle negative DPI values by returning the parsed int."""
+        """Config should fall back to default DPI when NUEXTRACT_DPI is negative."""
         monkeypatch.setenv("NUEXTRACT_DPI", "-100")
         cfg = NuExtractConfig()
-        assert cfg.dpi == -100
+        assert cfg.dpi == 170
+
+    def test_dpi_zero_value(self, monkeypatch):
+        """Config should fall back to default DPI when NUEXTRACT_DPI is zero."""
+        monkeypatch.setenv("NUEXTRACT_DPI", "0")
+        cfg = NuExtractConfig()
+        assert cfg.dpi == 170
 
 
 class TestPdfPagesToBinaryContent:

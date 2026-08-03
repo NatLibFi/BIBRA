@@ -83,7 +83,7 @@ class TestNuExtractBackend:
     """Tests for the NuExtractBackend class."""
 
     def test_init_with_default_config(self):
-        """Backend should initialize with default LLMConfig."""
+        """Backend should init with default GlobalLLMConfig and NuExtractConfig."""
         backend = NuExtractBackend()
         assert backend.global_cfg is not None
         assert backend.nuextract_cfg is not None

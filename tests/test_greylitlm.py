@@ -93,7 +93,7 @@ class TestGreyLitLMBackend:
     """Tests for the GreyLitLMBackend class."""
 
     def test_init_with_default_config(self):
-        """Backend should initialize with default LLMConfig."""
+        """Backend should init with default GlobalLLMConfig and GreyLitLMConfig."""
         backend = GreyLitLMBackend()
         assert backend.global_cfg is not None
         assert backend.greylitlm_cfg is not None

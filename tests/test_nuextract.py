@@ -194,14 +194,8 @@ class TestNuExtractBackend:
 
     def test_extract_handles_pdf_conversion_failure(self):
         """Backend should handle errors when PDF conversion fails."""
-        metadata = {"language": "en", "title": "Fallback Title"}
-        json_string = json.dumps(metadata)
-        mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
-        expected = PublicationMetadata(**metadata)
-        mock_run_result = MockRunResult(response=mock_response, output=expected)
-
         mock_agent = MagicMock()
-        mock_agent.run = AsyncMock(return_value=mock_run_result)
+        mock_agent.run = AsyncMock()
 
         backend = create_backend_with_mock_agent(mock_agent)
 
@@ -209,6 +203,8 @@ class TestNuExtractBackend:
 
         # Should return empty metadata on failure
         assert result is not None
+        assert result.title is None
+        mock_agent.run.assert_not_called()
 
     def test_extract_preserves_all_fields(self):
         """Backend should correctly handle all optional metadata fields."""

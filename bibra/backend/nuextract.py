@@ -68,7 +68,8 @@ PAGES = [0, 1, 2, 3, 4, 5, -2, -1]
 
 
 def _pdf_pages_to_binary_content(pdf_path: str, dpi: int = 170) -> list[BinaryContent]:
-    """Render each page of a PDF as a BinaryContent for pydantic_ai.
+    """Render a subset of pages from a PDF (first 6 + last 2) as BinaryContent
+    for pydantic_ai.
 
     Args:
         pdf_path: Path to the PDF file.

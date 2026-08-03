@@ -85,6 +85,7 @@ def create_backend_with_mock_agent(mock_agent):
     backend = GreyLitLMBackend.__new__(GreyLitLMBackend)
     backend.global_cfg = GlobalLLMConfig()
     backend.greylitlm_cfg = GreyLitLMConfig()
+    backend._instructions = backend.greylitlm_cfg.instructions + "\n\n{}"
     backend.agent = mock_agent
     return backend
 
@@ -441,6 +442,42 @@ class TestGreyLitLMConfigEnvVars:
         monkeypatch.delenv("GREYLITLM_INSTRUCTIONS", raising=False)
         cfg = GreyLitLMConfig()
         assert (
-            cfg.instructions
-            == "Extract metadata from this document." + " Return as JSON.\n\n{}"
+            cfg.instructions == "Extract metadata from this document. Return as JSON."
         )
+
+
+class TestGreyLitLMConfigEmptyStrings:
+    """Tests for empty-string override behavior with is None checks."""
+
+    def test_system_prompt_empty_string_override(self, monkeypatch):
+        """Config should accept empty string when explicitly provided."""
+        monkeypatch.delenv("GREYLITLM_SYSTEM_PROMPT", raising=False)
+        cfg = GreyLitLMConfig(system_prompt="")
+        assert cfg.system_prompt == ""
+
+    def test_instructions_empty_string_override(self, monkeypatch):
+        """Config accepts empty string for instructions when provided."""
+        monkeypatch.delenv("GREYLITLM_INSTRUCTIONS", raising=False)
+        cfg = GreyLitLMConfig(instructions="")
+        assert cfg.instructions == ""
+
+    def test_model_empty_string_override(self, monkeypatch):
+        """Config should accept empty string for model when explicitly provided."""
+        cfg = GreyLitLMConfig(model="")
+        assert cfg.model == ""
+
+
+class TestGlobalLLMConfigEmptyStrings:
+    """Tests for empty-string override behavior with GlobalLLMConfig."""
+
+    def test_endpoint_url_empty_string(self, monkeypatch):
+        """Config should accept empty string for endpoint_url."""
+        monkeypatch.delenv("LLM_ENDPOINT_URL", raising=False)
+        cfg = GlobalLLMConfig(endpoint_url="")
+        assert cfg.endpoint_url == ""
+
+    def test_api_key_empty_string(self, monkeypatch):
+        """Config should accept empty string for api_key."""
+        monkeypatch.delenv("LLM_API_KEY", raising=False)
+        cfg = GlobalLLMConfig(api_key="")
+        assert cfg.api_key == ""

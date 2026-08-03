@@ -38,10 +38,12 @@ class GlobalLLMConfig:
                 http://localhost:8080/v1/.
             api_key: API key for authentication. Defaults to env var value.
         """
-        self.endpoint_url = endpoint_url or os.getenv(
-            "LLM_ENDPOINT_URL", "http://localhost:8080/v1/"
+        self.endpoint_url = (
+            endpoint_url
+            if endpoint_url is not None
+            else os.getenv("LLM_ENDPOINT_URL", "http://localhost:8080/v1/")
         )
-        self.api_key = api_key or os.getenv("LLM_API_KEY")
+        self.api_key = api_key if api_key is not None else os.getenv("LLM_API_KEY")
 
 
 class GreyLitLMConfig:
@@ -66,15 +68,25 @@ class GreyLitLMConfig:
             system_prompt: System prompt. Defaults to env var or built-in default.
             instructions: Instruction template. Defaults to env var or built-in default.
         """
-        self.model = model or os.getenv("GREYLITLM_MODEL", "greylitlm")
-        self.system_prompt = system_prompt or os.getenv(
-            "GREYLITLM_SYSTEM_PROMPT",
-            "You are a skilled librarian specialized in meticulous cataloguing of"
-            " digital documents.",
+        self.model = (
+            model if model is not None else os.getenv("GREYLITLM_MODEL", "greylitlm")
         )
-        self.instructions = instructions or os.getenv(
-            "GREYLITLM_INSTRUCTIONS",
-            "Extract metadata from this document. Return as JSON.\n\n{}",
+        self.system_prompt = (
+            system_prompt
+            if system_prompt is not None
+            else os.getenv(
+                "GREYLITLM_SYSTEM_PROMPT",
+                "You are a skilled librarian specialized in meticulous cataloguing of"
+                " digital documents.",
+            )
+        )
+        self.instructions = (
+            instructions
+            if instructions is not None
+            else os.getenv(
+                "GREYLITLM_INSTRUCTIONS",
+                "Extract metadata from this document. Return as JSON.",
+            )
         )
 
 
@@ -100,12 +112,18 @@ class NuExtractConfig:
             thinking: Enable thinking mode. Defaults to env var or False.
             instructions: Custom instructions. Defaults to env var value.
         """
-        self.model = model or os.getenv("NUEXTRACT_MODEL", "nuextract3")
+        self.model = (
+            model if model is not None else os.getenv("NUEXTRACT_MODEL", "nuextract3")
+        )
         self.thinking = _parse_bool(
             os.getenv("NUEXTRACT_THINKING") if thinking is None else str(thinking),
             default=False,
         )
-        self.instructions = instructions or os.getenv("NUEXTRACT_INSTRUCTIONS", "")
+        self.instructions = (
+            instructions
+            if instructions is not None
+            else os.getenv("NUEXTRACT_INSTRUCTIONS", "")
+        )
 
 
 def get_global_llm_config() -> GlobalLLMConfig:

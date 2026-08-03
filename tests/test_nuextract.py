@@ -303,6 +303,22 @@ class TestNuExtractBackend:
         assert "instructions" not in chat_template
 
 
+class TestNuExtractConfigEmptyStrings:
+    """Tests for empty-string override behavior with NuExtractConfig."""
+
+    def test_model_empty_string_override(self, monkeypatch):
+        """Config should accept empty string for model when explicitly provided."""
+        monkeypatch.delenv("NUEXTRACT_MODEL", raising=False)
+        cfg = NuExtractConfig(model="")
+        assert cfg.model == ""
+
+    def test_instructions_empty_string_override(self, monkeypatch):
+        """Config should accept empty string for instructions."""
+        monkeypatch.delenv("NUEXTRACT_INSTRUCTIONS", raising=False)
+        cfg = NuExtractConfig(instructions="")
+        assert cfg.instructions == ""
+
+
 class TestPdfPagesToBinaryContent:
     """Tests for the _pdf_pages_to_binary_content helper function."""
 

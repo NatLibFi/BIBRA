@@ -32,6 +32,7 @@ class GreyLitLMBackend:
         """
         self.global_cfg = global_cfg or GlobalLLMConfig()
         self.greylitlm_cfg = greylitlm_cfg or GreyLitLMConfig()
+        self._instructions = self.greylitlm_cfg.instructions + "\n\n{}"
 
         # The OpenAI client requires an api_key even for custom endpoints
         # Use a dummy value if no API key is configured
@@ -79,18 +80,16 @@ class GreyLitLMBackend:
 
         if pdf_path is None:
             logger.warning("No PDF file found in uploaded files")
-            prompt_text = self.greylitlm_cfg.instructions.format(
-                "No PDF content available."
-            )
+            prompt_text = self._instructions.format("No PDF content available.")
         else:
             try:
                 content = extract_content(pdf_path)
-                prompt_text = self.greylitlm_cfg.instructions.format(
+                prompt_text = self._instructions.format(
                     json.dumps(content, ensure_ascii=False, indent=2)
                 )
             except Exception:
                 logger.exception("Failed to extract PDF content: %s", pdf_path)
-                prompt_text = self.greylitlm_cfg.instructions.format(
+                prompt_text = self._instructions.format(
                     "Failed to extract PDF content."
                 )
 

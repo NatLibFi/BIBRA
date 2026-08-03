@@ -9,20 +9,17 @@ multi-ecosystem-groups:
 
 updates:
   - package-ecosystem: "github-actions"
-    directories:
-      - "/.github/workflows"
+    directory: "/.github/workflows"
     patterns:
       - "*"
     multi-ecosystem-group: "all"
   - package-ecosystem: "uv"
-    directories:
-      - "/"
+    directory: "/"
     patterns:
       - "*"
     multi-ecosystem-group: "all"
   - package-ecosystem: "npm"
-    directories:
-      - "/"
+    directory: "/"
     patterns:
       - "*"
     multi-ecosystem-group: "all"

@@ -97,6 +97,7 @@ class NuExtractConfig:
         NUEXTRACT_MODEL: Model name for NuExtract (default: nuextract3)
         NUEXTRACT_THINKING: Enable thinking mode (default: False)
         NUEXTRACT_INSTRUCTIONS: Custom instructions for NuExtract (optional)
+        NUEXTRACT_DPI: DPI for PDF-to-image conversion (default: 170)
     """
 
     def __init__(
@@ -104,6 +105,7 @@ class NuExtractConfig:
         model: str | None = None,
         thinking: bool | None = None,
         instructions: str | None = None,
+        dpi: int | None = None,
     ):
         """Initialize NuExtract configuration.
 
@@ -111,6 +113,7 @@ class NuExtractConfig:
             model: Model name. Defaults to env var or "nuextract3".
             thinking: Enable thinking mode. Defaults to env var or False.
             instructions: Custom instructions. Defaults to env var value.
+            dpi: DPI for PDF-to-image conversion. Defaults to env var or 170.
         """
         self.model = (
             model if model is not None else os.getenv("NUEXTRACT_MODEL", "nuextract3")
@@ -124,6 +127,7 @@ class NuExtractConfig:
             if instructions is not None
             else os.getenv("NUEXTRACT_INSTRUCTIONS", "")
         )
+        self.dpi = dpi if dpi is not None else int(os.getenv("NUEXTRACT_DPI", "170"))
 
 
 def get_global_llm_config() -> GlobalLLMConfig:

@@ -155,7 +155,9 @@ class NuExtractBackend:
             return PublicationMetadata()
 
         try:
-            image_contents = _pdf_pages_to_binary_content(pdf_path)
+            image_contents = _pdf_pages_to_binary_content(
+                pdf_path, dpi=self.nuextract_cfg.dpi
+            )
         except Exception:
             logger.exception("Failed to convert PDF to images: %s", pdf_path)
             return PublicationMetadata()

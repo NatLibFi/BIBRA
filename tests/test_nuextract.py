@@ -5,7 +5,7 @@ import json
 import os
 import tempfile
 from datetime import UTC, datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from pydantic_ai import UnexpectedModelBehavior
 
@@ -58,15 +58,6 @@ class MockRunResult:
     def __init__(self, response: MockModelResponse, **kwargs):
         self.response = response
         self.output = kwargs.get("output", None)
-
-
-def async_mock(return_value):
-    """Create an async mock that returns the specified value."""
-
-    async def inner(*args, **kwargs):
-        return return_value
-
-    return inner
 
 
 def run_async(coro, *args, **kwargs):
@@ -126,7 +117,7 @@ class TestNuExtractBackend:
         mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         mock_agent = MagicMock()
-        mock_agent.run = async_mock(mock_run_result)
+        mock_agent.run = AsyncMock(return_value=mock_run_result)
 
         backend = create_backend_with_mock_agent(mock_agent)
 
@@ -165,7 +156,7 @@ class TestNuExtractBackend:
         mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         mock_agent = MagicMock()
-        mock_agent.run = async_mock(mock_run_result)
+        mock_agent.run = AsyncMock(return_value=mock_run_result)
 
         backend = create_backend_with_mock_agent(mock_agent)
 
@@ -189,7 +180,7 @@ class TestNuExtractBackend:
             mock_run_result = MockRunResult(response=mock_response, output=expected)
 
             mock_agent = MagicMock()
-            mock_agent.run = async_mock(mock_run_result)
+            mock_agent.run = AsyncMock(return_value=mock_run_result)
 
             backend = create_backend_with_mock_agent(mock_agent)
 
@@ -210,7 +201,7 @@ class TestNuExtractBackend:
         mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         mock_agent = MagicMock()
-        mock_agent.run = async_mock(mock_run_result)
+        mock_agent.run = AsyncMock(return_value=mock_run_result)
 
         backend = create_backend_with_mock_agent(mock_agent)
 
@@ -242,7 +233,7 @@ class TestNuExtractBackend:
         mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         mock_agent = MagicMock()
-        mock_agent.run = async_mock(mock_run_result)
+        mock_agent.run = AsyncMock(return_value=mock_run_result)
 
         backend = create_backend_with_mock_agent(mock_agent)
 
@@ -271,8 +262,7 @@ class TestNuExtractBackend:
         mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         mock_agent = MagicMock()
-        mock_run = MagicMock(return_value=async_mock(mock_run_result))
-        mock_agent.run = mock_run
+        mock_agent.run = AsyncMock(return_value=mock_run_result)
 
         backend = create_backend_with_mock_agent(mock_agent)
 
@@ -281,7 +271,7 @@ class TestNuExtractBackend:
         run_async(backend.extract, [TEST_PDF_PATH])
 
         # Verify that run was called with instructions in chat_template_kwargs
-        call_kwargs = mock_run.call_args[1]
+        call_kwargs = mock_agent.run.call_args[1]
         extra_body = call_kwargs["model_settings"]["extra_body"]
         chat_template = extra_body["chat_template_kwargs"]
         assert "instructions" in chat_template
@@ -297,8 +287,7 @@ class TestNuExtractBackend:
         mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         mock_agent = MagicMock()
-        mock_run = MagicMock(return_value=async_mock(mock_run_result))
-        mock_agent.run = mock_run
+        mock_agent.run = AsyncMock(return_value=mock_run_result)
 
         backend = create_backend_with_mock_agent(mock_agent)
 
@@ -308,7 +297,7 @@ class TestNuExtractBackend:
         run_async(backend.extract, [TEST_PDF_PATH])
 
         # Verify that run was called without instructions in chat_template_kwargs
-        call_kwargs = mock_run.call_args[1]
+        call_kwargs = mock_agent.run.call_args[1]
         extra_body = call_kwargs["model_settings"]["extra_body"]
         chat_template = extra_body["chat_template_kwargs"]
         assert "instructions" not in chat_template

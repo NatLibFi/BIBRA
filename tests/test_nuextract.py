@@ -331,6 +331,36 @@ class TestNuExtractConfigEmptyStrings:
         cfg = NuExtractConfig(instructions="")
         assert cfg.instructions == ""
 
+    def test_dpi_empty_string(self, monkeypatch):
+        """Config should default DPI to 170 when NUEXTRACT_DPI is empty string."""
+        monkeypatch.setenv("NUEXTRACT_DPI", "")
+        cfg = NuExtractConfig()
+        assert cfg.dpi == 170
+
+    def test_dpi_none_string(self, monkeypatch):
+        """Config should default DPI to 170 when NUEXTRACT_DPI is 'none'."""
+        monkeypatch.setenv("NUEXTRACT_DPI", "none")
+        cfg = NuExtractConfig()
+        assert cfg.dpi == 170
+
+    def test_dpi_invalid_string(self, monkeypatch):
+        """Config should default DPI to 170 when NUEXTRACT_DPI is non-numeric."""
+        monkeypatch.setenv("NUEXTRACT_DPI", "abc")
+        cfg = NuExtractConfig()
+        assert cfg.dpi == 170
+
+    def test_dpi_whitespace_only(self, monkeypatch):
+        """Config should default DPI to 170 when NUEXTRACT_DPI is whitespace."""
+        monkeypatch.setenv("NUEXTRACT_DPI", "  ")
+        cfg = NuExtractConfig()
+        assert cfg.dpi == 170
+
+    def test_dpi_negative_value(self, monkeypatch):
+        """Config should handle negative DPI values by returning the parsed int."""
+        monkeypatch.setenv("NUEXTRACT_DPI", "-100")
+        cfg = NuExtractConfig()
+        assert cfg.dpi == -100
+
 
 class TestPdfPagesToBinaryContent:
     """Tests for the _pdf_pages_to_binary_content helper function."""

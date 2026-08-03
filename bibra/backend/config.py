@@ -18,6 +18,24 @@ def _parse_bool(value: str | None, default: bool) -> bool:
     return value.strip().lower() in ("1", "true")
 
 
+def _parse_int(value: str | None, default: int) -> int:
+    """Parse an integer from an env var string, falling back to default on failure.
+
+    Args:
+        value: The string value to parse.
+        default: The default value to return on failure.
+
+    Returns:
+        The parsed integer, or the default if parsing fails.
+    """
+    if value is None:
+        return default
+    try:
+        return int(value.strip())
+    except (ValueError, TypeError):
+        return default
+
+
 class GlobalLLMConfig:
     """Shared LLM infrastructure settings.
 
@@ -127,7 +145,10 @@ class NuExtractConfig:
             if instructions is not None
             else os.getenv("NUEXTRACT_INSTRUCTIONS", "")
         )
-        self.dpi = dpi if dpi is not None else int(os.getenv("NUEXTRACT_DPI", "170"))
+        self.dpi = _parse_int(
+            os.getenv("NUEXTRACT_DPI") if dpi is None else str(dpi),
+            default=170,
+        )
 
 
 def get_global_llm_config() -> GlobalLLMConfig:

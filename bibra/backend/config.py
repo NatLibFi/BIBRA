@@ -67,12 +67,14 @@ class GreyLitLMConfig:
             instructions: Instruction template. Defaults to env var or built-in default.
         """
         self.model = model or os.getenv("GREYLITLM_MODEL", "greylitlm")
-        self.system_prompt = system_prompt or (
+        self.system_prompt = system_prompt or os.getenv(
+            "GREYLITLM_SYSTEM_PROMPT",
             "You are a skilled librarian specialized in meticulous cataloguing of"
-            " digital documents."
+            " digital documents.",
         )
-        self.instructions = (
-            instructions or "Extract metadata from this document. Return as JSON.\n\n{}"
+        self.instructions = instructions or os.getenv(
+            "GREYLITLM_INSTRUCTIONS",
+            "Extract metadata from this document. Return as JSON.\n\n{}",
         )
 
 

@@ -403,3 +403,44 @@ class TestGreyLitLMBackend:
 
             assert result is not None
             mock_extract.assert_not_called()
+
+
+class TestGreyLitLMConfigEnvVars:
+    """Tests for GreyLitLMConfig environment variable handling."""
+
+    def test_system_prompt_from_env(self, monkeypatch):
+        """Config reads GREYLITLM_SYSTEM_PROMPT from env."""
+        monkeypatch.setenv(
+            "GREYLITLM_SYSTEM_PROMPT",
+            "Custom system prompt from env.",
+        )
+        cfg = GreyLitLMConfig()
+        assert cfg.system_prompt == "Custom system prompt from env."
+
+    def test_instructions_from_env(self, monkeypatch):
+        """Config reads GREYLITLM_INSTRUCTIONS from env."""
+        monkeypatch.setenv(
+            "GREYLITLM_INSTRUCTIONS",
+            "Custom instructions template: {}",
+        )
+        cfg = GreyLitLMConfig()
+        assert cfg.instructions == "Custom instructions template: {}"
+
+    def test_system_prompt_default_when_env_not_set(self, monkeypatch):
+        """GreyLitLMConfig should use built-in default when env var is not set."""
+        monkeypatch.delenv("GREYLITLM_SYSTEM_PROMPT", raising=False)
+        cfg = GreyLitLMConfig()
+        assert (
+            cfg.system_prompt
+            == "You are a skilled librarian specialized in meticulous cataloguing of"
+            " digital documents."
+        )
+
+    def test_instructions_default_when_env_not_set(self, monkeypatch):
+        """GreyLitLMConfig should use built-in default when env var is not set."""
+        monkeypatch.delenv("GREYLITLM_INSTRUCTIONS", raising=False)
+        cfg = GreyLitLMConfig()
+        assert (
+            cfg.instructions
+            == "Extract metadata from this document." + " Return as JSON.\n\n{}"
+        )

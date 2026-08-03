@@ -85,7 +85,8 @@ def create_backend_with_mock_agent(mock_agent):
     backend = GreyLitLMBackend.__new__(GreyLitLMBackend)
     backend.global_cfg = GlobalLLMConfig()
     backend.greylitlm_cfg = GreyLitLMConfig()
-    backend._instructions = backend.greylitlm_cfg.instructions + "\n\n{}"
+    backend._instructions = backend.greylitlm_cfg.instructions
+
     backend.agent = mock_agent
     return backend
 
@@ -422,10 +423,10 @@ class TestGreyLitLMConfigEnvVars:
         """Config reads GREYLITLM_INSTRUCTIONS from env."""
         monkeypatch.setenv(
             "GREYLITLM_INSTRUCTIONS",
-            "Custom instructions template: {}",
+            "Custom instructions for document extraction.",
         )
         cfg = GreyLitLMConfig()
-        assert cfg.instructions == "Custom instructions template: {}"
+        assert cfg.instructions == "Custom instructions for document extraction."
 
     def test_system_prompt_default_when_env_not_set(self, monkeypatch):
         """GreyLitLMConfig should use built-in default when env var is not set."""

@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from pydantic_ai import UnexpectedModelBehavior
 
-from bibra.backend.config import GlobalLLMConfig, NuExtractConfig
+from bibra.backend.config import GlobalLLMConfig, NuExtractConfig, _parse_bool
 from bibra.backend.nuextract import NuExtractBackend
 from bibra.types import PublicationMetadata
 
@@ -434,3 +434,48 @@ class TestPdfPagesToBinaryContent:
             _pdf_pages_to_binary_content("/fake/path.pdf", dpi=300)
 
             mock_page.get_pixmap.assert_called_once_with(dpi=300, alpha=False)
+
+
+class TestParseBool:
+    """Tests for the _parse_bool configuration helper."""
+
+    def test_parse_bool_none_returns_default_true(self):
+        """_parse_bool(None, True) should return True."""
+        assert _parse_bool(None, True) is True
+
+    def test_parse_bool_none_returns_default_false(self):
+        """_parse_bool(None, False) should return False."""
+        assert _parse_bool(None, False) is False
+
+    def test_parse_bool_true_values(self):
+        """Recognized true values should return True."""
+        for val in ("1", "true", "True", "TRUE", "  true  ", "  1  "):
+            assert _parse_bool(val, False) is True
+
+    def test_parse_bool_false_values(self):
+        """Recognized false values should return False."""
+        for val in ("0", "false", "False", "FALSE", "  false  ", "  0  "):
+            assert _parse_bool(val, True) is False
+
+    def test_parse_bool_empty_string_fallback_true(self):
+        """Empty string should fall back to default (True)."""
+        assert _parse_bool("", True) is True
+
+    def test_parse_bool_empty_string_fallback_false(self):
+        """Empty string should fall back to default (False)."""
+        assert _parse_bool("", False) is False
+
+    def test_parse_bool_whitespace_fallback(self):
+        """Whitespace-only string should fall back to default."""
+        assert _parse_bool("   ", True) is True
+        assert _parse_bool("   ", False) is False
+
+    def test_parse_bool_unrecognized_fallback_true(self):
+        """Unrecognized values should fall back to default (True)."""
+        for val in ("maybe", "yes", "no", "2", "t", "f"):
+            assert _parse_bool(val, True) is True
+
+    def test_parse_bool_unrecognized_fallback_false(self):
+        """Unrecognized values should fall back to default (False)."""
+        for val in ("maybe", "yes", "no", "2", "t", "f"):
+            assert _parse_bool(val, False) is False

@@ -12,10 +12,26 @@ load_dotenv()
 
 
 def _parse_bool(value: str | None, default: bool) -> bool:
-    """Parse a boolean from an env var string (1/0/true/false, case insensitive)."""
+    """Parse a boolean from an env var string (1/0/true/false, case insensitive).
+
+    Falls back to `default` for unrecognized or empty values.
+
+    Args:
+        value: The string value to parse.
+        default: The default value to return on failure or unrecognized input.
+
+    Returns:
+        The parsed boolean, or the default if parsing fails or the value is
+        unrecognized.
+    """
     if value is None:
         return default
-    return value.strip().lower() in ("1", "true")
+    stripped = value.strip().lower()
+    if stripped in ("1", "true"):
+        return True
+    if stripped in ("0", "false"):
+        return False
+    return default
 
 
 def _parse_int(value: str | None, default: int) -> int:

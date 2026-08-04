@@ -320,6 +320,54 @@ class TestNuExtractBackend:
         chat_template = extra_body["chat_template_kwargs"]
         assert "instructions" not in chat_template
 
+    def test_extract_with_thinking_sets_enable_thinking(self):
+        """Backend should set enable_thinking=True when thinking=True."""
+
+        metadata = {"language": "en", "title": "Test Title"}
+        json_string = json.dumps(metadata)
+        mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
+        expected = PublicationMetadata(**metadata)
+        mock_run_result = MockRunResult(response=mock_response, output=expected)
+
+        mock_agent = MagicMock()
+        mock_agent.run = AsyncMock(return_value=mock_run_result)
+
+        backend = create_backend_with_mock_agent(mock_agent)
+
+        backend.nuextract_cfg = NuExtractConfig(thinking=True)
+
+        run_async(backend.extract, [TEST_PDF_PATH])
+
+        # Verify that run was called with enable_thinking=True in chat_template_kwargs
+        call_kwargs = mock_agent.run.call_args[1]
+        extra_body = call_kwargs["model_settings"]["extra_body"]
+        chat_template = extra_body["chat_template_kwargs"]
+        assert chat_template["enable_thinking"] is True
+
+    def test_extract_without_thinking_sets_enable_thinking_false(self):
+        """Backend should set enable_thinking=False when thinking=False."""
+
+        metadata = {"language": "en", "title": "Test Title"}
+        json_string = json.dumps(metadata)
+        mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
+        expected = PublicationMetadata(**metadata)
+        mock_run_result = MockRunResult(response=mock_response, output=expected)
+
+        mock_agent = MagicMock()
+        mock_agent.run = AsyncMock(return_value=mock_run_result)
+
+        backend = create_backend_with_mock_agent(mock_agent)
+
+        backend.nuextract_cfg = NuExtractConfig(thinking=False)
+
+        run_async(backend.extract, [TEST_PDF_PATH])
+
+        # Verify that run was called with enable_thinking=False in chat_template_kwargs
+        call_kwargs = mock_agent.run.call_args[1]
+        extra_body = call_kwargs["model_settings"]["extra_body"]
+        chat_template = extra_body["chat_template_kwargs"]
+        assert chat_template["enable_thinking"] is False
+
 
 class TestNuExtractConfigEmptyStrings:
     """Tests for empty-string override behavior with NuExtractConfig."""

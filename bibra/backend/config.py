@@ -171,30 +171,3 @@ class NuExtractConfig:
             os.getenv("NUEXTRACT_DPI") if dpi is None else str(dpi),
             default=170,
         )
-
-
-def get_global_llm_config() -> GlobalLLMConfig:
-    """Get the global LLM configuration.
-
-    Returns:
-        GlobalLLMConfig: The current global LLM configuration.
-    """
-    return GlobalLLMConfig()
-
-
-def get_greylitlm_config() -> GreyLitLMConfig:
-    """Get the GreyLitLM configuration.
-
-    Returns:
-        GreyLitLMConfig: The current GreyLitLM configuration.
-    """
-    return GreyLitLMConfig()
-
-
-def get_nuextract_config() -> NuExtractConfig:
-    """Get the NuExtract configuration.
-
-    Returns:
-        NuExtractConfig: The current NuExtract configuration.
-    """
-    return NuExtractConfig()

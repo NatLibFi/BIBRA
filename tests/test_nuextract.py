@@ -143,7 +143,11 @@ class TestNuExtractBackend:
         backend = create_backend_with_mock_agent(mock_agent)
 
         # Exception is caught and logged; returns empty metadata as fallback
-        result = run_async(backend.extract, [TEST_PDF_PATH])
+        with patch(
+            "bibra.backend.nuextract._pdf_pages_to_binary_content",
+            return_value=[MagicMock(media_type="image/png", data=b"fake")],
+        ):
+            result = run_async(backend.extract, [TEST_PDF_PATH])
         assert result is not None
         assert result.title is None
 
@@ -255,7 +259,11 @@ class TestNuExtractBackend:
 
         backend = create_backend_with_mock_agent(mock_agent)
 
-        result = run_async(backend.extract, [TEST_PDF_PATH])
+        with patch(
+            "bibra.backend.nuextract._pdf_pages_to_binary_content",
+            return_value=[MagicMock(media_type="image/png", data=b"fake")],
+        ):
+            result = run_async(backend.extract, [TEST_PDF_PATH])
 
         assert result.language == "de"
         assert result.title == "Titel auf Deutsch"
@@ -286,7 +294,11 @@ class TestNuExtractBackend:
 
         backend.nuextract_cfg = NuExtractConfig(instructions="Custom instructions")
 
-        run_async(backend.extract, [TEST_PDF_PATH])
+        with patch(
+            "bibra.backend.nuextract._pdf_pages_to_binary_content",
+            return_value=[MagicMock(media_type="image/png", data=b"fake")],
+        ):
+            run_async(backend.extract, [TEST_PDF_PATH])
 
         # Verify that run was called with instructions in chat_template_kwargs
         call_kwargs = mock_agent.run.call_args[1]
@@ -312,7 +324,11 @@ class TestNuExtractBackend:
         # Instructions are handled via config, no need to patch
         backend.nuextract_cfg = NuExtractConfig(instructions="")
 
-        run_async(backend.extract, [TEST_PDF_PATH])
+        with patch(
+            "bibra.backend.nuextract._pdf_pages_to_binary_content",
+            return_value=[MagicMock(media_type="image/png", data=b"fake")],
+        ):
+            run_async(backend.extract, [TEST_PDF_PATH])
 
         # Verify that run was called without instructions in chat_template_kwargs
         call_kwargs = mock_agent.run.call_args[1]
@@ -336,7 +352,11 @@ class TestNuExtractBackend:
 
         backend.nuextract_cfg = NuExtractConfig(thinking=True)
 
-        run_async(backend.extract, [TEST_PDF_PATH])
+        with patch(
+            "bibra.backend.nuextract._pdf_pages_to_binary_content",
+            return_value=[MagicMock(media_type="image/png", data=b"fake")],
+        ):
+            run_async(backend.extract, [TEST_PDF_PATH])
 
         # Verify that run was called with enable_thinking=True in chat_template_kwargs
         call_kwargs = mock_agent.run.call_args[1]
@@ -360,7 +380,11 @@ class TestNuExtractBackend:
 
         backend.nuextract_cfg = NuExtractConfig(thinking=False)
 
-        run_async(backend.extract, [TEST_PDF_PATH])
+        with patch(
+            "bibra.backend.nuextract._pdf_pages_to_binary_content",
+            return_value=[MagicMock(media_type="image/png", data=b"fake")],
+        ):
+            run_async(backend.extract, [TEST_PDF_PATH])
 
         # Verify that run was called with enable_thinking=False in chat_template_kwargs
         call_kwargs = mock_agent.run.call_args[1]

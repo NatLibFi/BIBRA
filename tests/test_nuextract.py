@@ -206,6 +206,28 @@ class TestNuExtractBackend:
         assert result.title is None
         mock_agent.run.assert_not_called()
 
+    def test_extract_handles_empty_pdf_pages(self):
+        """Backend should return empty metadata when PDF has no extractable pages."""
+        metadata = {"language": "en", "title": "Should Not Appear"}
+        json_string = json.dumps(metadata)
+        mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
+        expected = PublicationMetadata(**metadata)
+        mock_run_result = MockRunResult(response=mock_response, output=expected)
+
+        mock_agent = MagicMock()
+        mock_agent.run = AsyncMock(return_value=mock_run_result)
+
+        backend = create_backend_with_mock_agent(mock_agent)
+
+        with patch(
+            "bibra.backend.nuextract._pdf_pages_to_binary_content", return_value=[]
+        ):
+            result = run_async(backend.extract, [TEST_PDF_PATH])
+
+        assert result is not None
+        assert result.title is None
+        mock_agent.run.assert_not_called()
+
     def test_extract_preserves_all_fields(self):
         """Backend should correctly handle all optional metadata fields."""
         metadata = {

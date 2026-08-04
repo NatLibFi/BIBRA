@@ -92,7 +92,7 @@ class GreyLitLMConfig:
     Environment Variables:
         GREYLITLM_MODEL: Model name for GreyLitLM (default: greylitlm)
         GREYLITLM_SYSTEM_PROMPT: System prompt for GreyLitLM
-        GREYLITLM_INSTRUCTIONS: Instruction template for GreyLitLM
+        GREYLITLM_INSTRUCTIONS: Instructions for GreyLitLM
     """
 
     def __init__(
@@ -106,7 +106,7 @@ class GreyLitLMConfig:
         Args:
             model: Model name. Defaults to env var or "greylitlm".
             system_prompt: System prompt. Defaults to env var or built-in default.
-            instructions: Instruction template. Defaults to env var or built-in default.
+            instructions: Instructions. Defaults to env var or built-in default.
         """
         self.model = (
             model if model is not None else os.getenv("GREYLITLM_MODEL", "greylitlm")

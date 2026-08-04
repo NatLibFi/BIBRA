@@ -132,7 +132,7 @@ class TestNuExtractBackend:
         assert result.e_isbn == ["9789527159751"]
         assert result.type_coar == "research report"
 
-    def test_extract_raises_on_invalid_json(self):
+    def test_extract_returns_empty_metadata_on_llm_exception(self):
         """Backend should return empty metadata when LLM fails with an exception."""
 
         async def raise_error(*args, **kwargs):

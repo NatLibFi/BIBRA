@@ -1,5 +1,3 @@
-from bibra.backend.base import BaseBackend
-
 """Backend for metadata extraction using nuextract3 vision model."""
 
 import json
@@ -12,6 +10,7 @@ from pydantic_ai import Agent, BinaryContent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
+from bibra.backend.base import BaseBackend
 from bibra.backend.config import GlobalLLMConfig, NuExtractConfig
 from bibra.types import PublicationMetadata
 

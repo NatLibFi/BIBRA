@@ -1,5 +1,3 @@
-from bibra.backend.base import BaseBackend
-
 """Backend for metadata extraction from grey literature using fine-tuned LLMs."""
 
 import json
@@ -11,6 +9,7 @@ from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
+from bibra.backend.base import BaseBackend
 from bibra.backend.config import GlobalLLMConfig, GreyLitLMConfig
 from bibra.backend.pdf_extractor import extract_content
 from bibra.types import PublicationMetadata

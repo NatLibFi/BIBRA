@@ -400,24 +400,6 @@ class TestGreyLitLMBackend:
 class TestGreyLitLMConfigEnvVars:
     """Tests for GreyLitLMConfig environment variable handling."""
 
-    def test_system_prompt_from_env(self, monkeypatch):
-        """Config reads GREYLITLM_SYSTEM_PROMPT from env."""
-        monkeypatch.setenv(
-            "GREYLITLM_SYSTEM_PROMPT",
-            "Custom system prompt from env.",
-        )
-        cfg = GreyLitLMConfig()
-        assert cfg.system_prompt == "Custom system prompt from env."
-
-    def test_instructions_from_env(self, monkeypatch):
-        """Config reads GREYLITLM_INSTRUCTIONS from env."""
-        monkeypatch.setenv(
-            "GREYLITLM_INSTRUCTIONS",
-            "Custom instructions for document extraction.",
-        )
-        cfg = GreyLitLMConfig()
-        assert cfg.instructions == "Custom instructions for document extraction."
-
     def test_system_prompt_default_when_env_not_set(self, monkeypatch):
         """GreyLitLMConfig should use built-in default when env var is not set."""
         monkeypatch.delenv("GREYLITLM_SYSTEM_PROMPT", raising=False)

@@ -41,6 +41,7 @@ class ProjectConfig:
         thinking: Enable thinking mode (NuExtract only).
         instructions: Custom instructions for the backend.
         system_prompt: System prompt (GreyLitLM only).
+        dpi: DPI for PDF-to-image conversion (NuExtract only).
     """
 
     id: str
@@ -52,6 +53,7 @@ class ProjectConfig:
     thinking: bool | None = None
     instructions: str | None = None
     system_prompt: str | None = None
+    dpi: int | None = None
 
 
 def _interpolate_env_vars(value: str | None) -> str | None:
@@ -135,6 +137,7 @@ def _build_backend_config(project: ProjectConfig) -> dict[str, Any]:
                 model=project.model,
                 thinking=project.thinking,
                 instructions=project.instructions,
+                dpi=project.dpi,
             ),
         }
     elif project.backend == "dummy":
@@ -202,6 +205,19 @@ class ProjectRegistry:
             else:
                 thinking = None
 
+            # Parse dpi as integer if present
+            dpi_raw = config.get("dpi")
+            if isinstance(dpi_raw, int):
+                dpi = dpi_raw
+            elif isinstance(dpi_raw, str):
+                try:
+                    parsed = int(dpi_raw.strip())
+                    dpi = parsed if parsed > 0 else None
+                except (ValueError, TypeError):
+                    dpi = None
+            else:
+                dpi = None
+
             project = ProjectConfig(
                 id=project_id,
                 name=raw_name or project_id,
@@ -212,6 +228,7 @@ class ProjectRegistry:
                 thinking=thinking,
                 instructions=raw_instructions,
                 system_prompt=raw_system_prompt,
+                dpi=dpi,
             )
 
             projects[project_id] = project

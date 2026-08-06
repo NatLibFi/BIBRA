@@ -140,6 +140,7 @@ class TestProjectConfig:
         assert config.thinking is None
         assert config.instructions is None
         assert config.system_prompt is None
+        assert config.dpi is None
 
     def test_full_config(self):
         """Test ProjectConfig with all fields."""
@@ -153,6 +154,7 @@ class TestProjectConfig:
             thinking=True,
             instructions="Custom instructions",
             system_prompt="System prompt",
+            dpi=200,
         )
         assert config.endpoint == "http://example.com"
         assert config.api_key == "secret"
@@ -160,3 +162,44 @@ class TestProjectConfig:
         assert config.thinking is True
         assert config.instructions == "Custom instructions"
         assert config.system_prompt == "System prompt"
+        assert config.dpi == 200
+
+    def test_load_dpi_from_toml(self, tmp_path: Path):
+        """Test loading dpi from TOML."""
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text(
+            '[test_project]\nname = "Test"\nbackend = "nuextract"\n'
+            'model = "nuextract3"\ndpi = 200\n'
+        )
+
+        registry = ProjectRegistry(str(config_file))
+        projects = registry.load()
+
+        assert projects["test_project"].dpi == 200
+
+    def test_load_thinking_from_toml(self, tmp_path: Path):
+        """Test loading thinking from TOML."""
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text(
+            '[test_project]\nname = "Test"\nbackend = "nuextract"\n'
+            'model = "nuextract3"\nthinking = true\n'
+        )
+
+        registry = ProjectRegistry(str(config_file))
+        projects = registry.load()
+
+        assert projects["test_project"].thinking is True
+
+    def test_load_backend_config_with_dpi(self, tmp_path: Path):
+        """Test that dpi is passed to NuExtractConfig."""
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text(
+            '[test_project]\nname = "Test"\nbackend = "nuextract"\n'
+            'model = "nuextract3"\ndpi = 250\n'
+        )
+
+        registry = ProjectRegistry(str(config_file))
+        registry.load()
+        backend = registry.get_backend("test_project")
+
+        assert backend.nuextract_cfg.dpi == 250

@@ -398,12 +398,6 @@ class TestNuExtractConfigEmptyStrings:
         cfg = NuExtractConfig(model="")
         assert cfg.model == ""
 
-    def test_dpi_from_env(self, monkeypatch):
-        """Config should read DPI from NUEXTRACT_DPI env var."""
-        monkeypatch.setenv("NUEXTRACT_DPI", "300")
-        cfg = NuExtractConfig()
-        assert cfg.dpi == 300
-
     def test_dpi_default(self, monkeypatch):
         """Config should default DPI to 170 when env var not set."""
         monkeypatch.delenv("NUEXTRACT_DPI", raising=False)

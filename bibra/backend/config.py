@@ -127,40 +127,31 @@ class GreyLitLMConfig:
         """Initialize GreyLitLM configuration.
 
         Args:
-            model: Model name. Defaults to env var or "greylitlm".
-            system_prompt: System prompt. Defaults to env var or built-in default.
-            instructions: Instructions. Defaults to env var or built-in default.
+            model: Model name. Defaults to "greylitlm".
+            system_prompt: System prompt. Defaults to built-in default.
+            instructions: Instructions. Defaults to built-in default.
         """
-        self.model = (
-            model if model is not None else os.getenv("GREYLITLM_MODEL", "greylitlm")
-        )
+        self.model = model if model is not None else "greylitlm"
         self.system_prompt = (
             system_prompt
             if system_prompt is not None
-            else os.getenv(
-                "GREYLITLM_SYSTEM_PROMPT",
+            else (
                 "You are a skilled librarian specialized in meticulous cataloguing of"
-                " digital documents.",
+                " digital documents."
             )
         )
         self.instructions = (
             instructions
             if instructions is not None
-            else os.getenv(
-                "GREYLITLM_INSTRUCTIONS",
-                "Extract metadata from this document. Return as JSON.",
-            )
+            else "Extract metadata from this document. Return as JSON."
         )
 
 
 class NuExtractConfig:
     """NuExtract-specific settings.
 
-    Environment Variables:
-        NUEXTRACT_MODEL: Model name for NuExtract (default: nuextract3)
-        NUEXTRACT_THINKING: Enable thinking mode (default: False)
-        NUEXTRACT_INSTRUCTIONS: Custom instructions for NuExtract (optional)
-        NUEXTRACT_DPI: DPI for PDF-to-image conversion (default: 170)
+    All configuration comes from constructor arguments (typically from
+    ``projects.toml`` with ``${VAR}`` interpolation for secrets/URLs).
     """
 
     def __init__(
@@ -173,26 +164,16 @@ class NuExtractConfig:
         """Initialize NuExtract configuration.
 
         Args:
-            model: Model name. Defaults to env var or "nuextract3".
-            thinking: Enable thinking mode. Defaults to env var or False.
-            instructions: Custom instructions. Defaults to env var value.
-            dpi: DPI for PDF-to-image conversion. Defaults to env var or 170.
+            model: Model name. Defaults to "nuextract3".
+            thinking: Enable thinking mode. Defaults to ``False``.
+            instructions: Custom instructions. Defaults to empty string.
+            dpi: DPI for PDF-to-image conversion. Defaults to 170.
         """
-        self.model = (
-            model if model is not None else os.getenv("NUEXTRACT_MODEL", "nuextract3")
-        )
+        self.model = model if model is not None else "nuextract3"
         self.thinking = _parse_bool(
-            os.getenv("NUEXTRACT_THINKING") if thinking is None else str(thinking),
+            str(thinking) if thinking is not None else "False",
             default=False,
             key="NUEXTRACT_THINKING",
         )
-        self.instructions = (
-            instructions
-            if instructions is not None
-            else os.getenv("NUEXTRACT_INSTRUCTIONS", "")
-        )
-        self.dpi = _parse_int(
-            os.getenv("NUEXTRACT_DPI") if dpi is None else str(dpi),
-            default=170,
-            key="NUEXTRACT_DPI",
-        )
+        self.instructions = instructions if instructions is not None else ""
+        self.dpi = _parse_int(str(dpi) if dpi is not None else None, default=170)

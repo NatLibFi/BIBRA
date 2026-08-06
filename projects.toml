@@ -7,6 +7,8 @@ model = "greylitlm"
 name = "NuExtract Backend"
 backend = "nuextract"
 model = "nuextract3"
+thinking = true
+dpi = 200
 
 [dummy]
 name = "Dummy Backend"

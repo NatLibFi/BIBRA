@@ -181,8 +181,8 @@ class ProjectRegistry:
 
         projects: dict[str, ProjectConfig] = {}
         for project_id, config in data.items():
-            # Skip non-project sections (reserved for future use like [*])
-            if not isinstance(config, dict):
+            # Skip non-project sections and defaults section ([*])
+            if project_id == "*" or not isinstance(config, dict):
                 continue
 
             # Interpolate environment variables in string values

@@ -7,7 +7,7 @@ from bibra.types import PublicationMetadata
 class DummyBackend(BaseBackend):
     """Dummy backend implementation for testing."""
 
-    async def extract(self, files: list) -> PublicationMetadata:
+    async def extract(self, file_paths: list[str]) -> PublicationMetadata:
         """Extract publication metadata from files."""
         return PublicationMetadata(
             language="en",

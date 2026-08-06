@@ -218,10 +218,16 @@ class ProjectRegistry:
             else:
                 dpi = None
 
+            backend_type = config.get("backend")
+            if backend_type is None:
+                raise ValueError(f"Missing backend type for project '{project_id}'")
+            if backend_type not in _BACKEND_MAP:
+                raise ValueError(f"Unknown backend type: {backend_type}")
+
             project = ProjectConfig(
                 id=project_id,
                 name=raw_name or project_id,
-                backend=config.get("backend", "dummy"),
+                backend=backend_type,
                 endpoint=raw_endpoint,
                 api_key=raw_api_key,
                 model=raw_model,

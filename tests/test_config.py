@@ -203,3 +203,23 @@ class TestProjectConfig:
         backend = registry.get_backend("test_project")
 
         assert backend.nuextract_cfg.dpi == 250
+
+    def test_load_invalid_backend_type(self, tmp_path: Path):
+        """Test that load raises ValueError for unknown backend types."""
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text('[test_project]\nname = "Test"\nbackend = "foobar"\n')
+
+        registry = ProjectRegistry(str(config_file))
+
+        with pytest.raises(ValueError, match="Unknown backend type: foobar"):
+            registry.load()
+
+    def test_load_missing_backend_type(self, tmp_path: Path):
+        """Test that load raises ValueError when backend is not specified."""
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text('[test_project]\nname = "Test"\n')
+
+        registry = ProjectRegistry(str(config_file))
+
+        with pytest.raises(ValueError, match="Missing backend type"):
+            registry.load()

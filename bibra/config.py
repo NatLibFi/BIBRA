@@ -33,6 +33,14 @@ class ConfigParseError(ConfigError):
     """Raised when the configuration file cannot be parsed."""
 
 
+class ProjectNotFoundError(ValueError):
+    """Raised when a project ID is not found in the registry."""
+
+
+class BackendConfigError(ConfigError):
+    """Raised when a project's backend configuration is invalid."""
+
+
 _BACKEND_MAP: dict[str, type[BaseBackend]] = {
     "dummy": DummyBackend,
     "greylitlm": GreyLitLMBackend,
@@ -158,7 +166,7 @@ def _build_backend_config(project: ProjectConfig) -> dict[str, Any]:
     elif project.backend == "dummy":
         return {}
     else:
-        raise ValueError(f"Unknown backend type: {project.backend}")
+        raise BackendConfigError(f"Unknown backend type: {project.backend}")
 
 
 class ProjectRegistry:
@@ -191,7 +199,7 @@ class ProjectRegistry:
 
         Raises:
             FileNotFoundError: If the config file does not exist.
-            ValueError: If a backend type is not recognized.
+            BackendConfigError: If a backend type is not recognized.
         """
         path = Path(self._config_path)
         try:
@@ -254,9 +262,11 @@ class ProjectRegistry:
 
             backend_type = merged.get("backend")
             if backend_type is None:
-                raise ValueError(f"Missing backend type for project '{project_id}'")
+                raise BackendConfigError(
+                    f"Missing backend type for project '{project_id}'"
+                )
             if backend_type not in _BACKEND_MAP:
-                raise ValueError(f"Unknown backend type: {backend_type}")
+                raise BackendConfigError(f"Unknown backend type: {backend_type}")
 
             project = ProjectConfig(
                 id=project_id,
@@ -286,18 +296,19 @@ class ProjectRegistry:
             A configured backend instance.
 
         Raises:
-            ValueError: If the project is not found or backend is unknown.
+            ProjectNotFoundError: If the project is not found.
+            BackendConfigError: If the backend configuration is invalid.
         """
         if not self._projects:
             self.load()
 
         project = self._projects.get(project_id)
         if project is None:
-            raise ValueError(f"Unknown project: {project_id}")
+            raise ProjectNotFoundError(f"Unknown project: {project_id}")
 
         backend_class = _BACKEND_MAP.get(project.backend)
         if backend_class is None:
-            raise ValueError(
+            raise BackendConfigError(
                 f"Unknown backend type for project '{project_id}': {project.backend}"
             )
 

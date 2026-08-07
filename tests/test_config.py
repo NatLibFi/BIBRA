@@ -6,6 +6,7 @@ import pytest
 
 from bibra.backend.dummy import DummyBackend
 from bibra.config import (
+    BackendConfigError,
     ConfigFileNotFoundError,
     ConfigParseError,
     ProjectConfig,
@@ -281,23 +282,23 @@ class TestProjectConfig:
         assert backend.nuextract_cfg.dpi == 250
 
     def test_load_invalid_backend_type(self, tmp_path: Path):
-        """Test that load raises ValueError for unknown backend types."""
+        """Test that load raises BackendConfigError for unknown backend types."""
         config_file = tmp_path / "projects.toml"
         config_file.write_text('[test_project]\nname = "Test"\nbackend = "foobar"\n')
 
         registry = ProjectRegistry(str(config_file))
 
-        with pytest.raises(ValueError, match="Unknown backend type: foobar"):
+        with pytest.raises(BackendConfigError, match="Unknown backend type: foobar"):
             registry.load()
 
     def test_load_missing_backend_type(self, tmp_path: Path):
-        """Test that load raises ValueError when backend is not specified."""
+        """Test that load raises BackendConfigError when backend is not specified."""
         config_file = tmp_path / "projects.toml"
         config_file.write_text('[test_project]\nname = "Test"\n')
 
         registry = ProjectRegistry(str(config_file))
 
-        with pytest.raises(ValueError, match="Missing backend type"):
+        with pytest.raises(BackendConfigError, match="Missing backend type"):
             registry.load()
 
     def test_load_missing_config_file(self, tmp_path: Path):

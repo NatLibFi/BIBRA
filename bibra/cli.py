@@ -4,7 +4,12 @@ import asyncio
 
 import click
 
-from bibra.config import ConfigError, ProjectRegistry
+from bibra.config import (
+    BackendConfigError,
+    ConfigError,
+    ProjectNotFoundError,
+    ProjectRegistry,
+)
 
 
 def _make_list_template(column_headings: tuple, *rows: tuple) -> str:
@@ -81,8 +86,10 @@ def extract(
 
     try:
         backend = registry.get_backend(project_id)
-    except ValueError as e:
+    except ProjectNotFoundError as e:
         raise click.UsageError(str(e)) from None
+    except BackendConfigError as e:
+        raise click.ClickException(str(e)) from None
 
     try:
         result = asyncio.run(backend.extract(list(file_path)))

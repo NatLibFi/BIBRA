@@ -9,7 +9,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from bibra import __version__
-from bibra.config import ConfigError, ProjectRegistry
+from bibra.config import ConfigError, ProjectNotFoundError, ProjectRegistry
 from bibra.types import PublicationMetadata
 
 logger = logging.getLogger(__name__)
@@ -69,9 +69,10 @@ async def extract(
         # Get backend for the project
         try:
             backend = registry.get_backend(project_id)
-        except ValueError as e:
+        except ProjectNotFoundError as e:
             raise HTTPException(status_code=404, detail=str(e))
-
+        except ConfigError as e:
+            raise HTTPException(status_code=500, detail=str(e))
         # Extract metadata using the backend
         result = await backend.extract(temp_files)
         return result

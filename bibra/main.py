@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from bibra import __version__
 from bibra.api.v0.routes import router as v0_router
+from bibra.config import ProjectRegistry
 
 logging.basicConfig(level=logging.INFO)
 
@@ -31,6 +32,12 @@ async def root():
 
 
 app.include_router(v0_router, prefix="/v0")
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize the project registry at startup."""
+    app.state.project_registry = ProjectRegistry(os.environ.get("BIBRA_CONFIG"))
 
 
 def main():

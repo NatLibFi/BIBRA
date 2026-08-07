@@ -24,7 +24,10 @@ class TestAPIRoutes:
 
     async def test_list_projects_returns_projects(self):
         """The /projects endpoint should return configured projects."""
-        result = await list_projects()
+        from bibra.config import ProjectRegistry
+
+        registry = ProjectRegistry()
+        result = await list_projects(registry=registry)
         assert "projects" in result
         # Should have the default project from tests/projects.toml
         project_ids = [p["id"] for p in result["projects"]]
@@ -48,9 +51,11 @@ class TestAPIRoutes:
     async def test_extract_returns_example_metadata(self):
         """The /projects/{project_id}/extract endpoint should return example
         publication metadata."""
+        from bibra.config import ProjectRegistry
 
+        registry = ProjectRegistry()
         # Use dummy backend for testing (no API calls needed)
-        result = await extract(project_id="dummy", files=[])
+        result = await extract(project_id="dummy", files=[], registry=registry)
 
         assert isinstance(result, PublicationMetadata)
         assert result.language == "en"

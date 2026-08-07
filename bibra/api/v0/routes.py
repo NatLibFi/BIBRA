@@ -5,7 +5,7 @@ import os
 import tempfile
 from typing import Annotated, Any
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 from bibra import __version__
@@ -15,7 +15,11 @@ from bibra.types import PublicationMetadata
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-registry = ProjectRegistry(os.environ.get("BIBRA_CONFIG"))
+
+
+def get_registry(request: Request) -> ProjectRegistry:
+    """FastAPI dependency that returns the project registry from app state."""
+    return request.app.state.project_registry
 
 
 @router.get("/")
@@ -25,7 +29,7 @@ async def root():
 
 
 @router.get("/projects")
-async def list_projects():
+async def list_projects(registry: Annotated[ProjectRegistry, Depends(get_registry)]):
     """Return a list of configured projects."""
     try:
         projects = registry.list_projects()
@@ -48,6 +52,7 @@ class ExtractRequest(BaseModel):
 async def extract(
     project_id: str,
     files: Annotated[list[UploadFile], File(...)],
+    registry: Annotated[ProjectRegistry, Depends(get_registry)],
 ) -> PublicationMetadata:
     """
     Extract publication metadata from PDF or image files for a specific project.

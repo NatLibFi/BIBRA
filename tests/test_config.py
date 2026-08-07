@@ -173,6 +173,28 @@ class TestProjectRegistry:
 
         assert projects["proj_a"].api_key == "interpolated-key"
 
+    def test_non_string_toml_values(self, tmp_path: Path):
+        """Test that non-string TOML values are handled without crashing."""
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text('[test_project]\nname = 123\nbackend = "dummy"\n')
+
+        registry = ProjectRegistry(str(config_file))
+        projects = registry.load()
+
+        assert projects["test_project"].name == 123
+
+    def test_non_string_default_values(self, tmp_path: Path):
+        """Test that non-string default values are passed through unchanged."""
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text(
+            '["*"]\nmodel = 42\n\n[test_project]\nname = "Test"\nbackend = "dummy"\n'
+        )
+
+        registry = ProjectRegistry(str(config_file))
+        projects = registry.load()
+
+        assert projects["test_project"].model == 42
+
 
 class TestProjectConfig:
     """Tests for ProjectConfig."""

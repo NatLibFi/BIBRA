@@ -70,6 +70,8 @@ def _interpolate_env_vars(value: str | None) -> str | None:
     """
     if value is None:
         return None
+    if not isinstance(value, str):
+        return value
 
     result = value
     start = 0

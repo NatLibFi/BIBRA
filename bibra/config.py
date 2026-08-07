@@ -181,6 +181,15 @@ class ProjectRegistry:
         path = Path(self._config_path)
         with open(path, "rb") as f:
             data = tomllib.load(f)
+        # Extract defaults from [*] section
+        defaults: dict[str, Any] = {}
+        raw_defaults = data.get("*")
+        if isinstance(raw_defaults, dict):
+            for key, value in raw_defaults.items():
+                if isinstance(value, str):
+                    defaults[key] = _interpolate_env_vars(value)
+                else:
+                    defaults[key] = value
 
         projects: dict[str, ProjectConfig] = {}
         for project_id, config in data.items():
@@ -188,16 +197,19 @@ class ProjectRegistry:
             if project_id == "*" or not isinstance(config, dict):
                 continue
 
+            # Merge defaults with project config (project values override)
+            merged: dict[str, Any] = dict(defaults)
+            merged.update(config)
             # Interpolate environment variables in string values
-            raw_name = _interpolate_env_vars(config.get("name"))
-            raw_endpoint = _interpolate_env_vars(config.get("endpoint"))
-            raw_api_key = _interpolate_env_vars(config.get("api_key"))
-            raw_model = _interpolate_env_vars(config.get("model"))
-            raw_instructions = _interpolate_env_vars(config.get("instructions"))
-            raw_system_prompt = _interpolate_env_vars(config.get("system_prompt"))
+            raw_name = _interpolate_env_vars(merged.get("name"))
+            raw_endpoint = _interpolate_env_vars(merged.get("endpoint"))
+            raw_api_key = _interpolate_env_vars(merged.get("api_key"))
+            raw_model = _interpolate_env_vars(merged.get("model"))
+            raw_instructions = _interpolate_env_vars(merged.get("instructions"))
+            raw_system_prompt = _interpolate_env_vars(merged.get("system_prompt"))
 
             # Parse thinking as boolean string if present
-            thinking_raw = config.get("thinking")
+            thinking_raw = merged.get("thinking")
             if isinstance(thinking_raw, str):
                 thinking = _parse_bool(thinking_raw, default=False)
             elif isinstance(thinking_raw, bool):
@@ -206,7 +218,7 @@ class ProjectRegistry:
                 thinking = None
 
             # Parse dpi as integer if present
-            dpi_raw = config.get("dpi")
+            dpi_raw = merged.get("dpi")
             if isinstance(dpi_raw, int):
                 dpi = dpi_raw
             elif isinstance(dpi_raw, str):
@@ -218,7 +230,7 @@ class ProjectRegistry:
             else:
                 dpi = None
 
-            backend_type = config.get("backend")
+            backend_type = merged.get("backend")
             if backend_type is None:
                 raise ValueError(f"Missing backend type for project '{project_id}'")
             if backend_type not in _BACKEND_MAP:

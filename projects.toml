@@ -1,15 +1,20 @@
+["*"]
+# Default settings for all projects (each project can override)
+api_key = "${LLM_API_KEY}"
+endpoint = "${LLM_ENDPOINT_URL}"
+
 [greylitlm]
-name = "GreyLitLM Backend"
+name = "GreyLitLM project"
 backend = "greylitlm"
-model = "greylitlm"
+model = "${GREYLITLM_MODEL}"
 
 [nuextract]
-name = "NuExtract Backend"
+name = "NuExtract project"
 backend = "nuextract"
-model = "nuextract3"
+model = "${NUEXTRACT_MODEL}"
 thinking = true
 dpi = 200
 
 [dummy]
-name = "Dummy Backend"
+name = "Dummy project"
 backend = "dummy"

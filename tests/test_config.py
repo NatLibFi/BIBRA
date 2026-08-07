@@ -124,6 +124,55 @@ class TestProjectRegistry:
         registry = ProjectRegistry()
         assert registry._config_path == "/custom/path.toml"
 
+    def test_default_config_section(self, tmp_path: Path):
+        """Test that [*] section provides default values for all projects."""
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text(
+            '["*"]\napi_key = "default-key"\n\n'
+            '[proj_a]\nname = "Project A"\nbackend = "dummy"\n\n'
+            '[proj_b]\nname = "Project B"\nbackend = "dummy"\n'
+        )
+
+        registry = ProjectRegistry(str(config_file))
+        projects = registry.load()
+
+        assert len(projects) == 2
+        assert projects["proj_a"].api_key == "default-key"
+        assert projects["proj_b"].api_key == "default-key"
+
+    def test_project_overrides_defaults(self, tmp_path: Path):
+        """Test that project-specific values override [*] defaults."""
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text(
+            '["*"]\napi_key = "default-key"\n\n'
+            '[proj_a]\nname = "Project A"\nbackend = "dummy"\n'
+            'api_key = "project-a-key"\n\n'
+            '[proj_b]\nname = "Project B"\nbackend = "dummy"\n'
+        )
+
+        registry = ProjectRegistry(str(config_file))
+        projects = registry.load()
+
+        assert projects["proj_a"].api_key == "project-a-key"
+        assert projects["proj_b"].api_key == "default-key"
+
+    def test_defaults_with_env_vars(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Test that env var interpolation works on [*] defaults."""
+        monkeypatch.setenv("DEFAULT_KEY", "interpolated-key")
+
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text(
+            '["*"]\napi_key = "${DEFAULT_KEY}"\n\n'
+            '[proj_a]\nname = "Project A"\nbackend = "dummy"\n'
+        )
+
+        registry = ProjectRegistry(str(config_file))
+        projects = registry.load()
+
+        assert projects["proj_a"].api_key == "interpolated-key"
+
 
 class TestProjectConfig:
     """Tests for ProjectConfig."""

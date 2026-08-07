@@ -26,8 +26,11 @@ class TestAPIRoutes:
         """The /projects endpoint should return configured projects."""
         result = await list_projects()
         assert "projects" in result
-        # Should have at least the default projects from projects.toml
-        assert len(result["projects"]) >= 1
+        # Should have the default projects from projects.toml
+        project_ids = [p["id"] for p in result["projects"]]
+        assert "greylitlm" in project_ids
+        assert "nuextract" in project_ids
+        assert "dummy" in project_ids
 
     def test_extract_route_exists(self):
         """The router should have a project-specific extract route."""

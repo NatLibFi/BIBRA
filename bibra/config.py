@@ -138,6 +138,19 @@ def _parse_bool(value: str | None, default: bool) -> bool:
     return value.strip().lower() in ("1", "true")
 
 
+def _interpolate_dict_values(d: dict[str, Any]) -> dict[str, Any]:
+    """Interpolate environment variables in all string values of a dict.
+
+    This ensures that non-string TOML values (e.g. thinking, dpi) that are
+    represented as strings containing ${VAR} placeholders get interpolated
+    before type-specific parsing.
+    """
+    return {
+        key: _interpolate_env_vars(value) if isinstance(value, str) else value
+        for key, value in d.items()
+    }
+
+
 def _build_backend_config(project: ProjectConfig) -> dict[str, Any]:
     """Build backend configuration kwargs from a ProjectConfig.
 
@@ -239,13 +252,14 @@ class ProjectRegistry:
             # Merge defaults with project config (project values override)
             merged: dict[str, Any] = dict(defaults)
             merged.update(config)
-            # Interpolate environment variables in string values
-            raw_name = _interpolate_env_vars(merged.get("name"))
-            raw_endpoint = _interpolate_env_vars(merged.get("endpoint"))
-            raw_api_key = _interpolate_env_vars(merged.get("api_key"))
-            raw_model = _interpolate_env_vars(merged.get("model"))
-            raw_instructions = _interpolate_env_vars(merged.get("instructions"))
-            raw_system_prompt = _interpolate_env_vars(merged.get("system_prompt"))
+            # Interpolate all string values in merged before type-specific parsing
+            merged = _interpolate_dict_values(merged)
+            raw_name = merged.get("name")
+            raw_endpoint = merged.get("endpoint")
+            raw_api_key = merged.get("api_key")
+            raw_model = merged.get("model")
+            raw_instructions = merged.get("instructions")
+            raw_system_prompt = merged.get("system_prompt")
 
             # Parse thinking as boolean string if present
             thinking_raw = merged.get("thinking")

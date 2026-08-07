@@ -343,3 +343,37 @@ class TestProjectConfig:
 
         with pytest.raises(ConfigParseError, match="Failed to parse"):
             registry.load()
+
+    def test_env_var_interpolation_on_thinking_string(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Test that env var interpolation works on thinking string values."""
+        monkeypatch.setenv("THINKING_MODE", "true")
+
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text(
+            '[test_project]\nname = "Test"\nbackend = "nuextract"\n'
+            'model = "nuextract3"\nthinking = "${THINKING_MODE}"\n'
+        )
+
+        registry = ProjectRegistry(str(config_file))
+        projects = registry.load()
+
+        assert projects["test_project"].thinking is True
+
+    def test_env_var_interpolation_on_dpi_string(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Test that env var interpolation works on dpi string values."""
+        monkeypatch.setenv("DPI_VALUE", "300")
+
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text(
+            '[test_project]\nname = "Test"\nbackend = "nuextract"\n'
+            'model = "nuextract3"\ndpi = "${DPI_VALUE}"\n'
+        )
+
+        registry = ProjectRegistry(str(config_file))
+        projects = registry.load()
+
+        assert projects["test_project"].dpi == 300

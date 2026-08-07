@@ -67,10 +67,8 @@ class TestListProjects:
         """Test that list-projects displays project entries."""
         result = self.runner.invoke(list_projects)
         assert result.exit_code == 0
-        # Check that project data is displayed (projects.toml contains at least
-        # dummy, greylitlm, nuextract)
+        # Check that project data is displayed (tests/projects.toml contains dummy)
         assert "dummy" in result.output
-        assert "greylitlm" in result.output
 
     def test_list_projects_bad_argument(self):
         """Test list-projects with bad argument."""

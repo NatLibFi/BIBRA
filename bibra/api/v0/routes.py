@@ -15,7 +15,7 @@ from bibra.types import PublicationMetadata
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-registry = ProjectRegistry()
+registry = ProjectRegistry(os.environ.get("BIBRA_CONFIG"))
 
 
 @router.get("/")

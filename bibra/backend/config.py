@@ -112,10 +112,8 @@ class GlobalLLMConfig:
 class GreyLitLMConfig:
     """GreyLitLM-specific settings.
 
-    Environment Variables:
-        GREYLITLM_MODEL: Model name for GreyLitLM (default: greylitlm)
-        GREYLITLM_SYSTEM_PROMPT: System prompt for GreyLitLM
-        GREYLITLM_INSTRUCTIONS: Instructions for GreyLitLM
+    All configuration comes from constructor arguments (typically from
+    ``projects.toml`` with ``${VAR}`` interpolation for secrets/URLs).
     """
 
     def __init__(

@@ -220,7 +220,8 @@ class ProjectRegistry:
             Dictionary mapping project IDs to ProjectConfig objects.
 
         Raises:
-            FileNotFoundError: If the config file does not exist.
+            ConfigFileNotFoundError: If the config file does not exist.
+            ConfigParseError: If the config file cannot be parsed.
             BackendConfigError: If a backend type is not recognized.
         """
         path = Path(self._config_path)

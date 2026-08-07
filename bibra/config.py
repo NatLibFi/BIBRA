@@ -24,13 +24,19 @@ from bibra.backend.nuextract import NuExtractBackend
 class ConfigError(Exception):
     """Base exception for project configuration errors."""
 
+    description: str = "Configuration error"
+
 
 class ConfigFileNotFoundError(ConfigError):
     """Raised when the configuration file cannot be found."""
 
+    description = "Configuration file not found"
+
 
 class ConfigParseError(ConfigError):
     """Raised when the configuration file cannot be parsed."""
+
+    description = "Configuration file is malformed"
 
 
 class ProjectNotFoundError(ValueError):
@@ -39,6 +45,8 @@ class ProjectNotFoundError(ValueError):
 
 class BackendConfigError(ConfigError):
     """Raised when a project's backend configuration is invalid."""
+
+    description = "Invalid backend configuration"
 
 
 _BACKEND_MAP: dict[str, type[BaseBackend]] = {

@@ -56,7 +56,7 @@ class ProjectConfig:
     dpi: int | None = None
 
 
-def _interpolate_env_vars(value: str | None) -> str | None:
+def _interpolate_env_vars(value: Any) -> Any:
     """Interpolate environment variables in a string value.
 
     Supports ${VAR_NAME} syntax. If the environment variable is not set,
@@ -66,7 +66,7 @@ def _interpolate_env_vars(value: str | None) -> str | None:
         value: The string value to interpolate.
 
     Returns:
-        The interpolated string, or None if input was None.
+        The interpolated string, or the input unchanged if non-string.
     """
     if value is None:
         return None

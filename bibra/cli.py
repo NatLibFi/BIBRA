@@ -4,7 +4,7 @@ import asyncio
 
 import click
 
-from bibra.config import ProjectRegistry
+from bibra.config import ConfigError, ProjectRegistry
 
 
 def _make_list_template(column_headings: tuple, *rows: tuple) -> str:
@@ -39,8 +39,11 @@ def cli():
 def list_projects(config: str | None):
     """List configured projects."""
     registry = ProjectRegistry(config)
-    registry.load()
-    projects = registry.list_projects()
+    try:
+        registry.load()
+        projects = registry.list_projects()
+    except ConfigError as e:
+        raise click.ClickException(str(e)) from None
 
     column_headings = ("Project ID", "Project Name", "Description")
     table = [(proj["id"], proj["name"], proj["description"]) for proj in projects]

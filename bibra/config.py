@@ -20,6 +20,19 @@ from bibra.backend.dummy import DummyBackend
 from bibra.backend.greylitlm import GreyLitLMBackend
 from bibra.backend.nuextract import NuExtractBackend
 
+
+class ConfigError(Exception):
+    """Base exception for project configuration errors."""
+
+
+class ConfigFileNotFoundError(ConfigError):
+    """Raised when the configuration file cannot be found."""
+
+
+class ConfigParseError(ConfigError):
+    """Raised when the configuration file cannot be parsed."""
+
+
 _BACKEND_MAP: dict[str, type[BaseBackend]] = {
     "dummy": DummyBackend,
     "greylitlm": GreyLitLMBackend,
@@ -181,8 +194,15 @@ class ProjectRegistry:
             ValueError: If a backend type is not recognized.
         """
         path = Path(self._config_path)
-        with open(path, "rb") as f:
-            data = tomllib.load(f)
+        try:
+            with open(path, "rb") as f:
+                data = tomllib.load(f)
+        except FileNotFoundError:
+            raise ConfigFileNotFoundError(f"Config file not found: {path}") from None
+        except tomllib.TOMLDecodeError as e:
+            raise ConfigParseError(
+                f"Failed to parse config file '{path}': {e}"
+            ) from None
         # Extract defaults from [*] section
         defaults: dict[str, Any] = {}
         raw_defaults = data.get("*")

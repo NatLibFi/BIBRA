@@ -9,7 +9,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from bibra import __version__
-from bibra.config import ProjectRegistry
+from bibra.config import ConfigError, ProjectRegistry
 from bibra.types import PublicationMetadata
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,11 @@ async def root():
 @router.get("/projects")
 async def list_projects():
     """Return a list of configured projects."""
-    return {"projects": registry.list_projects()}
+    try:
+        projects = registry.list_projects()
+    except ConfigError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    return {"projects": projects}
 
 
 class ExtractRequest(BaseModel):

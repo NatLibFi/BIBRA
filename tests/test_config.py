@@ -5,7 +5,12 @@ from pathlib import Path
 import pytest
 
 from bibra.backend.dummy import DummyBackend
-from bibra.config import ProjectConfig, ProjectRegistry
+from bibra.config import (
+    ConfigFileNotFoundError,
+    ConfigParseError,
+    ProjectConfig,
+    ProjectRegistry,
+)
 
 
 class TestProjectRegistry:
@@ -293,4 +298,21 @@ class TestProjectConfig:
         registry = ProjectRegistry(str(config_file))
 
         with pytest.raises(ValueError, match="Missing backend type"):
+            registry.load()
+
+    def test_load_missing_config_file(self, tmp_path: Path):
+        """Test that ConfigFileNotFoundError is raised when config file is missing."""
+        registry = ProjectRegistry(str(tmp_path / "nonexistent.toml"))
+
+        with pytest.raises(ConfigFileNotFoundError, match="Config file not found"):
+            registry.load()
+
+    def test_load_invalid_toml(self, tmp_path: Path):
+        """Test that ConfigParseError is raised when TOML is malformed."""
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text("[invalid\nthis is not valid toml{{{")
+
+        registry = ProjectRegistry(str(config_file))
+
+        with pytest.raises(ConfigParseError, match="Failed to parse"):
             registry.load()

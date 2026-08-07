@@ -5,7 +5,6 @@ import asyncio
 import click
 
 from bibra.config import (
-    BackendConfigError,
     ConfigError,
     ProjectNotFoundError,
     ProjectRegistry,
@@ -88,7 +87,7 @@ def extract(
         backend = registry.get_backend(project_id)
     except ProjectNotFoundError as e:
         raise click.UsageError(str(e)) from None
-    except BackendConfigError as e:
+    except ConfigError as e:
         raise click.ClickException(str(e)) from None
 
     try:

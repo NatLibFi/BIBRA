@@ -4,7 +4,6 @@ import tempfile
 from typing import Annotated, Any
 
 from fastapi import APIRouter, File, UploadFile
-from pydantic import BaseModel
 
 from bibra import __version__
 from bibra.backend.dummy import DummyBackend
@@ -14,12 +13,6 @@ from bibra.types import PublicationMetadata
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-class ExtractRequest(BaseModel):
-    """Request model for extract endpoint."""
-
-    files: list[UploadFile]
 
 
 # Example project data - can be extended as needed

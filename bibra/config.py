@@ -186,8 +186,9 @@ class ProjectRegistry:
             config_path: Path to the TOML config file. Defaults to
                 BIBRA_CONFIG env var or "projects.toml".
         """
-        self._config_path = config_path or os.environ.get(
-            "BIBRA_CONFIG", "projects.toml"
+        raw_path = config_path or os.environ.get("BIBRA_CONFIG")
+        self._config_path = (
+            raw_path.strip() if raw_path and raw_path.strip() else "projects.toml"
         )
         self._projects: dict[str, ProjectConfig] = {}
 

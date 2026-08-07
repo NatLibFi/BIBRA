@@ -130,6 +130,32 @@ class TestProjectRegistry:
         registry = ProjectRegistry()
         assert registry._config_path == "/custom/path.toml"
 
+    def test_empty_config_path_fallback(self, monkeypatch: pytest.MonkeyPatch):
+        """Test that empty config_path falls back to default."""
+        monkeypatch.delenv("BIBRA_CONFIG", raising=False)
+        registry = ProjectRegistry("")
+        assert registry._config_path == "projects.toml"
+
+    def test_whitespace_config_path_fallback(self, monkeypatch: pytest.MonkeyPatch):
+        """Test that whitespace-only config_path falls back to default."""
+        monkeypatch.delenv("BIBRA_CONFIG", raising=False)
+        registry = ProjectRegistry("   ")
+        assert registry._config_path == "projects.toml"
+
+    def test_empty_env_var_config_path_fallback(self, monkeypatch: pytest.MonkeyPatch):
+        """Test that empty BIBRA_CONFIG env var falls back to default."""
+        monkeypatch.setenv("BIBRA_CONFIG", "")
+        registry = ProjectRegistry()
+        assert registry._config_path == "projects.toml"
+
+    def test_whitespace_env_var_config_path_fallback(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Test that whitespace-only BIBRA_CONFIG env var falls back to default."""
+        monkeypatch.setenv("BIBRA_CONFIG", "   ")
+        registry = ProjectRegistry()
+        assert registry._config_path == "projects.toml"
+
     def test_default_config_section(self, tmp_path: Path):
         """Test that [*] section provides default values for all projects."""
         config_file = tmp_path / "projects.toml"

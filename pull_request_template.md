@@ -18,7 +18,7 @@
 - [ ] The PR doesn't introduce unintended code changes (e.g. empty lines or useless reindentation)
 
 ## Disclosure of AI Tool Usage
-As AI tools are becoming more and more prevalent, we feel that indicating AI use and especially how much human effort went into checking the result of AI is good practice. 
+As AI tools are becoming more and more prevalent, we feel that indicating AI use and especially how much human effort went into the work and checking the result of AI is good practice. 
 There are many ways to do that, we adapted the [AI Traffic Lights Protocol](https://nlkw.de/en/blog/ai-tlp/) by Nila Löber.
 
 | Level | Description |

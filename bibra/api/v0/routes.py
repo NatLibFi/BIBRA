@@ -3,7 +3,7 @@
 import logging
 import os
 import tempfile
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel

@@ -7,6 +7,7 @@ import tempfile
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from pydantic_ai import UnexpectedModelBehavior
 
 from bibra.backend.config import GlobalLLMConfig, NuExtractConfig, _parse_bool
@@ -122,8 +123,8 @@ class TestNuExtractBackend:
         assert result.e_isbn == ["9789527159751"]
         assert result.type_coar == "research report"
 
-    def test_extract_returns_empty_metadata_on_llm_exception(self):
-        """Backend should return empty metadata when LLM fails with an exception."""
+    def test_extract_raises_on_llm_exception(self):
+        """Backend should raise exception when LLM fails."""
 
         async def raise_error(*args, **kwargs):
             raise UnexpectedModelBehavior("Failed to parse response")
@@ -132,14 +133,14 @@ class TestNuExtractBackend:
         mock_agent.run = raise_error
         backend = create_backend_with_mock_agent(mock_agent)
 
-        # Exception is caught and logged; returns empty metadata as fallback
-        with patch(
-            "bibra.backend.nuextract._pdf_pages_to_binary_content",
-            return_value=[MagicMock(media_type="image/png", data=b"fake")],
+        with (
+            patch(
+                "bibra.backend.nuextract._pdf_pages_to_binary_content",
+                return_value=[MagicMock(media_type="image/png", data=b"fake")],
+            ),
+            pytest.raises(UnexpectedModelBehavior),
         ):
-            result = asyncio.run(backend.extract([TEST_PDF_PATH]))
-        assert result is not None
-        assert result.title is None
+            asyncio.run(backend.extract([TEST_PDF_PATH]))
 
     def test_extract_handles_empty_file_list(self):
         """Backend should return empty metadata when no files provided."""

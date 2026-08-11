@@ -178,16 +178,12 @@ class NuExtractBackend:
             *image_contents,
         ]
 
-        try:
-            result = await self.agent.run(
-                user_message,
-                model_settings={
-                    "extra_body": {
-                        "chat_template_kwargs": chat_template_kwargs,
-                    }
-                },
-            )
-            return result.output
-        except Exception:
-            logger.exception("Failed to extract metadata from PDF: %s", pdf_path)
-            return PublicationMetadata()
+        result = await self.agent.run(
+            user_message,
+            model_settings={
+                "extra_body": {
+                    "chat_template_kwargs": chat_template_kwargs,
+                }
+            },
+        )
+        return result.output

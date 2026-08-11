@@ -60,16 +60,6 @@ class MockRunResult:
         self.output = kwargs.get("output", None)
 
 
-def run_async(coro, *args, **kwargs):
-    """Run an async coroutine."""
-    loop = asyncio.new_event_loop()
-    try:
-        asyncio.set_event_loop(loop)
-        return loop.run_until_complete(coro(*args, **kwargs))
-    finally:
-        loop.close()
-
-
 def create_backend_with_mock_agent(mock_agent):
     """Create a NuExtractBackend instance with a pre-configured mock agent."""
     backend = NuExtractBackend.__new__(NuExtractBackend)
@@ -121,7 +111,7 @@ class TestNuExtractBackend:
 
         backend = create_backend_with_mock_agent(mock_agent)
 
-        result = run_async(backend.extract, [TEST_PDF_PATH])
+        result = asyncio.run(backend.extract([TEST_PDF_PATH]))
 
         assert isinstance(result, PublicationMetadata)
         assert result.language == "fi"
@@ -147,7 +137,7 @@ class TestNuExtractBackend:
             "bibra.backend.nuextract._pdf_pages_to_binary_content",
             return_value=[MagicMock(media_type="image/png", data=b"fake")],
         ):
-            result = run_async(backend.extract, [TEST_PDF_PATH])
+            result = asyncio.run(backend.extract([TEST_PDF_PATH]))
         assert result is not None
         assert result.title is None
 
@@ -164,7 +154,7 @@ class TestNuExtractBackend:
 
         backend = create_backend_with_mock_agent(mock_agent)
 
-        result = run_async(backend.extract, [])
+        result = asyncio.run(backend.extract([]))
 
         assert result is not None
         # No PDF files provided, so empty metadata is returned
@@ -188,7 +178,7 @@ class TestNuExtractBackend:
 
             backend = create_backend_with_mock_agent(mock_agent)
 
-            result = run_async(backend.extract, [txt_path])
+            result = asyncio.run(backend.extract([txt_path]))
 
             assert result is not None
             # No PDF file found, so empty metadata is returned
@@ -203,7 +193,7 @@ class TestNuExtractBackend:
 
         backend = create_backend_with_mock_agent(mock_agent)
 
-        result = run_async(backend.extract, ["/nonexistent/path.pdf"])
+        result = asyncio.run(backend.extract(["/nonexistent/path.pdf"]))
 
         # Should return empty metadata on failure
         assert result is not None
@@ -226,7 +216,7 @@ class TestNuExtractBackend:
         with patch(
             "bibra.backend.nuextract._pdf_pages_to_binary_content", return_value=[]
         ):
-            result = run_async(backend.extract, [TEST_PDF_PATH])
+            result = asyncio.run(backend.extract([TEST_PDF_PATH]))
 
         assert result is not None
         assert result.title is None
@@ -263,7 +253,7 @@ class TestNuExtractBackend:
             "bibra.backend.nuextract._pdf_pages_to_binary_content",
             return_value=[MagicMock(media_type="image/png", data=b"fake")],
         ):
-            result = run_async(backend.extract, [TEST_PDF_PATH])
+            result = asyncio.run(backend.extract([TEST_PDF_PATH]))
 
         assert result.language == "de"
         assert result.title == "Titel auf Deutsch"
@@ -298,7 +288,7 @@ class TestNuExtractBackend:
             "bibra.backend.nuextract._pdf_pages_to_binary_content",
             return_value=[MagicMock(media_type="image/png", data=b"fake")],
         ):
-            run_async(backend.extract, [TEST_PDF_PATH])
+            asyncio.run(backend.extract([TEST_PDF_PATH]))
 
         # Verify that run was called with instructions in chat_template_kwargs
         call_kwargs = mock_agent.run.call_args[1]
@@ -328,7 +318,7 @@ class TestNuExtractBackend:
             "bibra.backend.nuextract._pdf_pages_to_binary_content",
             return_value=[MagicMock(media_type="image/png", data=b"fake")],
         ):
-            run_async(backend.extract, [TEST_PDF_PATH])
+            asyncio.run(backend.extract([TEST_PDF_PATH]))
 
         # Verify that run was called without instructions in chat_template_kwargs
         call_kwargs = mock_agent.run.call_args[1]
@@ -356,7 +346,7 @@ class TestNuExtractBackend:
             "bibra.backend.nuextract._pdf_pages_to_binary_content",
             return_value=[MagicMock(media_type="image/png", data=b"fake")],
         ):
-            run_async(backend.extract, [TEST_PDF_PATH])
+            asyncio.run(backend.extract([TEST_PDF_PATH]))
 
         # Verify that run was called with enable_thinking=True in chat_template_kwargs
         call_kwargs = mock_agent.run.call_args[1]
@@ -384,7 +374,7 @@ class TestNuExtractBackend:
             "bibra.backend.nuextract._pdf_pages_to_binary_content",
             return_value=[MagicMock(media_type="image/png", data=b"fake")],
         ):
-            run_async(backend.extract, [TEST_PDF_PATH])
+            asyncio.run(backend.extract([TEST_PDF_PATH]))
 
         # Verify that run was called with enable_thinking=False in chat_template_kwargs
         call_kwargs = mock_agent.run.call_args[1]

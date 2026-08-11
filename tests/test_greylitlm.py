@@ -70,16 +70,6 @@ def async_mock(return_value):
     return inner
 
 
-def run_async(coro, *args, **kwargs):
-    """Run an async coroutine."""
-    loop = asyncio.new_event_loop()
-    try:
-        asyncio.set_event_loop(loop)
-        return loop.run_until_complete(coro(*args, **kwargs))
-    finally:
-        loop.close()
-
-
 def create_backend_with_mock_agent(mock_agent):
     """Create a GreyLitLMBackend instance with a pre-configured mock agent."""
     backend = GreyLitLMBackend.__new__(GreyLitLMBackend)
@@ -134,7 +124,7 @@ class TestGreyLitLMBackend:
 
         backend = create_backend_with_mock_agent(mock_agent)
 
-        result = run_async(backend.extract, [])
+        result = asyncio.run(backend.extract([]))
 
         assert isinstance(result, PublicationMetadata)
         assert result.language == "fi"
@@ -160,7 +150,7 @@ class TestGreyLitLMBackend:
         backend = create_backend_with_mock_agent(mock_agent)
 
         with pytest.raises(UnexpectedModelBehavior):
-            run_async(backend.extract, [])
+            asyncio.run(backend.extract([]))
 
     def test_extract_handles_multiple_text_parts(self):
         """Backend should extract content from the first TextPart it finds."""
@@ -184,7 +174,7 @@ class TestGreyLitLMBackend:
 
         backend = create_backend_with_mock_agent(mock_agent)
 
-        result = run_async(backend.extract, [])
+        result = asyncio.run(backend.extract([]))
 
         assert result.language == "en"
         assert result.title == "Test Title"
@@ -205,7 +195,7 @@ class TestGreyLitLMBackend:
 
         backend = create_backend_with_mock_agent(mock_agent)
 
-        result = run_async(backend.extract, [])
+        result = asyncio.run(backend.extract([]))
 
         assert result.language == "sv"
         assert result.title == "Fallback Test"
@@ -222,7 +212,7 @@ class TestGreyLitLMBackend:
 
         backend = create_backend_with_mock_agent(mock_agent)
 
-        result = run_async(backend.extract, [])
+        result = asyncio.run(backend.extract([]))
 
         assert isinstance(result, PublicationMetadata)
         assert result.language is None
@@ -256,7 +246,7 @@ class TestGreyLitLMBackend:
 
         backend = create_backend_with_mock_agent(mock_agent)
 
-        result = run_async(backend.extract, [])
+        result = asyncio.run(backend.extract([]))
 
         assert result.language == "de"
         assert result.title == "Titel auf Deutsch"
@@ -289,7 +279,7 @@ class TestGreyLitLMBackend:
 
             backend = create_backend_with_mock_agent(mock_agent)
 
-            result = run_async(backend.extract, [TEST_PDF_PATH])
+            result = asyncio.run(backend.extract([TEST_PDF_PATH]))
 
             assert result.language == "en"
             assert result.title == "Test PDF Title"
@@ -313,7 +303,7 @@ class TestGreyLitLMBackend:
 
             backend = create_backend_with_mock_agent(mock_agent)
 
-            result = run_async(backend.extract, [TEST_PDF_PATH])
+            result = asyncio.run(backend.extract([TEST_PDF_PATH]))
 
             # Should still return a result, using fallback prompt
             assert result is not None
@@ -346,7 +336,7 @@ class TestGreyLitLMBackend:
 
                 backend = create_backend_with_mock_agent(mock_agent)
 
-                result = run_async(backend.extract, [pdf1_path, pdf2_path])
+                result = asyncio.run(backend.extract([pdf1_path, pdf2_path]))
 
                 assert result.title == "First PDF Title"
                 # Should only be called once for the first PDF
@@ -378,7 +368,7 @@ class TestGreyLitLMBackend:
 
                 backend = create_backend_with_mock_agent(mock_agent)
 
-                result = run_async(backend.extract, [txt_path])
+                result = asyncio.run(backend.extract([txt_path]))
 
                 # Should return a result with fallback content
                 assert result is not None
@@ -401,7 +391,7 @@ class TestGreyLitLMBackend:
 
             backend = create_backend_with_mock_agent(mock_agent)
 
-            result = run_async(backend.extract, [])
+            result = asyncio.run(backend.extract([]))
 
             assert result is not None
             mock_extract.assert_not_called()

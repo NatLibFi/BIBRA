@@ -24,10 +24,11 @@ describe('Home Page', () => {
 
   it('fetches projects', () => {
     // Check that correct number of projects is found
-    cy.get('#select-method option').should('have.length', 2)
+    cy.get('#select-method option').should('have.length', 3)
     // Check that correct projects are fetched
     cy.get('#select-method option').eq(0).invoke('text').should('contain', 'GreyLitLM Backend')
-    cy.get('#select-method option').eq(1).invoke('text').should('contain', 'Dummy Backend')
+    cy.get('#select-method option').eq(1).invoke('text').should('contain', 'NuExtract Backend')
+    cy.get('#select-method option').eq(2).invoke('text').should('contain', 'Dummy Backend')
   })
 
   it('shows file preview', () => {

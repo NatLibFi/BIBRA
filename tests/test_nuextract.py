@@ -10,7 +10,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from pydantic_ai import UnexpectedModelBehavior
 
-from bibra.backend.config import GlobalLLMConfig, NuExtractConfig, _parse_bool
+from bibra.backend.config import (
+    GlobalLLMConfig,
+    NuExtractConfig,
+    _parse_bool,
+    _parse_int,
+)
 from bibra.backend.nuextract import NuExtractBackend
 from bibra.types import PublicationMetadata
 
@@ -564,3 +569,102 @@ class TestParseBool:
         """Unrecognized values should fall back to default (False)."""
         for val in ("maybe", "yes", "no", "2", "t", "f"):
             assert _parse_bool(val, False) is False
+
+
+class TestParseInt:
+    """Tests for the _parse_int configuration helper."""
+
+    def test_parse_int_none_returns_default(self):
+        """_parse_int(None, 42) should return 42."""
+        assert _parse_int(None, 42) == 42
+
+    def test_parse_int_valid_values(self):
+        """Recognized positive integer values should be parsed correctly."""
+        for val, expected in (("100", 100), ("5", 5), ("  42  ", 42)):
+            assert _parse_int(val, 99) == expected
+
+    def test_parse_int_empty_string_returns_default(self):
+        """Empty string should fall back to default."""
+        assert _parse_int("", 170) == 170
+
+    def test_parse_int_non_positive_returns_default(self):
+        """Non-positive values should fall back to default."""
+        for val in ("0", "-1", "-100"):
+            assert _parse_int(val, 170) == 170
+
+    def test_parse_int_invalid_string_returns_default(self):
+        """Non-numeric strings should fall back to default."""
+        for val in ("abc", "12.5", "1,000"):
+            assert _parse_int(val, 99) == 99
+
+
+class TestParseBoolWarnings:
+    """Tests that _parse_bool emits warnings on fallback."""
+
+    def test_warning_on_none_value(self, caplog):
+        """Should warn when value is None."""
+        import logging
+
+        with caplog.at_level(logging.WARNING, logger="bibra.backend.config"):
+            result = _parse_bool(None, False, key="TEST_KEY")
+
+        assert result is False
+        assert "TEST_KEY" in caplog.text
+        assert "not set" in caplog.text
+
+    def test_warning_on_unrecognized_value(self, caplog):
+        """Should warn when value is unrecognized."""
+        import logging
+
+        with caplog.at_level(logging.WARNING, logger="bibra.backend.config"):
+            result = _parse_bool("maybe", True, key="MY_FLAG")
+
+        assert result is True
+        assert "MY_FLAG" in caplog.text
+        assert "Invalid config value" in caplog.text
+
+    def test_no_warning_on_valid_value(self, caplog):
+        """Should not warn when value is recognized."""
+        import logging
+
+        with caplog.at_level(logging.WARNING, logger="bibra.backend.config"):
+            result = _parse_bool("true", False, key="MY_FLAG")
+
+        assert result is True
+        assert caplog.text == ""
+
+
+class TestParseIntWarnings:
+    """Tests that _parse_int emits warnings on fallback."""
+
+    def test_warning_on_non_positive_value(self, caplog):
+        """Should warn when value is non-positive."""
+        import logging
+
+        with caplog.at_level(logging.WARNING, logger="bibra.backend.config"):
+            result = _parse_int("0", 170, key="NUEXTRACT_DPI")
+
+        assert result == 170
+        assert "NUEXTRACT_DPI" in caplog.text
+        assert "non-positive" in caplog.text
+
+    def test_warning_on_parse_error(self, caplog):
+        """Should warn when value cannot be parsed as int."""
+        import logging
+
+        with caplog.at_level(logging.WARNING, logger="bibra.backend.config"):
+            result = _parse_int("abc", 100, key="MY_INT")
+
+        assert result == 100
+        assert "MY_INT" in caplog.text
+        assert "Invalid config value" in caplog.text
+
+    def test_no_warning_on_valid_value(self, caplog):
+        """Should not warn when value is valid."""
+        import logging
+
+        with caplog.at_level(logging.WARNING, logger="bibra.backend.config"):
+            result = _parse_int("42", 99, key="MY_INT")
+
+        assert result == 42
+        assert caplog.text == ""

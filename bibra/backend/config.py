@@ -4,6 +4,7 @@ This module provides configuration handling using environment variables
 with support for .env files via python-dotenv.
 """
 
+import logging
 import os
 
 from dotenv import load_dotenv
@@ -11,7 +12,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def _parse_bool(value: str | None, default: bool) -> bool:
+logger = logging.getLogger(__name__)
+
+
+def _parse_bool(value: str | None, default: bool, key: str | None = None) -> bool:
     """Parse a boolean from an env var string (1/0/true/false, case insensitive).
 
     Falls back to `default` for unrecognized or empty values.
@@ -25,16 +29,23 @@ def _parse_bool(value: str | None, default: bool) -> bool:
         unrecognized.
     """
     if value is None:
+        logger.warning("Config %s is not set, using default %r", key, default)
         return default
     stripped = value.strip().lower()
     if stripped in ("1", "true"):
         return True
     if stripped in ("0", "false"):
         return False
+    logger.warning(
+        "Invalid config value %r for %s, using default %r",
+        value,
+        key,
+        default,
+    )
     return default
 
 
-def _parse_int(value: str | None, default: int) -> int:
+def _parse_int(value: str | None, default: int, key: str | None = None) -> int:
     """Parse an integer from an env var string, falling back to default on failure.
 
     Non-positive values are also treated as invalid and fall back to the default.
@@ -52,10 +63,22 @@ def _parse_int(value: str | None, default: int) -> int:
     try:
         result = int(value.strip())
         if result <= 0:
+            logger.warning(
+                "Invalid config value %r for %s (non-positive), using default %r",
+                value,
+                key,
+                default,
+            )
             return default
         return result
     except (ValueError, TypeError):
-        return default
+        logger.warning(
+            "Invalid config value %r for %s, using default %r",
+            value,
+            key,
+            default,
+        )
+    return default
 
 
 class GlobalLLMConfig:
@@ -161,6 +184,7 @@ class NuExtractConfig:
         self.thinking = _parse_bool(
             os.getenv("NUEXTRACT_THINKING") if thinking is None else str(thinking),
             default=False,
+            key="NUEXTRACT_THINKING",
         )
         self.instructions = (
             instructions
@@ -170,4 +194,5 @@ class NuExtractConfig:
         self.dpi = _parse_int(
             os.getenv("NUEXTRACT_DPI") if dpi is None else str(dpi),
             default=170,
+            key="NUEXTRACT_DPI",
         )

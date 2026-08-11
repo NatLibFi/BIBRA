@@ -1,4 +1,4 @@
-["*"]
+[defaults]
 # Default settings for all projects (each project can override)
 api_key = "${LLM_API_KEY}"
 endpoint = "${LLM_ENDPOINT_URL}"

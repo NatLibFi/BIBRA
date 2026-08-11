@@ -157,10 +157,10 @@ class TestProjectRegistry:
         assert registry._config_path == "projects.toml"
 
     def test_default_config_section(self, tmp_path: Path):
-        """Test that [*] section provides default values for all projects."""
+        """Test that [defaults] section provides default values for all projects."""
         config_file = tmp_path / "projects.toml"
         config_file.write_text(
-            '["*"]\napi_key = "default-key"\n\n'
+            '[defaults]\napi_key = "default-key"\n\n'
             '[proj_a]\nname = "Project A"\nbackend = "dummy"\n\n'
             '[proj_b]\nname = "Project B"\nbackend = "dummy"\n'
         )
@@ -173,10 +173,10 @@ class TestProjectRegistry:
         assert projects["proj_b"].api_key == "default-key"
 
     def test_project_overrides_defaults(self, tmp_path: Path):
-        """Test that project-specific values override [*] defaults."""
+        """Test that project-specific values override [defaults] defaults."""
         config_file = tmp_path / "projects.toml"
         config_file.write_text(
-            '["*"]\napi_key = "default-key"\n\n'
+            '[defaults]\napi_key = "default-key"\n\n'
             '[proj_a]\nname = "Project A"\nbackend = "dummy"\n'
             'api_key = "project-a-key"\n\n'
             '[proj_b]\nname = "Project B"\nbackend = "dummy"\n'
@@ -191,12 +191,12 @@ class TestProjectRegistry:
     def test_defaults_with_env_vars(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
-        """Test that env var interpolation works on [*] defaults."""
+        """Test that env var interpolation works on [defaults] defaults."""
         monkeypatch.setenv("DEFAULT_KEY", "interpolated-key")
 
         config_file = tmp_path / "projects.toml"
         config_file.write_text(
-            '["*"]\napi_key = "${DEFAULT_KEY}"\n\n'
+            '[defaults]\napi_key = "${DEFAULT_KEY}"\n\n'
             '[proj_a]\nname = "Project A"\nbackend = "dummy"\n'
         )
 
@@ -219,7 +219,8 @@ class TestProjectRegistry:
         """Test that non-string default values are passed through unchanged."""
         config_file = tmp_path / "projects.toml"
         config_file.write_text(
-            '["*"]\nmodel = 42\n\n[test_project]\nname = "Test"\nbackend = "dummy"\n'
+            "[defaults]\nmodel = 42\n\n[test_project]\n"
+            'name = "Test"\nbackend = "dummy"\n'
         )
 
         registry = ProjectRegistry(str(config_file))

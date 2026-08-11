@@ -234,9 +234,9 @@ class ProjectRegistry:
             raise ConfigParseError(
                 f"Failed to parse config file '{path}': {e}"
             ) from None
-        # Extract defaults from [*] section
+        # Extract defaults from [defaults] section
         defaults: dict[str, Any] = {}
-        raw_defaults = data.get("*")
+        raw_defaults = data.get("defaults")
         if isinstance(raw_defaults, dict):
             for key, value in raw_defaults.items():
                 if isinstance(value, str):
@@ -246,8 +246,8 @@ class ProjectRegistry:
 
         projects: dict[str, ProjectConfig] = {}
         for project_id, config in data.items():
-            # Skip non-project sections and defaults section ([*])
-            if project_id == "*" or not isinstance(config, dict):
+            # Skip non-project sections and defaults section ([defaults])
+            if project_id == "defaults" or not isinstance(config, dict):
                 continue
 
             # Merge defaults with project config (project values override)

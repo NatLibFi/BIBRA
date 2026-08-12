@@ -1,4 +1,3 @@
-Draft version
 
 ## Reasons for creating this PR
 

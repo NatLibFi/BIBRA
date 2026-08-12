@@ -2,6 +2,7 @@
 
 set -e
 echo "Starting uvicorn server on port 24272 (BIBRA on a phone keypad)..."
+export BIBRA_CONFIG=projects.toml.example
 uv run uvicorn bibra.main:app --host 0.0.0.0 --port 24272 2>/dev/null &
 UVICORN_PID=$!
 trap "kill $UVICORN_PID 2>/dev/null" EXIT

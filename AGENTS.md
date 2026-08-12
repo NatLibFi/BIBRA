@@ -1,5 +1,9 @@
 # AGENTS.md
 
+## Running Commands
+
+Do not use `cd` in front of commands, run them from the current directory as is.
+
 ## Python Dependencies
 
 Always use `uv` for dependency management (e.g. `uv add`), **not** `pip` or `uv pip`.
@@ -16,14 +20,14 @@ Python code style follows Ruff format. Max line length 88 chars. Imports on top 
 
 **Ruff checks are a mandatory gate before claiming any task complete.** Every agentic tool invocation must run both:
 
-1. `ruff check --fix` — linting (auto-fix where possible)
-2. `ruff format` — formatting (auto-format)
+1. `uv run ruff check --fix` — linting (auto-fix where possible)
+2. `uv run ruff format` — formatting (auto-format)
 
-Run the checks again with `ruff check` and `ruff format --check` to verify everything passes. Do **not** claim a task complete until both pass.
+Run the checks again with `uv run ruff check` and `uv run ruff format --check` to verify everything passes. Do **not** claim a task complete until both pass.
 
 ## Testing
 
-**Always run Python and Cypress tests after any code changes.**
+**Always run Pytest and Cypress tests after any code changes.**
 
 ### Python Tests
 
@@ -33,14 +37,14 @@ Or run specific test files: `uv run pytest tests/test_<test_file>.py -v`
 
 ### Cypress Tests
 
-Run Cypress E2E tests in headless mode: `npm run cy:run`
+Run Cypress E2E tests in headless mode with the helper script: `bash cypress/run_cypress.sh`
 
 ### Task Completion / Pre-commit Checklist
 
 Before considering a task completed, ensure:
-1. ✅ `ruff check --fix` applied and `ruff check` passes
-2. ✅ `ruff format` applied and `ruff format --check` passes
+1. ✅ `uv run ruff check --fix` applied and `uv run ruff check` passes
+2. ✅ `uv run ruff format` applied and `uv run ruff format --check` passes
 3. ✅ All pytest tests pass (`uv run pytest -v`)
-4. ✅ All Cypress E2E tests pass (`npm run cy:run`)
+4. ✅ All Cypress E2E tests pass (`bash cypress/run_cypress.sh`)
 
-**Note: Steps 1–2 must pass before steps 3–4. Ruff should auto-fix issues where possible; manually fix anything it can't.
+**Note: Steps 1–2 must pass before steps 3–4. Ruff should auto-fix issues where possible; manually fix anything it can't.**

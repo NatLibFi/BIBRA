@@ -7,5 +7,6 @@ module.exports = defineConfig({
     supportFile: 'cypress/support/e2e.js',
     screenshotOnRunFailure: true,
     video: false,
+    allowCypressEnv: false,
   },
 });

@@ -4,22 +4,29 @@ multi-ecosystem-groups:
   all:
     schedule:
       interval: "monthly"
-    cooldown:
-      default-days: 10
 
 updates:
+
   - package-ecosystem: "github-actions"
     directory: "/.github/workflows"
     patterns:
       - "*"
     multi-ecosystem-group: "all"
+    cooldown:
+      default-days: 10
+
   - package-ecosystem: "uv"
     directory: "/"
     patterns:
       - "*"
     multi-ecosystem-group: "all"
+    cooldown:
+      default-days: 10
+
   - package-ecosystem: "npm"
     directory: "/"
     patterns:
       - "*"
     multi-ecosystem-group: "all"
+    cooldown:
+      default-days: 10

@@ -206,6 +206,9 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+# Dirac AI code editor
+.dirac-cache/
+
 # Marimo
 marimo/_static/
 marimo/_lsp/

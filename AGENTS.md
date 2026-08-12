@@ -47,4 +47,4 @@ Before considering a task completed, ensure:
 3. ✅ All pytest tests pass (`uv run pytest -v`)
 4. ✅ All Cypress E2E tests pass (`bash cypress/run_cypress.sh`)
 
-**Note: Steps 1–2 must pass before steps 3–4. Ruff should auto-fix issues where possible; manually fix anything it can't.
+**Note: Steps 1–2 must pass before steps 3–4. Ruff should auto-fix issues where possible; manually fix anything it can't.**

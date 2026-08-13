@@ -29,7 +29,15 @@ def _parse_bool_or_str(v: Any) -> bool:
     return str(v).strip().lower() in ("1", "true")
 
 
+def _parse_int_or_str(v: Any) -> int:
+    """Coerce int or string representation to int."""
+    if isinstance(v, int):
+        return v
+    return int(str(v).strip())
+
+
 BoolStr = Annotated[bool, BeforeValidator(_parse_bool_or_str)]
+IntStr = Annotated[int, BeforeValidator(_parse_int_or_str)]
 
 
 class NuExtractConfig(BaseModel):
@@ -40,7 +48,7 @@ class NuExtractConfig(BaseModel):
     model: str = Field(default="nuextract3", description="Model name")
     thinking: BoolStr = Field(default=False, description="Enable thinking mode")
     instructions: str = Field(default="", description="Custom instructions")
-    dpi: int = Field(default=170, ge=1, description="DPI for PDF rendering")
+    dpi: IntStr = Field(default=170, ge=1, description="DPI for PDF rendering")
 
 
 COAR_TYPES = [

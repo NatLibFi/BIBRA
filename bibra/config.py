@@ -202,7 +202,9 @@ class ProjectRegistry:
                     f"Missing backend type for project '{project_id}'"
                 )
             if backend_type not in _BACKEND_MAP:
-                raise BackendConfigError(f"Unknown backend type: {backend_type}")
+                raise BackendConfigError(
+                    f"Unknown backend type '{backend_type}' for project '{project_id}'"
+                )
 
             # Separate global fields from backend-specific extra fields
             project = ProjectConfig(

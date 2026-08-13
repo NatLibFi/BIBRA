@@ -350,7 +350,10 @@ class TestProjectConfig:
 
         registry = ProjectRegistry(str(config_file))
 
-        with pytest.raises(BackendConfigError, match="Unknown backend type: foobar"):
+        with pytest.raises(
+            BackendConfigError,
+            match="Unknown backend type 'foobar' for project 'test_project'",
+        ):
             registry.load()
 
     def test_load_missing_backend_type(self, tmp_path: Path):

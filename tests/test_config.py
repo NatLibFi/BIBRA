@@ -214,7 +214,7 @@ class TestProjectRegistry:
         registry = ProjectRegistry(str(config_file))
         projects = registry.load()
 
-        assert projects["test_project"].name == 123
+        assert projects["test_project"].name == "123"
 
     def test_non_string_default_values(self, tmp_path: Path):
         """Test that non-string default values are passed through unchanged."""

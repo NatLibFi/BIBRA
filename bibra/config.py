@@ -23,6 +23,11 @@ class ConfigError(Exception):
 
     description: str = "Configuration error"
 
+    def __init__(self, message: str | None = None):
+        super().__init__(message or self.description)
+        if message is not None:
+            self.description = message
+
 
 class ConfigFileNotFoundError(ConfigError):
     """Raised when the configuration file cannot be found."""

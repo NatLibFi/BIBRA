@@ -14,38 +14,14 @@ from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from bibra.backend.base import BaseBackend
-from bibra.backend.config import GlobalLLMConfig
+from bibra.backend.config import GlobalLLMConfig, parse_bool_or_str, parse_int_or_str
 from bibra.types import PublicationMetadata
 
 logger = logging.getLogger(__name__)
 
 
-def _parse_bool_or_str(v: Any) -> bool:
-    """Coerce bool or string representation to bool."""
-    if isinstance(v, bool):
-        return v
-    if isinstance(v, int):
-        return v != 0
-    stripped = str(v).strip().lower()
-    if stripped not in ("1", "true"):
-        logger.warning("Unrecognized bool value %r, defaulting to False", v)
-        return False
-    return True
-
-
-def _parse_int_or_str(v: Any) -> int:
-    """Coerce int or string representation to int."""
-    if isinstance(v, int):
-        return v
-    try:
-        return int(str(v).strip())
-    except ValueError:
-        logger.warning("Unrecognized int value %r, defaulting to 0", v)
-        return 0
-
-
-BoolStr = Annotated[bool, BeforeValidator(_parse_bool_or_str)]
-IntStr = Annotated[int, BeforeValidator(_parse_int_or_str)]
+BoolStr = Annotated[bool, BeforeValidator(parse_bool_or_str)]
+IntStr = Annotated[int, BeforeValidator(parse_int_or_str)]
 
 
 class NuExtractConfig(BaseModel):

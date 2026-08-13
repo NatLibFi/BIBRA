@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from bibra.backend.config import parse_bool_or_str, parse_int_or_str
 from bibra.backend.dummy import DummyBackend
 from bibra.config import (
     BackendConfigError,
@@ -394,3 +395,98 @@ class TestProjectConfig:
         error_msg = str(exc_info.value)
         assert "test_project" in error_msg
         assert "greylitlm" in error_msg
+
+
+class TestParseBoolOrStr:
+    """Tests for parse_bool_or_str validator."""
+
+    def test_bool_true_passed_through(self):
+        assert parse_bool_or_str(True) is True
+
+    def test_bool_false_passed_through(self):
+        assert parse_bool_or_str(False) is False
+
+    def test_int_zero_returns_false(self):
+        assert parse_bool_or_str(0) is False
+
+    def test_int_nonzero_returns_true(self):
+        assert parse_bool_or_str(1) is True
+
+    def test_int_nonzero_negative_returns_true(self):
+        assert parse_bool_or_str(-1) is True
+
+    def test_string_true_returns_true(self):
+        assert parse_bool_or_str("true") is True
+
+    def test_string_1_returns_true(self):
+        assert parse_bool_or_str("1") is True
+
+    def test_string_with_whitespace(self):
+        assert parse_bool_or_str("  true  ") is True
+
+    def test_string_false_returns_false_with_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ):
+        assert parse_bool_or_str("false") is False
+        assert "Unrecognized bool value" in caplog.text
+        assert "'false'" in caplog.text
+
+    def test_string_yes_returns_false_with_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ):
+        assert parse_bool_or_str("yes") is False
+        assert "Unrecognized bool value" in caplog.text
+        assert "'yes'" in caplog.text
+
+    def test_string_maybe_returns_false_with_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ):
+        assert parse_bool_or_str("maybe") is False
+        assert "Unrecognized bool value" in caplog.text
+
+    def test_string_2_returns_false_with_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ):
+        assert parse_bool_or_str("2") is False
+        assert "Unrecognized bool value" in caplog.text
+
+
+class TestParseIntOrStr:
+    """Tests for parse_int_or_str validator."""
+
+    def test_int_passed_through(self):
+        assert parse_int_or_str(42) == 42
+
+    def test_string_number(self):
+        assert parse_int_or_str("42") == 42
+
+    def test_string_negative_number(self):
+        assert parse_int_or_str("-5") == -5
+
+    def test_string_with_whitespace(self):
+        assert parse_int_or_str("  10  ") == 10
+
+    def test_string_invalid_returns_zero_with_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ):
+        assert parse_int_or_str("abc") == 0
+        assert "Unrecognized int value" in caplog.text
+        assert "'abc'" in caplog.text
+
+    def test_string_float_returns_zero_with_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ):
+        assert parse_int_or_str("3.14") == 0
+        assert "Unrecognized int value" in caplog.text
+
+    def test_empty_string_returns_zero_with_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ):
+        assert parse_int_or_str("") == 0
+        assert "Unrecognized int value" in caplog.text
+
+    def test_whitespace_only_returns_zero_with_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ):
+        assert parse_int_or_str("   ") == 0
+        assert "Unrecognized int value" in caplog.text

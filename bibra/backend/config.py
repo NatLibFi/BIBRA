@@ -7,8 +7,33 @@ at application startup (see bibra.main and bibra.cli entry points).
 
 import logging
 import os
+from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+def parse_bool_or_str(v: Any) -> bool:
+    """Coerce bool or string representation to bool."""
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, int):
+        return v != 0
+    stripped = str(v).strip().lower()
+    if stripped not in ("1", "true"):
+        logger.warning("Unrecognized bool value %r, defaulting to False", v)
+        return False
+    return True
+
+
+def parse_int_or_str(v: Any) -> int:
+    """Coerce int or string representation to int."""
+    if isinstance(v, int):
+        return v
+    try:
+        return int(str(v).strip())
+    except ValueError:
+        logger.warning("Unrecognized int value %r, defaulting to 0", v)
+        return 0
 
 
 class GlobalLLMConfig:

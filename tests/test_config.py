@@ -374,3 +374,23 @@ class TestProjectConfig:
         projects = registry.load()
 
         assert projects["test_project"].extra["dpi"] == "300"
+
+    def test_invalid_extra_keys_raise_backend_config_error(self, tmp_path: Path):
+        """Test that unknown extra keys produce a clear BackendConfigError."""
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text(
+            "[test_project]\n"
+            'name = "Test"\n'
+            'backend = "greylitlm"\n'
+            'unknown_key = "bad_value"\n'
+        )
+
+        registry = ProjectRegistry(str(config_file))
+        registry.load()
+
+        with pytest.raises(BackendConfigError) as exc_info:
+            registry.get_backend("test_project")
+
+        error_msg = str(exc_info.value)
+        assert "test_project" in error_msg
+        assert "greylitlm" in error_msg

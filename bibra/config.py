@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
+
 from bibra.backend.base import BaseBackend
 from bibra.backend.dummy import DummyBackend
 from bibra.backend.greylitlm import GreyLitLMBackend
@@ -238,7 +240,13 @@ class ProjectRegistry:
                 f"Unknown backend type for project '{project_id}': {project.backend}"
             )
 
-        kwargs = backend_class.build_config(project)
+        try:
+            kwargs = backend_class.build_config(project)
+        except ValidationError as e:
+            raise BackendConfigError(
+                f"Invalid backend config for project '{project_id}' "
+                f"(backend: {project.backend}): {e}"
+            ) from e
         return backend_class(**kwargs)
 
     def list_projects(self) -> list[dict[str, Any]]:

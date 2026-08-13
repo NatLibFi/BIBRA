@@ -42,8 +42,8 @@ async def list_projects(registry: Annotated[ProjectRegistry, Depends(get_registr
     try:
         projects = registry.list_projects()
     except ConfigError as e:
-        logger.exception("Configuration error: %s", e.description)
-        raise HTTPException(status_code=500, detail=e.description)
+        logger.exception("Configuration error")
+        raise HTTPException(status_code=500, detail=str(e))
     return {"projects": projects}
 
 
@@ -80,8 +80,8 @@ async def extract(
         except ProjectNotFoundError as e:
             raise HTTPException(status_code=404, detail=str(e))
         except ConfigError as e:
-            logger.exception("Configuration error: %s", e.description)
-            raise HTTPException(status_code=500, detail=e.description)
+            logger.exception("Configuration error")
+            raise HTTPException(status_code=500, detail=str(e))
         # Extract metadata using the backend
         result = await backend.extract(temp_files)
         return result

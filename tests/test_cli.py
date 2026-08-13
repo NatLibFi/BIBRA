@@ -232,6 +232,20 @@ class TestExtract:
             assert result.exit_code != 0
             assert "Extraction failed: PDF corrupted" in result.output
 
+    def test_extract_config_error_converted_to_click_exception(self, tmp_path):
+        """Test that ConfigError in extract is converted to ClickException."""
+        test_file = tmp_path / "test.pdf"
+        test_file.write_bytes(b"dummy pdf content")
+
+        with patch("bibra.cli.ProjectRegistry") as mock_registry_cls:
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.side_effect = ConfigError("Invalid config syntax")
+
+            result = self.runner.invoke(extract, ["dummy", str(test_file)])
+            assert result.exit_code != 0
+            assert "Invalid config syntax" in result.output
+
 
 class TestMakeListTemplate:
     """Tests for the _make_list_template helper function."""

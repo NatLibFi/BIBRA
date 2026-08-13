@@ -224,3 +224,6 @@ yarn-error.log*
 cypress/screenshots/
 cypress/videos/
 cypress/cache/
+
+# BIBRA project configuration (copy from projects.toml.example)
+/projects.toml

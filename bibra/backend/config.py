@@ -1,84 +1,41 @@
 """Configuration management for BIBRA application.
 
-This module provides configuration handling using environment variables
-with support for .env files via python-dotenv.
+This module provides configuration handling using environment variables.
+Environment variables are typically loaded from .env files via python-dotenv
+at application startup (see bibra.main and bibra.cli entry points).
 """
 
 import logging
 import os
-
-from dotenv import load_dotenv
-
-load_dotenv()
-
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def _parse_bool(value: str | None, default: bool, key: str | None = None) -> bool:
-    """Parse a boolean from an env var string (1/0/true/false, case insensitive).
-
-    Falls back to `default` for unrecognized or empty values.
-
-    Args:
-        value: The string value to parse.
-        default: The default value to return on failure or unrecognized input.
-
-    Returns:
-        The parsed boolean, or the default if parsing fails or the value is
-        unrecognized.
-    """
-    if value is None:
-        logger.warning("Config %s is not set, using default %r", key, default)
-        return default
-    stripped = value.strip().lower()
+def parse_bool_or_str(v: Any) -> bool:
+    """Coerce bool or string representation to bool."""
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, int):
+        return v != 0
+    stripped = str(v).strip().lower()
     if stripped in ("1", "true"):
         return True
     if stripped in ("0", "false"):
         return False
-    logger.warning(
-        "Invalid config value %r for %s, using default %r",
-        value,
-        key,
-        default,
-    )
-    return default
+    logger.warning("Unrecognized bool value %r, defaulting to False", v)
+    return False
 
 
-def _parse_int(value: str | None, default: int, key: str | None = None) -> int:
-    """Parse an integer from an env var string, falling back to default on failure.
-
-    Non-positive values are also treated as invalid and fall back to the default.
-
-    Args:
-        value: The string value to parse.
-        default: The default value to return on failure.
-
-    Returns:
-        The parsed integer, or the default if parsing fails or the value is
-        non-positive.
-    """
-    if value is None:
-        return default
+def parse_int_or_str(v: Any) -> int:
+    """Coerce int or string representation to int."""
+    if isinstance(v, int):
+        return v
     try:
-        result = int(value.strip())
-        if result <= 0:
-            logger.warning(
-                "Invalid config value %r for %s (non-positive), using default %r",
-                value,
-                key,
-                default,
-            )
-            return default
-        return result
-    except (ValueError, TypeError):
-        logger.warning(
-            "Invalid config value %r for %s, using default %r",
-            value,
-            key,
-            default,
-        )
-    return default
+        return int(str(v).strip())
+    except ValueError:
+        logger.warning("Unrecognized int value %r, defaulting to 0", v)
+        return 0
 
 
 class GlobalLLMConfig:
@@ -107,92 +64,3 @@ class GlobalLLMConfig:
             else os.getenv("LLM_ENDPOINT_URL", "http://localhost:8080/v1/")
         )
         self.api_key = api_key if api_key is not None else os.getenv("LLM_API_KEY")
-
-
-class GreyLitLMConfig:
-    """GreyLitLM-specific settings.
-
-    Environment Variables:
-        GREYLITLM_MODEL: Model name for GreyLitLM (default: greylitlm)
-        GREYLITLM_SYSTEM_PROMPT: System prompt for GreyLitLM
-        GREYLITLM_INSTRUCTIONS: Instructions for GreyLitLM
-    """
-
-    def __init__(
-        self,
-        model: str | None = None,
-        system_prompt: str | None = None,
-        instructions: str | None = None,
-    ):
-        """Initialize GreyLitLM configuration.
-
-        Args:
-            model: Model name. Defaults to env var or "greylitlm".
-            system_prompt: System prompt. Defaults to env var or built-in default.
-            instructions: Instructions. Defaults to env var or built-in default.
-        """
-        self.model = (
-            model if model is not None else os.getenv("GREYLITLM_MODEL", "greylitlm")
-        )
-        self.system_prompt = (
-            system_prompt
-            if system_prompt is not None
-            else os.getenv(
-                "GREYLITLM_SYSTEM_PROMPT",
-                "You are a skilled librarian specialized in meticulous cataloguing of"
-                " digital documents.",
-            )
-        )
-        self.instructions = (
-            instructions
-            if instructions is not None
-            else os.getenv(
-                "GREYLITLM_INSTRUCTIONS",
-                "Extract metadata from this document. Return as JSON.",
-            )
-        )
-
-
-class NuExtractConfig:
-    """NuExtract-specific settings.
-
-    Environment Variables:
-        NUEXTRACT_MODEL: Model name for NuExtract (default: nuextract3)
-        NUEXTRACT_THINKING: Enable thinking mode (default: False)
-        NUEXTRACT_INSTRUCTIONS: Custom instructions for NuExtract (optional)
-        NUEXTRACT_DPI: DPI for PDF-to-image conversion (default: 170)
-    """
-
-    def __init__(
-        self,
-        model: str | None = None,
-        thinking: bool | None = None,
-        instructions: str | None = None,
-        dpi: int | None = None,
-    ):
-        """Initialize NuExtract configuration.
-
-        Args:
-            model: Model name. Defaults to env var or "nuextract3".
-            thinking: Enable thinking mode. Defaults to env var or False.
-            instructions: Custom instructions. Defaults to env var value.
-            dpi: DPI for PDF-to-image conversion. Defaults to env var or 170.
-        """
-        self.model = (
-            model if model is not None else os.getenv("NUEXTRACT_MODEL", "nuextract3")
-        )
-        self.thinking = _parse_bool(
-            os.getenv("NUEXTRACT_THINKING") if thinking is None else str(thinking),
-            default=False,
-            key="NUEXTRACT_THINKING",
-        )
-        self.instructions = (
-            instructions
-            if instructions is not None
-            else os.getenv("NUEXTRACT_INSTRUCTIONS", "")
-        )
-        self.dpi = _parse_int(
-            os.getenv("NUEXTRACT_DPI") if dpi is None else str(dpi),
-            default=170,
-            key="NUEXTRACT_DPI",
-        )

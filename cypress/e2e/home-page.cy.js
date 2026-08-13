@@ -26,9 +26,9 @@ describe('Home Page', () => {
     // Check that correct number of projects is found
     cy.get('#select-method option').should('have.length', 3)
     // Check that correct projects are fetched
-    cy.get('#select-method option').eq(0).invoke('text').should('contain', 'GreyLitLM Backend')
-    cy.get('#select-method option').eq(1).invoke('text').should('contain', 'NuExtract Backend')
-    cy.get('#select-method option').eq(2).invoke('text').should('contain', 'Dummy Backend')
+    cy.get('#select-method option').eq(0).invoke('text').should('contain', 'GreyLitLM project')
+    cy.get('#select-method option').eq(1).invoke('text').should('contain', 'NuExtract project')
+    cy.get('#select-method option').eq(2).invoke('text').should('contain', 'Dummy project')
   })
 
   it('shows file preview', () => {
@@ -65,7 +65,7 @@ describe('Home Page', () => {
     // Check that submit button is disabled
     cy.get('.btn-submit').should('have.class', 'disabled')
     // Select Dummy project
-    cy.get('select').select('Dummy Backend')
+    cy.get('select').select('Dummy project')
     // Upload pdf file
     cy.get('input[type=file]').selectFile('cypress/fixtures/test-document.pdf', {force: true})
     // Check that results are not shown
@@ -85,7 +85,7 @@ describe('Home Page', () => {
 
   it('hides preview and results after clear', () => {
     // Select Dummy project
-    cy.get('select').select('Dummy Backend')
+    cy.get('select').select('Dummy project')
     // Upload pdf file and submit
     cy.get('input[type=file]').selectFile('cypress/fixtures/test-document.pdf', {force: true})
     cy.get('.btn-submit').click()

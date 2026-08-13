@@ -1,15 +1,19 @@
+"""CLI interface for BIBRA."""
+
 import asyncio
 
 import click
+from dotenv import load_dotenv
 
-from bibra.api.v0.routes import PROJECTS
-from bibra.backend.dummy import DummyBackend
-from bibra.backend.greylitlm import GreyLitLMBackend
-from bibra.backend.nuextract import NuExtractBackend
+from bibra.config import (
+    ConfigError,
+    ProjectNotFoundError,
+    ProjectRegistry,
+)
 
 
 def _make_list_template(column_headings: tuple, *rows: tuple) -> str:
-    """Create a format string for a aligned table."""
+    """Create a format string for an aligned table."""
     if not rows:
         col_widths = [len(h) for h in column_headings]
     else:
@@ -28,21 +32,27 @@ def _make_list_template(column_headings: tuple, *rows: tuple) -> str:
 @click.version_option()
 def cli():
     """BIBRA - Bibliographic metadata extraction tool."""
+    load_dotenv()
 
 
 @cli.command("list-projects")
-def list_projects():
-    """List available projects."""
-    column_headings = ("Project ID", "Project Name", "Description", "Created At")
-    table = [
-        (
-            proj["id"],
-            proj["name"],
-            proj["description"],
-            proj["created_at"],
-        )
-        for proj in PROJECTS
-    ]
+@click.option(
+    "--config",
+    "-c",
+    default=None,
+    help="Path to the project configuration file (overrides BIBRA_CONFIG).",
+)
+def list_projects(config: str | None):
+    """List configured projects."""
+    registry = ProjectRegistry(config)
+    try:
+        registry.load()
+        projects = registry.list_projects()
+    except ConfigError as e:
+        raise click.ClickException(str(e)) from None
+
+    column_headings = ("Project ID", "Project Name", "Description")
+    table = [(proj["id"], proj["name"], proj["description"]) for proj in projects]
     template = _make_list_template(column_headings, *table)
     header = template.format(*column_headings)
     click.echo(header)
@@ -57,30 +67,33 @@ def list_projects():
     "file_path", type=click.Path(exists=True, dir_okay=False), nargs=1, required=True
 )
 @click.option(
+    "--config",
+    "-c",
+    default=None,
+    help="Path to the project configuration file (overrides BIBRA_CONFIG).",
+)
+@click.option(
     "--output",
     "-o",
     type=click.Path(dir_okay=False, writable=True, resolve_path=True),
     default=None,
     help="Write JSON output to file instead of stdout",
 )
-def extract(project_id: str, file_path: str, output: str | None):
+def extract(project_id: str, file_path: str, config: str | None, output: str | None):
     """Extract publication metadata from a PDF or image file."""
+    registry = ProjectRegistry(config)
 
-    # Choose backend based on project_id
-    if project_id == "dummy":
-        # Use dummy backend for testing (synchronous)
-        backend = DummyBackend()
-        result = backend.extract([file_path])
-    elif project_id == "greylitlm":
-        # Use greylitlm backend for real extraction (async)
-        backend = GreyLitLMBackend()
+    try:
+        backend = registry.get_backend(project_id)
+    except ProjectNotFoundError as e:
+        raise click.UsageError(str(e)) from None
+    except ConfigError as e:
+        raise click.ClickException(str(e)) from None
+
+    try:
         result = asyncio.run(backend.extract([file_path]))
-    elif project_id == "nuextract":
-        # Use nuextract vision backend (async)
-        backend = NuExtractBackend()
-        result = asyncio.run(backend.extract([file_path]))
-    else:
-        raise click.UsageError(f"Unknown project ID: {project_id}")
+    except Exception as e:
+        raise click.ClickException(f"Extraction failed: {e}") from e
 
     json_output = result.model_dump_json(indent=2)
 

@@ -1,0 +1,7 @@
+[defaults]
+api_key = ""
+endpoint = ""
+
+[dummy]
+name = "Dummy project"
+backend = "dummy"

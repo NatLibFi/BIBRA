@@ -10,13 +10,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from pydantic_ai import UnexpectedModelBehavior
 
-from bibra.backend.config import (
-    GlobalLLMConfig,
+from bibra.backend.config import GlobalLLMConfig
+from bibra.backend.nuextract import (
+    NuExtractBackend,
     NuExtractConfig,
-    _parse_bool,
-    _parse_int,
 )
-from bibra.backend.nuextract import NuExtractBackend
 from bibra.types import PublicationMetadata
 
 TEST_PDF_PATH = os.path.join(
@@ -70,7 +68,7 @@ def create_backend_with_mock_agent(mock_agent):
     """Create a NuExtractBackend instance with a pre-configured mock agent."""
     backend = NuExtractBackend.__new__(NuExtractBackend)
     backend.global_cfg = GlobalLLMConfig()
-    backend.nuextract_cfg = NuExtractConfig()
+    backend.cfg = NuExtractConfig()
     backend.agent = mock_agent
     return backend
 
@@ -82,7 +80,7 @@ class TestNuExtractBackend:
         """Backend should init with default GlobalLLMConfig and NuExtractConfig."""
         backend = NuExtractBackend()
         assert backend.global_cfg is not None
-        assert backend.nuextract_cfg is not None
+        assert backend.cfg is not None
         assert backend.agent is not None
 
     def test_extract_returns_parsed_metadata(self):
@@ -288,7 +286,7 @@ class TestNuExtractBackend:
 
         backend = create_backend_with_mock_agent(mock_agent)
 
-        backend.nuextract_cfg = NuExtractConfig(instructions="Custom instructions")
+        backend.cfg = NuExtractConfig(instructions="Custom instructions")
 
         with patch(
             "bibra.backend.nuextract._pdf_pages_to_binary_content",
@@ -318,7 +316,7 @@ class TestNuExtractBackend:
         backend = create_backend_with_mock_agent(mock_agent)
 
         # Instructions are handled via config, no need to patch
-        backend.nuextract_cfg = NuExtractConfig(instructions="")
+        backend.cfg = NuExtractConfig(instructions="")
 
         with patch(
             "bibra.backend.nuextract._pdf_pages_to_binary_content",
@@ -346,7 +344,7 @@ class TestNuExtractBackend:
 
         backend = create_backend_with_mock_agent(mock_agent)
 
-        backend.nuextract_cfg = NuExtractConfig(thinking=True)
+        backend.cfg = NuExtractConfig(thinking=True)
 
         with patch(
             "bibra.backend.nuextract._pdf_pages_to_binary_content",
@@ -374,7 +372,7 @@ class TestNuExtractBackend:
 
         backend = create_backend_with_mock_agent(mock_agent)
 
-        backend.nuextract_cfg = NuExtractConfig(thinking=False)
+        backend.cfg = NuExtractConfig(thinking=False)
 
         with patch(
             "bibra.backend.nuextract._pdf_pages_to_binary_content",
@@ -397,12 +395,6 @@ class TestNuExtractConfigEmptyStrings:
         monkeypatch.delenv("NUEXTRACT_MODEL", raising=False)
         cfg = NuExtractConfig(model="")
         assert cfg.model == ""
-
-    def test_dpi_from_env(self, monkeypatch):
-        """Config should read DPI from NUEXTRACT_DPI env var."""
-        monkeypatch.setenv("NUEXTRACT_DPI", "300")
-        cfg = NuExtractConfig()
-        assert cfg.dpi == 300
 
     def test_dpi_default(self, monkeypatch):
         """Config should default DPI to 170 when env var not set."""
@@ -524,147 +516,3 @@ class TestPdfPagesToBinaryContent:
             _pdf_pages_to_binary_content("/fake/path.pdf", dpi=300)
 
             mock_page.get_pixmap.assert_called_once_with(dpi=300, alpha=False)
-
-
-class TestParseBool:
-    """Tests for the _parse_bool configuration helper."""
-
-    def test_parse_bool_none_returns_default_true(self):
-        """_parse_bool(None, True) should return True."""
-        assert _parse_bool(None, True) is True
-
-    def test_parse_bool_none_returns_default_false(self):
-        """_parse_bool(None, False) should return False."""
-        assert _parse_bool(None, False) is False
-
-    def test_parse_bool_true_values(self):
-        """Recognized true values should return True."""
-        for val in ("1", "true", "True", "TRUE", "  true  ", "  1  "):
-            assert _parse_bool(val, False) is True
-
-    def test_parse_bool_false_values(self):
-        """Recognized false values should return False."""
-        for val in ("0", "false", "False", "FALSE", "  false  ", "  0  "):
-            assert _parse_bool(val, True) is False
-
-    def test_parse_bool_empty_string_fallback_true(self):
-        """Empty string should fall back to default (True)."""
-        assert _parse_bool("", True) is True
-
-    def test_parse_bool_empty_string_fallback_false(self):
-        """Empty string should fall back to default (False)."""
-        assert _parse_bool("", False) is False
-
-    def test_parse_bool_whitespace_fallback(self):
-        """Whitespace-only string should fall back to default."""
-        assert _parse_bool("   ", True) is True
-        assert _parse_bool("   ", False) is False
-
-    def test_parse_bool_unrecognized_fallback_true(self):
-        """Unrecognized values should fall back to default (True)."""
-        for val in ("maybe", "yes", "no", "2", "t", "f"):
-            assert _parse_bool(val, True) is True
-
-    def test_parse_bool_unrecognized_fallback_false(self):
-        """Unrecognized values should fall back to default (False)."""
-        for val in ("maybe", "yes", "no", "2", "t", "f"):
-            assert _parse_bool(val, False) is False
-
-
-class TestParseInt:
-    """Tests for the _parse_int configuration helper."""
-
-    def test_parse_int_none_returns_default(self):
-        """_parse_int(None, 42) should return 42."""
-        assert _parse_int(None, 42) == 42
-
-    def test_parse_int_valid_values(self):
-        """Recognized positive integer values should be parsed correctly."""
-        for val, expected in (("100", 100), ("5", 5), ("  42  ", 42)):
-            assert _parse_int(val, 99) == expected
-
-    def test_parse_int_empty_string_returns_default(self):
-        """Empty string should fall back to default."""
-        assert _parse_int("", 170) == 170
-
-    def test_parse_int_non_positive_returns_default(self):
-        """Non-positive values should fall back to default."""
-        for val in ("0", "-1", "-100"):
-            assert _parse_int(val, 170) == 170
-
-    def test_parse_int_invalid_string_returns_default(self):
-        """Non-numeric strings should fall back to default."""
-        for val in ("abc", "12.5", "1,000"):
-            assert _parse_int(val, 99) == 99
-
-
-class TestParseBoolWarnings:
-    """Tests that _parse_bool emits warnings on fallback."""
-
-    def test_warning_on_none_value(self, caplog):
-        """Should warn when value is None."""
-        import logging
-
-        with caplog.at_level(logging.WARNING, logger="bibra.backend.config"):
-            result = _parse_bool(None, False, key="TEST_KEY")
-
-        assert result is False
-        assert "TEST_KEY" in caplog.text
-        assert "not set" in caplog.text
-
-    def test_warning_on_unrecognized_value(self, caplog):
-        """Should warn when value is unrecognized."""
-        import logging
-
-        with caplog.at_level(logging.WARNING, logger="bibra.backend.config"):
-            result = _parse_bool("maybe", True, key="MY_FLAG")
-
-        assert result is True
-        assert "MY_FLAG" in caplog.text
-        assert "Invalid config value" in caplog.text
-
-    def test_no_warning_on_valid_value(self, caplog):
-        """Should not warn when value is recognized."""
-        import logging
-
-        with caplog.at_level(logging.WARNING, logger="bibra.backend.config"):
-            result = _parse_bool("true", False, key="MY_FLAG")
-
-        assert result is True
-        assert caplog.text == ""
-
-
-class TestParseIntWarnings:
-    """Tests that _parse_int emits warnings on fallback."""
-
-    def test_warning_on_non_positive_value(self, caplog):
-        """Should warn when value is non-positive."""
-        import logging
-
-        with caplog.at_level(logging.WARNING, logger="bibra.backend.config"):
-            result = _parse_int("0", 170, key="NUEXTRACT_DPI")
-
-        assert result == 170
-        assert "NUEXTRACT_DPI" in caplog.text
-        assert "non-positive" in caplog.text
-
-    def test_warning_on_parse_error(self, caplog):
-        """Should warn when value cannot be parsed as int."""
-        import logging
-
-        with caplog.at_level(logging.WARNING, logger="bibra.backend.config"):
-            result = _parse_int("abc", 100, key="MY_INT")
-
-        assert result == 100
-        assert "MY_INT" in caplog.text
-        assert "Invalid config value" in caplog.text
-
-    def test_no_warning_on_valid_value(self, caplog):
-        """Should not warn when value is valid."""
-        import logging
-
-        with caplog.at_level(logging.WARNING, logger="bibra.backend.config"):
-            result = _parse_int("42", 99, key="MY_INT")
-
-        assert result == 42
-        assert caplog.text == ""

@@ -3,17 +3,37 @@
 import json
 import logging
 from pathlib import Path
+from typing import Annotated, Any
 
 import pymupdf
 from openai import AsyncOpenAI
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic.functional_validators import BeforeValidator
 from pydantic_ai import Agent, BinaryContent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from bibra.backend.config import GlobalLLMConfig, NuExtractConfig
+from bibra.backend.base import BaseBackend
+from bibra.backend.config import GlobalLLMConfig, parse_bool_or_str, parse_int_or_str
 from bibra.types import PublicationMetadata
 
 logger = logging.getLogger(__name__)
+
+
+BoolStr = Annotated[bool, BeforeValidator(parse_bool_or_str)]
+IntStr = Annotated[int, BeforeValidator(parse_int_or_str)]
+
+
+class NuExtractConfig(BaseModel):
+    """Configuration for NuExtract backend."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    model: str = Field(default="nuextract3", description="Model name")
+    thinking: BoolStr = Field(default=False, description="Enable thinking mode")
+    instructions: str = Field(default="", description="Custom instructions")
+    dpi: IntStr = Field(default=170, ge=1, description="DPI for PDF rendering")
+
 
 COAR_TYPES = [
     "master thesis",
@@ -98,22 +118,22 @@ def _pdf_pages_to_binary_content(pdf_path: str, dpi: int = 170) -> list[BinaryCo
     return contents
 
 
-class NuExtractBackend:
+class NuExtractBackend(BaseBackend):
     """Backend for metadata extraction using nuextract3 vision model."""
 
     def __init__(
         self,
         global_cfg: GlobalLLMConfig | None = None,
-        nuextract_cfg: NuExtractConfig | None = None,
+        cfg: NuExtractConfig | None = None,
     ):
         """Initialize the NuExtract backend.
 
         Args:
             global_cfg: Global LLM configuration. If None, uses defaults.
-            nuextract_cfg: NuExtract-specific configuration. If None, uses defaults.
+            cfg: NuExtract-specific configuration. If None, uses defaults.
         """
         self.global_cfg = global_cfg or GlobalLLMConfig()
-        self.nuextract_cfg = nuextract_cfg or NuExtractConfig()
+        self.cfg = cfg or NuExtractConfig()
 
         api_key = self.global_cfg.api_key or "dummy-api-key"
 
@@ -125,7 +145,7 @@ class NuExtractBackend:
         provider = OpenAIProvider(openai_client=openai_client)
 
         model = OpenAIChatModel(
-            model_name=self.nuextract_cfg.model,
+            model_name=self.cfg.model,
             provider=provider,
         )
 
@@ -133,6 +153,16 @@ class NuExtractBackend:
             model,
             output_type=PublicationMetadata,
         )
+
+    @classmethod
+    def build_config(cls, project: Any) -> dict[str, Any]:
+        """Build constructor kwargs from a ProjectConfig."""
+        global_cfg = GlobalLLMConfig(
+            endpoint_url=project.endpoint,
+            api_key=project.api_key,
+        )
+        cfg = NuExtractConfig(**project.extra)
+        return {"global_cfg": global_cfg, "cfg": cfg}
 
     async def extract(self, file_paths: list[str]) -> PublicationMetadata:
         """Extract publication metadata from a PDF file using vision.
@@ -155,9 +185,7 @@ class NuExtractBackend:
             return PublicationMetadata()
 
         try:
-            image_contents = _pdf_pages_to_binary_content(
-                pdf_path, dpi=self.nuextract_cfg.dpi
-            )
+            image_contents = _pdf_pages_to_binary_content(pdf_path, dpi=self.cfg.dpi)
         except Exception:
             logger.exception("Failed to convert PDF to images: %s", pdf_path)
             return PublicationMetadata()
@@ -168,10 +196,10 @@ class NuExtractBackend:
 
         chat_template_kwargs: dict = {
             "template": json.dumps(NUEXTRACT_TEMPLATE, indent=4),
-            "enable_thinking": self.nuextract_cfg.thinking,
+            "enable_thinking": self.cfg.thinking,
         }
-        if self.nuextract_cfg.instructions:
-            chat_template_kwargs["instructions"] = self.nuextract_cfg.instructions
+        if self.cfg.instructions:
+            chat_template_kwargs["instructions"] = self.cfg.instructions
 
         user_message = [
             "Extract metadata from this document. Return as JSON.",

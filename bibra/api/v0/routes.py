@@ -1,14 +1,14 @@
+"""API routes for BIBRA."""
+
 import logging
 import os
 import tempfile
-from typing import Annotated, Any
+from typing import Annotated
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
 from bibra import __version__
-from bibra.backend.dummy import DummyBackend
-from bibra.backend.greylitlm import GreyLitLMBackend
-from bibra.backend.nuextract import NuExtractBackend
+from bibra.config import ConfigError, ProjectNotFoundError, ProjectRegistry
 from bibra.types import PublicationMetadata
 
 logger = logging.getLogger(__name__)
@@ -16,30 +16,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-# Example project data - can be extended as needed
-PROJECTS: list[dict[str, Any]] = [
-    {
-        "id": "greylitlm",
-        "name": "GreyLitLM Backend",
-        "description": "Testing project using the GreyLitLM backend",
-        "created_at": "2024-01-15T10:00:00Z",
-        "status": "active",
-    },
-    {
-        "id": "nuextract",
-        "name": "NuExtract Backend",
-        "description": "Testing project using the NuExtract vision backend",
-        "created_at": "2024-01-15T10:00:00Z",
-        "status": "active",
-    },
-    {
-        "id": "dummy",
-        "name": "Dummy Backend",
-        "description": "Testing project using the dummy backend",
-        "created_at": "2024-01-15T10:00:00Z",
-        "status": "active",
-    },
-]
+def get_registry(request: Request) -> ProjectRegistry:
+    """FastAPI dependency that returns the project registry from app state.
+
+    Lazily initializes the registry if startup hooks were skipped
+    (e.g. in unit tests or scripts that bypass ASGI lifespan).
+    """
+    registry = getattr(request.app.state, "project_registry", None)
+    if registry is None:
+        registry = ProjectRegistry(os.environ.get("BIBRA_CONFIG"))
+        registry.load()
+        request.app.state.project_registry = registry
+    return registry
 
 
 @router.get("/")
@@ -49,9 +37,14 @@ async def root():
 
 
 @router.get("/projects")
-async def list_projects():
-    """Return a list of available projects."""
-    return {"projects": PROJECTS}
+async def list_projects(registry: Annotated[ProjectRegistry, Depends(get_registry)]):
+    """Return a list of configured projects."""
+    try:
+        projects = registry.list_projects()
+    except ConfigError as e:
+        logger.exception("Configuration error")
+        raise HTTPException(status_code=500, detail=str(e))
+    return {"projects": projects}
 
 
 @router.post(
@@ -61,6 +54,7 @@ async def list_projects():
 async def extract(
     project_id: str,
     files: Annotated[list[UploadFile], File(...)],
+    registry: Annotated[ProjectRegistry, Depends(get_registry)],
 ) -> PublicationMetadata:
     """
     Extract publication metadata from PDF or image files for a specific project.
@@ -72,7 +66,6 @@ async def extract(
     Returns:
         PublicationMetadata: Extracted metadata as JSON
     """
-    # Save uploaded files to temporary paths for backend processing
     temp_files: list[str] = []
     try:
         for upload_file in files:
@@ -81,18 +74,16 @@ async def extract(
                 while chunk := await upload_file.read(1024 * 1024):
                     tmp.write(chunk)
 
-        # Choose backend based on project_id
-        if project_id == "dummy":
-            # Use dummy backend for testing
-            backend = DummyBackend()
-            result = backend.extract(temp_files)
-        elif project_id == "nuextract":
-            backend = NuExtractBackend()
-            result = await backend.extract(temp_files)
-        else:
-            # Use greylitlm backend for real extraction
-            backend = GreyLitLMBackend()
-            result = await backend.extract(temp_files)
+        # Get backend for the project
+        try:
+            backend = registry.get_backend(project_id)
+        except ProjectNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except ConfigError as e:
+            logger.exception("Configuration error")
+            raise HTTPException(status_code=500, detail=str(e))
+        # Extract metadata using the backend
+        result = await backend.extract(temp_files)
         return result
     finally:
         # Clean up all temporary files

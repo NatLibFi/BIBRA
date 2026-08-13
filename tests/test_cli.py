@@ -2,11 +2,13 @@
 
 import importlib
 import json
+from unittest.mock import MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
 
 from bibra.cli import _make_list_template, cli, extract, list_projects
+from bibra.config import ConfigError
 
 
 class TestCli:
@@ -39,6 +41,14 @@ class TestCli:
         assert result.exit_code != 0
         assert result.exception
 
+    def test_cli_loads_dotenv(self):
+        """Test that the CLI group command calls load_dotenv()."""
+        with patch("bibra.cli.load_dotenv") as mock_load_dotenv:
+            # --help exits before the group callback runs; use a subcommand
+            # instead so the cli() callback is actually invoked.
+            self.runner.invoke(cli, ["list-projects"])
+            mock_load_dotenv.assert_called_once()
+
 
 class TestListProjects:
     """Tests for the list-projects command."""
@@ -52,7 +62,7 @@ class TestListProjects:
         result = self.runner.invoke(list_projects, ["--help"])
         assert result.exit_code == 0
         assert not result.exception
-        assert "List available projects" in result.output
+        assert "List configured projects" in result.output
 
     def test_list_projects(self):
         """Test list-projects command output."""
@@ -62,21 +72,30 @@ class TestListProjects:
         assert "Project ID" in result.output
         assert "Project Name" in result.output
         assert "Description" in result.output
-        assert "Created At" in result.output
 
     def test_list_projects_shows_projects(self):
         """Test that list-projects displays project entries."""
         result = self.runner.invoke(list_projects)
         assert result.exit_code == 0
-        # Check that project data is displayed (PROJECTS contains at least one entry)
+        # Check that project data is displayed (tests/projects.toml contains dummy)
         assert "dummy" in result.output
-        assert "greylitlm" in result.output
 
     def test_list_projects_bad_argument(self):
         """Test list-projects with bad argument."""
         result = self.runner.invoke(list_projects, ["--invalid"])
         assert result.exit_code != 0
         assert result.exception
+
+    def test_list_projects_config_error_converted_to_click_exception(self):
+        """Test that ConfigError in list_projects is converted to ClickException."""
+        with patch("bibra.cli.ProjectRegistry") as mock_registry_cls:
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.load.side_effect = ConfigError("Invalid config syntax")
+
+            result = self.runner.invoke(list_projects)
+            assert result.exit_code != 0
+            assert "Invalid config syntax" in result.output
 
 
 class TestExtract:
@@ -195,6 +214,37 @@ class TestExtract:
         result = self.runner.invoke(extract, ["nonexistent-project", str(test_file)])
         assert result.exit_code != 0
         assert result.exception
+
+    def test_extract_generic_exception_converted_to_click_exception(self, tmp_path):
+        """Test that a generic Exception during extraction is wrapped in
+        ClickException with 'Extraction failed:' prefix."""
+        test_file = tmp_path / "test.pdf"
+        test_file.write_bytes(b"dummy pdf content")
+
+        with patch("bibra.cli.ProjectRegistry") as mock_registry_cls:
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_backend = MagicMock()
+            mock_registry.get_backend.return_value = mock_backend
+            mock_backend.extract.side_effect = RuntimeError("PDF corrupted")
+
+            result = self.runner.invoke(extract, ["dummy", str(test_file)])
+            assert result.exit_code != 0
+            assert "Extraction failed: PDF corrupted" in result.output
+
+    def test_extract_config_error_converted_to_click_exception(self, tmp_path):
+        """Test that ConfigError in extract is converted to ClickException."""
+        test_file = tmp_path / "test.pdf"
+        test_file.write_bytes(b"dummy pdf content")
+
+        with patch("bibra.cli.ProjectRegistry") as mock_registry_cls:
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.side_effect = ConfigError("Invalid config syntax")
+
+            result = self.runner.invoke(extract, ["dummy", str(test_file)])
+            assert result.exit_code != 0
+            assert "Invalid config syntax" in result.output
 
 
 class TestMakeListTemplate:

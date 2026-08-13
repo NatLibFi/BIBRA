@@ -33,6 +33,9 @@ ENV PATH="/app/.venv/bin:${PATH}"
 COPY README.md LICENSE ./
 COPY bibra ./bibra
 
+# Copy default project configuration (from example template)
+COPY projects.toml.example ./projects.toml
+
 # Install the application package itself (so its version can be determined)
 RUN uv pip install .
 

@@ -100,6 +100,18 @@ class TestProjectRegistry:
         with pytest.raises(ValueError, match="Unknown project: nonexistent"):
             registry.get_backend("nonexistent")
 
+    def test_get_backend_unknown_backend_type(self, tmp_path: Path):
+        """Test that unknown backend type raises BackendConfigError."""
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text(
+            '[test_project]\nname = "Test"\nbackend = "nonexistent_backend"\n'
+        )
+
+        registry = ProjectRegistry(str(config_file))
+        # get_backend calls load() internally when self._projects is empty
+        with pytest.raises(BackendConfigError, match="Unknown backend type"):
+            registry.get_backend("test_project")
+
     def test_list_projects(self, tmp_path: Path):
         """Test listing projects."""
         config_file = tmp_path / "projects.toml"

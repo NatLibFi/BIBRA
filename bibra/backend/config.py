@@ -1,16 +1,12 @@
 """Configuration management for BIBRA application.
 
-This module provides configuration handling using environment variables
-with support for .env files via python-dotenv.
+This module provides configuration handling using environment variables.
+Environment variables are typically loaded from .env files via python-dotenv
+at application startup (see bibra.main and bibra.cli entry points).
 """
 
 import logging
 import os
-
-from dotenv import load_dotenv
-
-load_dotenv()
-
 
 logger = logging.getLogger(__name__)
 

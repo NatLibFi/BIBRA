@@ -2,6 +2,7 @@ import logging
 import os
 
 import uvicorn
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -36,7 +37,8 @@ app.include_router(v0_router, prefix="/v0")
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize the project registry at startup."""
+    """Load .env and initialize the project registry at startup."""
+    load_dotenv()
     app.state.project_registry = ProjectRegistry(os.environ.get("BIBRA_CONFIG"))
 
 

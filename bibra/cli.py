@@ -3,6 +3,7 @@
 import asyncio
 
 import click
+from dotenv import load_dotenv
 
 from bibra.config import (
     ConfigError,
@@ -31,6 +32,7 @@ def _make_list_template(column_headings: tuple, *rows: tuple) -> str:
 @click.version_option()
 def cli():
     """BIBRA - Bibliographic metadata extraction tool."""
+    load_dotenv()
 
 
 @cli.command("list-projects")

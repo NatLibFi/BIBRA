@@ -64,7 +64,7 @@ def list_projects(config: str | None):
 @cli.command("extract")
 @click.argument("project_id")
 @click.argument(
-    "file_path", type=click.Path(exists=True, dir_okay=False), nargs=-1, required=True
+    "file_path", type=click.Path(exists=True, dir_okay=False), nargs=1, required=True
 )
 @click.option(
     "--config",
@@ -79,10 +79,8 @@ def list_projects(config: str | None):
     default=None,
     help="Write JSON output to file instead of stdout",
 )
-def extract(
-    project_id: str, file_path: tuple[str, ...], config: str | None, output: str | None
-):
-    """Extract publication metadata from PDF or image file(s)."""
+def extract(project_id: str, file_path: str, config: str | None, output: str | None):
+    """Extract publication metadata from a PDF or image file."""
     registry = ProjectRegistry(config)
 
     try:
@@ -93,7 +91,7 @@ def extract(
         raise click.ClickException(e.description) from None
 
     try:
-        result = asyncio.run(backend.extract(list(file_path)))
+        result = asyncio.run(backend.extract([file_path]))
     except Exception as e:
         raise click.ClickException(f"Extraction failed: {e}") from e
 

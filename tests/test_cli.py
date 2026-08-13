@@ -181,8 +181,8 @@ class TestExtract:
         result = self.runner.invoke(
             extract, ["dummy", str(test_file1), str(test_file2)]
         )
-        # Dummy backend accepts any number of files
-        assert result.exit_code == 0
+        assert result.exit_code != 0
+        assert result.exception
 
     def test_extract_with_nonexistent_project(self, tmp_path):
         """Test extract command with a nonexistent project ID."""

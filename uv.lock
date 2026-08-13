@@ -49,7 +49,6 @@ source = { editable = "." }
 dependencies = [
     { name = "click" },
     { name = "fastapi" },
-    { name = "pydantic" },
     { name = "pydantic-ai-slim", extra = ["openai"] },
     { name = "pymupdf" },
     { name = "pymupdf4llm" },
@@ -76,7 +75,6 @@ dev = [
 requires-dist = [
     { name = "click", specifier = ">=8.1.0" },
     { name = "fastapi", specifier = "==0.136.1" },
-    { name = "pydantic", specifier = ">=2.10.0" },
     { name = "pydantic-ai-slim", extras = ["openai"], specifier = ">=1.93.0" },
     { name = "pymupdf", specifier = ">=1.27.2" },
     { name = "pymupdf4llm", specifier = ">=1.27.2" },

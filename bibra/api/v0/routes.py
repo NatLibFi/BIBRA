@@ -6,7 +6,6 @@ import tempfile
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
-from pydantic import BaseModel
 
 from bibra import __version__
 from bibra.config import ConfigError, ProjectNotFoundError, ProjectRegistry
@@ -37,12 +36,6 @@ async def list_projects(registry: Annotated[ProjectRegistry, Depends(get_registr
         logger.exception("Configuration error: %s", e.description)
         raise HTTPException(status_code=500, detail=e.description)
     return {"projects": projects}
-
-
-class ExtractRequest(BaseModel):
-    """Request model for extract endpoint."""
-
-    files: list[UploadFile]
 
 
 @router.post(

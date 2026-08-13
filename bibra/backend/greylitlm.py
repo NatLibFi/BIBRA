@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from openai import AsyncOpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 
 class GreyLitLMConfig(BaseModel):
     """Configuration for GreyLitLM backend."""
+
+    model_config = ConfigDict(extra="forbid")
 
     model: str = Field(default="greylitlm", description="Model name")
     system_prompt: str = Field(

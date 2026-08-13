@@ -7,7 +7,7 @@ from typing import Annotated, Any
 
 import pymupdf
 from openai import AsyncOpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.functional_validators import BeforeValidator
 from pydantic_ai import Agent, BinaryContent
 from pydantic_ai.models.openai import OpenAIChatModel
@@ -34,6 +34,8 @@ BoolStr = Annotated[bool, BeforeValidator(_parse_bool_or_str)]
 
 class NuExtractConfig(BaseModel):
     """Configuration for NuExtract backend."""
+
+    model_config = ConfigDict(extra="forbid")
 
     model: str = Field(default="nuextract3", description="Model name")
     thinking: BoolStr = Field(default=False, description="Enable thinking mode")

@@ -17,8 +17,17 @@ router = APIRouter()
 
 
 def get_registry(request: Request) -> ProjectRegistry:
-    """FastAPI dependency that returns the project registry from app state."""
-    return request.app.state.project_registry
+    """FastAPI dependency that returns the project registry from app state.
+
+    Lazily initializes the registry if startup hooks were skipped
+    (e.g. in unit tests or scripts that bypass ASGI lifespan).
+    """
+    registry = getattr(request.app.state, "project_registry", None)
+    if registry is None:
+        registry = ProjectRegistry(os.environ.get("BIBRA_CONFIG"))
+        registry.load()
+        request.app.state.project_registry = registry
+    return registry
 
 
 @router.get("/")

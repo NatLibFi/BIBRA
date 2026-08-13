@@ -1,12 +1,18 @@
 """Tests for API routes."""
 
+from unittest.mock import MagicMock
+
+import pytest
+from fastapi import Request
 from fastapi.routing import APIRoute
 
 from bibra.api.v0.routes import (
     extract,
+    get_registry,
     list_projects,
     router,
 )
+from bibra.config import ProjectRegistry
 from bibra.types import PublicationMetadata
 
 
@@ -73,3 +79,44 @@ class TestAPIRoutes:
         assert result.alt_title is None
         assert result.p_isbn == []
         assert result.e_issn is None
+
+    def test_get_registry_returns_existing_registry(self):
+        """get_registry should return the registry already on app.state."""
+        mock_state = MagicMock()
+        mock_state.project_registry = ProjectRegistry("tests/projects.toml")
+        mock_app = MagicMock()
+        mock_app.state = mock_state
+        request = MagicMock(spec=Request)
+        request.app = mock_app
+
+        result = get_registry(request)
+        assert result is mock_state.project_registry
+
+    def test_get_registry_lazy_initializes_when_missing(self):
+        """Lazily create and load a registry when not on app.state."""
+        mock_state = MagicMock(spec=[])  # Empty spec so getattr returns None
+        mock_app = MagicMock()
+        mock_app.state = mock_state
+        request = MagicMock(spec=Request)
+        request.app = mock_app
+
+        result = get_registry(request)
+        assert isinstance(result, ProjectRegistry)
+        # Verify it was attached back to app.state
+        assert mock_app.state.project_registry is result
+        # Verify .load() was called (projects populated from tests/projects.toml)
+        assert len(result._projects) > 0
+
+    def test_get_registry_lazy_load_fails_on_bad_config(self, monkeypatch):
+        """get_registry should raise ConfigFileNotFoundError for missing config."""
+        from bibra.config import ConfigFileNotFoundError
+
+        monkeypatch.setenv("BIBRA_CONFIG", "nonexistent-path/projects.toml")
+        mock_state = MagicMock(spec=[])
+        mock_app = MagicMock()
+        mock_app.state = mock_state
+        request = MagicMock(spec=Request)
+        request.app = mock_app
+
+        with pytest.raises(ConfigFileNotFoundError):
+            get_registry(request)

@@ -226,7 +226,7 @@ class TestProjectRegistry:
         registry = ProjectRegistry(str(config_file))
         projects = registry.load()
 
-        assert projects["test_project"].model == 42
+        assert projects["test_project"].extra["model"] == 42
 
 
 class TestProjectConfig:
@@ -240,36 +240,32 @@ class TestProjectConfig:
         assert config.backend == "dummy"
         assert config.endpoint is None
         assert config.api_key is None
-        assert config.model is None
-        assert config.thinking is None
-        assert config.instructions is None
-        assert config.system_prompt is None
-        assert config.dpi is None
+        assert config.extra == {}
 
     def test_full_config(self):
-        """Test ProjectConfig with all fields."""
+        """Test ProjectConfig with extra backend-specific options."""
         config = ProjectConfig(
             id="test",
             name="Test",
             backend="nuextract",
             endpoint="http://example.com",
             api_key="secret",
-            model="nuextract3",
-            thinking=True,
-            instructions="Custom instructions",
-            system_prompt="System prompt",
-            dpi=200,
+            extra={
+                "model": "nuextract3",
+                "thinking": True,
+                "instructions": "Custom instructions",
+                "dpi": 200,
+            },
         )
         assert config.endpoint == "http://example.com"
         assert config.api_key == "secret"
-        assert config.model == "nuextract3"
-        assert config.thinking is True
-        assert config.instructions == "Custom instructions"
-        assert config.system_prompt == "System prompt"
-        assert config.dpi == 200
+        assert config.extra["model"] == "nuextract3"
+        assert config.extra["thinking"] is True
+        assert config.extra["instructions"] == "Custom instructions"
+        assert config.extra["dpi"] == 200
 
     def test_load_dpi_from_toml(self, tmp_path: Path):
-        """Test loading dpi from TOML."""
+        """Test loading dpi from TOML ends up in extra dict."""
         config_file = tmp_path / "projects.toml"
         config_file.write_text(
             '[test_project]\nname = "Test"\nbackend = "nuextract"\n'
@@ -279,10 +275,10 @@ class TestProjectConfig:
         registry = ProjectRegistry(str(config_file))
         projects = registry.load()
 
-        assert projects["test_project"].dpi == 200
+        assert projects["test_project"].extra["dpi"] == 200
 
     def test_load_thinking_from_toml(self, tmp_path: Path):
-        """Test loading thinking from TOML."""
+        """Test loading thinking from TOML ends up in extra dict."""
         config_file = tmp_path / "projects.toml"
         config_file.write_text(
             '[test_project]\nname = "Test"\nbackend = "nuextract"\n'
@@ -292,10 +288,10 @@ class TestProjectConfig:
         registry = ProjectRegistry(str(config_file))
         projects = registry.load()
 
-        assert projects["test_project"].thinking is True
+        assert projects["test_project"].extra["thinking"] is True
 
     def test_load_backend_config_with_dpi(self, tmp_path: Path):
-        """Test that dpi is passed to NuExtractConfig."""
+        """Test that dpi is passed to backend config via build_config."""
         config_file = tmp_path / "projects.toml"
         config_file.write_text(
             '[test_project]\nname = "Test"\nbackend = "nuextract"\n'
@@ -306,7 +302,7 @@ class TestProjectConfig:
         registry.load()
         backend = registry.get_backend("test_project")
 
-        assert backend.nuextract_cfg.dpi == 250
+        assert backend.cfg.dpi == 250
 
     def test_load_invalid_backend_type(self, tmp_path: Path):
         """Test that load raises BackendConfigError for unknown backend types."""
@@ -360,7 +356,7 @@ class TestProjectConfig:
         registry = ProjectRegistry(str(config_file))
         projects = registry.load()
 
-        assert projects["test_project"].thinking is True
+        assert projects["test_project"].extra["thinking"] == "true"
 
     def test_env_var_interpolation_on_dpi_string(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -377,4 +373,4 @@ class TestProjectConfig:
         registry = ProjectRegistry(str(config_file))
         projects = registry.load()
 
-        assert projects["test_project"].dpi == 300
+        assert projects["test_project"].extra["dpi"] == "300"

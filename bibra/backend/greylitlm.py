@@ -3,18 +3,37 @@
 import json
 import logging
 from pathlib import Path
+from typing import Any
 
 from openai import AsyncOpenAI
+from pydantic import BaseModel, Field
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from bibra.backend.base import BaseBackend
-from bibra.backend.config import GlobalLLMConfig, GreyLitLMConfig
+from bibra.backend.config import GlobalLLMConfig
 from bibra.backend.pdf_extractor import extract_content
 from bibra.types import PublicationMetadata
 
 logger = logging.getLogger(__name__)
+
+
+class GreyLitLMConfig(BaseModel):
+    """Configuration for GreyLitLM backend."""
+
+    model: str = Field(default="greylitlm", description="Model name")
+    system_prompt: str = Field(
+        default=(
+            "You are a skilled librarian specialized in meticulous cataloguing of"
+            " digital documents."
+        ),
+        description="System prompt for the LLM",
+    )
+    instructions: str = Field(
+        default="Extract metadata from this document. Return as JSON.",
+        description="User instructions for extraction",
+    )
 
 
 class GreyLitLMBackend(BaseBackend):
@@ -23,17 +42,17 @@ class GreyLitLMBackend(BaseBackend):
     def __init__(
         self,
         global_cfg: GlobalLLMConfig | None = None,
-        greylitlm_cfg: GreyLitLMConfig | None = None,
+        cfg: GreyLitLMConfig | None = None,
     ):
         """Initialize the GreyLitLM backend.
 
         Args:
             global_cfg: Global LLM configuration. If None, uses defaults.
-            greylitlm_cfg: GreylitLM-specific configuration. If None, uses defaults.
+            cfg: GreyLitLM-specific configuration. If None, uses defaults.
         """
         self.global_cfg = global_cfg or GlobalLLMConfig()
-        self.greylitlm_cfg = greylitlm_cfg or GreyLitLMConfig()
-        self._instructions = self.greylitlm_cfg.instructions
+        self.cfg = cfg or GreyLitLMConfig()
+        self._instructions = self.cfg.instructions
 
         # The OpenAI client requires an api_key even for custom endpoints
         # Use a dummy value if no API key is configured
@@ -50,7 +69,7 @@ class GreyLitLMBackend(BaseBackend):
 
         # Create the model with the custom provider
         model = OpenAIChatModel(
-            model_name=self.greylitlm_cfg.model,
+            model_name=self.cfg.model,
             provider=provider,
         )
 
@@ -59,9 +78,19 @@ class GreyLitLMBackend(BaseBackend):
         # response into the model, handling aliases via populate_by_name=True.
         self.agent = Agent(
             model,
-            instructions=self.greylitlm_cfg.system_prompt,
+            instructions=self.cfg.system_prompt,
             output_type=PublicationMetadata,
         )
+
+    @classmethod
+    def build_config(cls, project: Any) -> dict[str, Any]:
+        """Build constructor kwargs from a ProjectConfig."""
+        global_cfg = GlobalLLMConfig(
+            endpoint_url=project.endpoint,
+            api_key=project.api_key,
+        )
+        cfg = GreyLitLMConfig(**project.extra)
+        return {"global_cfg": global_cfg, "cfg": cfg}
 
     async def extract(self, file_paths: list[str]) -> PublicationMetadata:
         """Extract publication metadata from files.

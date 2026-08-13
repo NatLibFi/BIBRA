@@ -1,11 +1,18 @@
 """Dummy backend for testing."""
 
+from typing import Any
+
 from bibra.backend.base import BaseBackend
 from bibra.types import PublicationMetadata
 
 
 class DummyBackend(BaseBackend):
     """Dummy backend implementation for testing."""
+
+    @classmethod
+    def build_config(cls, project: Any) -> dict[str, Any]:
+        """Build constructor kwargs from a ProjectConfig."""
+        return {}
 
     async def extract(self, file_paths: list[str]) -> PublicationMetadata:
         """Extract publication metadata from files."""

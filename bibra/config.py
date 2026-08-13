@@ -6,16 +6,11 @@ with support for environment variable interpolation.
 
 import os
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from bibra.backend.base import BaseBackend
-from bibra.backend.config import (
-    GlobalLLMConfig,
-    GreyLitLMConfig,
-    NuExtractConfig,
-)
 from bibra.backend.dummy import DummyBackend
 from bibra.backend.greylitlm import GreyLitLMBackend
 from bibra.backend.nuextract import NuExtractBackend
@@ -55,6 +50,10 @@ _BACKEND_MAP: dict[str, type[BaseBackend]] = {
     "nuextract": NuExtractBackend,
 }
 
+# Keys recognized as global/project-level metadata.
+# All other keys are passed as-is into the backend-specific ``extra`` dict.
+_GLOBAL_KEYS = {"name", "backend", "endpoint", "api_key"}
+
 
 @dataclass
 class ProjectConfig:
@@ -66,11 +65,7 @@ class ProjectConfig:
         backend: Backend type identifier (e.g. "dummy", "greylitlm", "nuextract").
         endpoint: LLM endpoint URL.
         api_key: API key for authentication.
-        model: Model name for the backend.
-        thinking: Enable thinking mode (NuExtract only).
-        instructions: Custom instructions for the backend.
-        system_prompt: System prompt (GreyLitLM only).
-        dpi: DPI for PDF-to-image conversion (NuExtract only).
+        extra: Backend-specific options passed to the backend's config schema.
     """
 
     id: str
@@ -78,11 +73,7 @@ class ProjectConfig:
     backend: str
     endpoint: str | None = None
     api_key: str | None = None
-    model: str | None = None
-    thinking: bool | None = None
-    instructions: str | None = None
-    system_prompt: str | None = None
-    dpi: int | None = None
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 def _interpolate_env_vars(value: Any) -> Any:
@@ -123,71 +114,12 @@ def _interpolate_env_vars(value: Any) -> Any:
     return result
 
 
-def _parse_bool(value: str | None, default: bool) -> bool:
-    """Parse a boolean from a string value.
-
-    Args:
-        value: The string to parse.
-        default: Default value if input is None.
-
-    Returns:
-        Parsed boolean value.
-    """
-    if value is None:
-        return default
-    return value.strip().lower() in ("1", "true")
-
-
 def _interpolate_dict_values(d: dict[str, Any]) -> dict[str, Any]:
-    """Interpolate environment variables in all string values of a dict.
-
-    This ensures that non-string TOML values (e.g. thinking, dpi) that are
-    represented as strings containing ${VAR} placeholders get interpolated
-    before type-specific parsing.
-    """
+    """Interpolate environment variables in all string values of a dict."""
     return {
         key: _interpolate_env_vars(value) if isinstance(value, str) else value
         for key, value in d.items()
     }
-
-
-def _build_backend_config(project: ProjectConfig) -> dict[str, Any]:
-    """Build backend configuration kwargs from a ProjectConfig.
-
-    Args:
-        project: The project configuration.
-
-    Returns:
-        Dict of kwargs suitable for backend constructors.
-    """
-    global_cfg = GlobalLLMConfig(
-        endpoint_url=project.endpoint,
-        api_key=project.api_key,
-    )
-
-    if project.backend == "greylitlm":
-        return {
-            "global_cfg": global_cfg,
-            "greylitlm_cfg": GreyLitLMConfig(
-                model=project.model,
-                system_prompt=project.system_prompt,
-                instructions=project.instructions,
-            ),
-        }
-    elif project.backend == "nuextract":
-        return {
-            "global_cfg": global_cfg,
-            "nuextract_cfg": NuExtractConfig(
-                model=project.model,
-                thinking=project.thinking,
-                instructions=project.instructions,
-                dpi=project.dpi,
-            ),
-        }
-    elif project.backend == "dummy":
-        return {}
-    else:
-        raise BackendConfigError(f"Unknown backend type: {project.backend}")
 
 
 class ProjectRegistry:
@@ -234,6 +166,7 @@ class ProjectRegistry:
             raise ConfigParseError(
                 f"Failed to parse config file '{path}': {e}"
             ) from None
+
         # Extract defaults from [defaults] section
         defaults: dict[str, Any] = {}
         raw_defaults = data.get("defaults")
@@ -253,36 +186,8 @@ class ProjectRegistry:
             # Merge defaults with project config (project values override)
             merged: dict[str, Any] = dict(defaults)
             merged.update(config)
-            # Interpolate all string values in merged before type-specific parsing
+            # Interpolate all string values in merged
             merged = _interpolate_dict_values(merged)
-            raw_name = merged.get("name")
-            raw_endpoint = merged.get("endpoint")
-            raw_api_key = merged.get("api_key")
-            raw_model = merged.get("model")
-            raw_instructions = merged.get("instructions")
-            raw_system_prompt = merged.get("system_prompt")
-
-            # Parse thinking as boolean string if present
-            thinking_raw = merged.get("thinking")
-            if isinstance(thinking_raw, str):
-                thinking = _parse_bool(thinking_raw, default=False)
-            elif isinstance(thinking_raw, bool):
-                thinking = thinking_raw
-            else:
-                thinking = None
-
-            # Parse dpi as integer if present
-            dpi_raw = merged.get("dpi")
-            if isinstance(dpi_raw, int):
-                dpi = dpi_raw
-            elif isinstance(dpi_raw, str):
-                try:
-                    parsed = int(dpi_raw.strip())
-                    dpi = parsed if parsed > 0 else None
-                except (ValueError, TypeError):
-                    dpi = None
-            else:
-                dpi = None
 
             backend_type = merged.get("backend")
             if backend_type is None:
@@ -292,17 +197,14 @@ class ProjectRegistry:
             if backend_type not in _BACKEND_MAP:
                 raise BackendConfigError(f"Unknown backend type: {backend_type}")
 
+            # Separate global fields from backend-specific extra fields
             project = ProjectConfig(
                 id=project_id,
-                name=raw_name or project_id,
+                name=merged.get("name") or project_id,
                 backend=backend_type,
-                endpoint=raw_endpoint,
-                api_key=raw_api_key,
-                model=raw_model,
-                thinking=thinking,
-                instructions=raw_instructions,
-                system_prompt=raw_system_prompt,
-                dpi=dpi,
+                endpoint=merged.get("endpoint"),
+                api_key=merged.get("api_key"),
+                extra={k: v for k, v in merged.items() if k not in _GLOBAL_KEYS},
             )
 
             projects[project_id] = project
@@ -336,7 +238,7 @@ class ProjectRegistry:
                 f"Unknown backend type for project '{project_id}': {project.backend}"
             )
 
-        kwargs = _build_backend_config(project)
+        kwargs = backend_class.build_config(project)
         return backend_class(**kwargs)
 
     def list_projects(self) -> list[dict[str, Any]]:

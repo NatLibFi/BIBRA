@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic_ai import UnexpectedModelBehavior
 
-from bibra.backend.config import GlobalLLMConfig, GreyLitLMConfig
-from bibra.backend.greylitlm import GreyLitLMBackend
+from bibra.backend.config import GlobalLLMConfig
+from bibra.backend.greylitlm import GreyLitLMBackend, GreyLitLMConfig
 from bibra.types import PublicationMetadata
 
 TEST_PDF_PATH = os.path.join(
@@ -74,8 +74,8 @@ def create_backend_with_mock_agent(mock_agent):
     """Create a GreyLitLMBackend instance with a pre-configured mock agent."""
     backend = GreyLitLMBackend.__new__(GreyLitLMBackend)
     backend.global_cfg = GlobalLLMConfig()
-    backend.greylitlm_cfg = GreyLitLMConfig()
-    backend._instructions = backend.greylitlm_cfg.instructions
+    backend.cfg = GreyLitLMConfig()
+    backend._instructions = backend.cfg.instructions
 
     backend.agent = mock_agent
     return backend
@@ -88,7 +88,7 @@ class TestGreyLitLMBackend:
         """Backend should init with default GlobalLLMConfig and GreyLitLMConfig."""
         backend = GreyLitLMBackend()
         assert backend.global_cfg is not None
-        assert backend.greylitlm_cfg is not None
+        assert backend.cfg is not None
         assert backend.agent is not None
 
     def test_extract_returns_parsed_metadata(self):

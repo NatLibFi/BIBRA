@@ -12,11 +12,10 @@ from pydantic_ai import UnexpectedModelBehavior
 
 from bibra.backend.config import (
     GlobalLLMConfig,
-    NuExtractConfig,
     _parse_bool,
     _parse_int,
 )
-from bibra.backend.nuextract import NuExtractBackend
+from bibra.backend.nuextract import NuExtractBackend, NuExtractConfig
 from bibra.types import PublicationMetadata
 
 TEST_PDF_PATH = os.path.join(
@@ -70,7 +69,7 @@ def create_backend_with_mock_agent(mock_agent):
     """Create a NuExtractBackend instance with a pre-configured mock agent."""
     backend = NuExtractBackend.__new__(NuExtractBackend)
     backend.global_cfg = GlobalLLMConfig()
-    backend.nuextract_cfg = NuExtractConfig()
+    backend.cfg = NuExtractConfig()
     backend.agent = mock_agent
     return backend
 
@@ -82,7 +81,7 @@ class TestNuExtractBackend:
         """Backend should init with default GlobalLLMConfig and NuExtractConfig."""
         backend = NuExtractBackend()
         assert backend.global_cfg is not None
-        assert backend.nuextract_cfg is not None
+        assert backend.cfg is not None
         assert backend.agent is not None
 
     def test_extract_returns_parsed_metadata(self):
@@ -288,7 +287,7 @@ class TestNuExtractBackend:
 
         backend = create_backend_with_mock_agent(mock_agent)
 
-        backend.nuextract_cfg = NuExtractConfig(instructions="Custom instructions")
+        backend.cfg = NuExtractConfig(instructions="Custom instructions")
 
         with patch(
             "bibra.backend.nuextract._pdf_pages_to_binary_content",
@@ -318,7 +317,7 @@ class TestNuExtractBackend:
         backend = create_backend_with_mock_agent(mock_agent)
 
         # Instructions are handled via config, no need to patch
-        backend.nuextract_cfg = NuExtractConfig(instructions="")
+        backend.cfg = NuExtractConfig(instructions="")
 
         with patch(
             "bibra.backend.nuextract._pdf_pages_to_binary_content",
@@ -346,7 +345,7 @@ class TestNuExtractBackend:
 
         backend = create_backend_with_mock_agent(mock_agent)
 
-        backend.nuextract_cfg = NuExtractConfig(thinking=True)
+        backend.cfg = NuExtractConfig(thinking=True)
 
         with patch(
             "bibra.backend.nuextract._pdf_pages_to_binary_content",
@@ -374,7 +373,7 @@ class TestNuExtractBackend:
 
         backend = create_backend_with_mock_agent(mock_agent)
 
-        backend.nuextract_cfg = NuExtractConfig(thinking=False)
+        backend.cfg = NuExtractConfig(thinking=False)
 
         with patch(
             "bibra.backend.nuextract._pdf_pages_to_binary_content",

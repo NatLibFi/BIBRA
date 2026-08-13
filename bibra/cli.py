@@ -47,7 +47,7 @@ def list_projects(config: str | None):
         registry.load()
         projects = registry.list_projects()
     except ConfigError as e:
-        raise click.ClickException(str(e)) from None
+        raise click.ClickException(e.description) from None
 
     column_headings = ("Project ID", "Project Name", "Description")
     table = [(proj["id"], proj["name"], proj["description"]) for proj in projects]
@@ -88,7 +88,7 @@ def extract(
     except ProjectNotFoundError as e:
         raise click.UsageError(str(e)) from None
     except ConfigError as e:
-        raise click.ClickException(str(e)) from None
+        raise click.ClickException(e.description) from None
 
     try:
         result = asyncio.run(backend.extract(list(file_path)))

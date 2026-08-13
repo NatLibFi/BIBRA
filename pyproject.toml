@@ -9,7 +9,7 @@ dependencies = [
     "fastapi==0.136.1",
     "pydantic-ai-slim[openai]>=1.93.0",
     "python-dotenv>=1.2.2",
-    "python-multipart>=0.0.28",
+    "python-multipart>=0.0.31",
     "uvicorn==0.46.0",
     "pymupdf>=1.27.2",
     "pymupdf4llm>=1.27.2",

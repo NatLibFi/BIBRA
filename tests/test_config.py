@@ -396,6 +396,38 @@ class TestProjectConfig:
         assert "test_project" in error_msg
         assert "greylitlm" in error_msg
 
+    def test_greylitlm_system_prompt_from_toml(self, tmp_path: Path):
+        """Test that system_prompt from TOML flows through extra to GreyLitLMConfig."""
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text(
+            "[test_project]\n"
+            'name = "Test"\n'
+            'backend = "greylitlm"\n'
+            'system_prompt = "Custom librarian prompt"\n'
+        )
+
+        registry = ProjectRegistry(str(config_file))
+        registry.load()
+        backend = registry.get_backend("test_project")
+
+        assert backend.cfg.system_prompt == "Custom librarian prompt"
+
+    def test_greylitlm_instructions_from_toml(self, tmp_path: Path):
+        """Test that instructions from TOML flows through extra to GreyLitLMConfig."""
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text(
+            "[test_project]\n"
+            'name = "Test"\n'
+            'backend = "greylitlm"\n'
+            'instructions = "Extract authors and year only"\n'
+        )
+
+        registry = ProjectRegistry(str(config_file))
+        registry.load()
+        backend = registry.get_backend("test_project")
+
+        assert backend.cfg.instructions == "Extract authors and year only"
+
 
 class TestParseBoolOrStr:
     """Tests for parse_bool_or_str validator."""

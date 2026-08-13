@@ -1,10 +1,5 @@
 """Test configuration and fixtures."""
 
-import os
-
-# Set before imports so routes.py picks up test config at module import time
-os.environ["BIBRA_CONFIG"] = "tests/projects.toml"
-
 import pytest
 from fastapi.testclient import TestClient
 

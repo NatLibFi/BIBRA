@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock
 
 import pytest
-from fastapi import Request
+from fastapi import HTTPException, Request
 from fastapi.routing import APIRoute
 
 from bibra.api.v0.routes import (
@@ -12,7 +12,7 @@ from bibra.api.v0.routes import (
     list_projects,
     router,
 )
-from bibra.config import ProjectRegistry
+from bibra.config import ConfigError, ProjectNotFoundError, ProjectRegistry
 from bibra.types import PublicationMetadata
 
 
@@ -120,3 +120,38 @@ class TestAPIRoutes:
 
         with pytest.raises(ConfigFileNotFoundError):
             get_registry(request)
+
+    async def test_list_projects_handles_config_error(self):
+        """list_projects should raise HTTPException 500 on ConfigError."""
+        registry = MagicMock(spec=ProjectRegistry)
+        registry.list_projects.side_effect = ConfigError("Database unavailable")
+
+        with pytest.raises(HTTPException) as exc_info:
+            await list_projects(registry=registry)
+
+        assert exc_info.value.status_code == 500
+        assert exc_info.value.detail == "Database unavailable"
+
+    async def test_extract_handles_config_error_from_get_backend(self):
+        """extract should raise HTTPException 500 on ConfigError from get_backend."""
+        registry = MagicMock(spec=ProjectRegistry)
+        registry.get_backend.side_effect = ConfigError("Invalid backend config")
+
+        with pytest.raises(HTTPException) as exc_info:
+            await extract(project_id="bad_project", files=[], registry=registry)
+
+        assert exc_info.value.status_code == 500
+        assert exc_info.value.detail == "Invalid backend config"
+
+    async def test_extract_handles_project_not_found_error(self):
+        """extract should raise HTTPException 404 on ProjectNotFoundError."""
+        registry = MagicMock(spec=ProjectRegistry)
+        registry.get_backend.side_effect = ProjectNotFoundError(
+            "Project 'unknown' not found"
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await extract(project_id="unknown", files=[], registry=registry)
+
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail == "Project 'unknown' not found"

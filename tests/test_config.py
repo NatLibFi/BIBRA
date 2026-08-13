@@ -12,6 +12,7 @@ from bibra.config import (
     ConfigParseError,
     ProjectConfig,
     ProjectRegistry,
+    _interpolate_env_vars,
 )
 
 
@@ -521,3 +522,48 @@ class TestParseIntOrStr:
     ):
         assert parse_int_or_str("   ") == 0
         assert "Unrecognized int value" in caplog.text
+
+
+class TestInterpolateEnvVars:
+    """Tests for _interpolate_env_vars."""
+
+    def test_none_returns_none(self):
+        """Test that None input returns None."""
+        assert _interpolate_env_vars(None) is None
+
+    def test_non_string_int_returns_unchanged(self):
+        """Test that non-string values (int) are returned unchanged."""
+        assert _interpolate_env_vars(42) == 42
+
+    def test_non_string_float_returns_unchanged(self):
+        """Test that non-string values (float) are returned unchanged."""
+        assert _interpolate_env_vars(3.14) == 3.14
+
+    def test_non_string_bool_returns_unchanged(self):
+        """Test that non-string values (bool) are returned unchanged."""
+        assert _interpolate_env_vars(True) is True
+        assert _interpolate_env_vars(False) is False
+
+    def test_non_string_list_returns_unchanged(self):
+        """Test that non-string values (list) are returned unchanged."""
+        assert _interpolate_env_vars([1, 2, 3]) == [1, 2, 3]
+
+    def test_string_with_no_placeholders_returns_unchanged(self):
+        """Test that strings without placeholders are returned unchanged."""
+        assert _interpolate_env_vars("hello world") == "hello world"
+
+    def test_unclosed_placeholder_returns_unchanged(self):
+        """Test that strings with ${ but no closing } are returned unchanged."""
+        assert _interpolate_env_vars("${FOO") == "${FOO"
+
+    def test_unclosed_placeholder_mid_string_returns_unchanged(self):
+        """Test that ${ without } in the middle of a string is returned unchanged."""
+        assert _interpolate_env_vars("prefix ${BAR suffix") == "prefix ${BAR suffix"
+
+    def test_unclosed_placeholder_preserved(self):
+        """Test that an unclosed ${ without } is left as-is."""
+        assert _interpolate_env_vars("${FOO") == "${FOO"
+
+    def test_unclosed_placeholder_with_trailing_text(self):
+        """Test that an unclosed ${ followed by text is left as-is."""
+        assert _interpolate_env_vars("prefix${BAR suffix") == "prefix${BAR suffix"

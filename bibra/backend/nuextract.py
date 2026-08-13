@@ -26,14 +26,22 @@ def _parse_bool_or_str(v: Any) -> bool:
         return v
     if isinstance(v, int):
         return v != 0
-    return str(v).strip().lower() in ("1", "true")
+    stripped = str(v).strip().lower()
+    if stripped not in ("1", "true"):
+        logger.warning("Unrecognized bool value %r, defaulting to False", v)
+        return False
+    return True
 
 
 def _parse_int_or_str(v: Any) -> int:
     """Coerce int or string representation to int."""
     if isinstance(v, int):
         return v
-    return int(str(v).strip())
+    try:
+        return int(str(v).strip())
+    except ValueError:
+        logger.warning("Unrecognized int value %r, defaulting to 0", v)
+        return 0
 
 
 BoolStr = Annotated[bool, BeforeValidator(_parse_bool_or_str)]

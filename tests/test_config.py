@@ -456,12 +456,11 @@ class TestParseBoolOrStr:
     def test_string_with_whitespace(self):
         assert parse_bool_or_str("  true  ") is True
 
-    def test_string_false_returns_false_with_warning(
-        self, caplog: pytest.LogCaptureFixture
-    ):
+    def test_string_false_returns_false(self):
         assert parse_bool_or_str("false") is False
-        assert "Unrecognized bool value" in caplog.text
-        assert "'false'" in caplog.text
+
+    def test_string_0_returns_false(self):
+        assert parse_bool_or_str("0") is False
 
     def test_string_yes_returns_false_with_warning(
         self, caplog: pytest.LogCaptureFixture

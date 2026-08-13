@@ -19,10 +19,12 @@ def parse_bool_or_str(v: Any) -> bool:
     if isinstance(v, int):
         return v != 0
     stripped = str(v).strip().lower()
-    if stripped not in ("1", "true"):
-        logger.warning("Unrecognized bool value %r, defaulting to False", v)
+    if stripped in ("1", "true"):
+        return True
+    if stripped in ("0", "false"):
         return False
-    return True
+    logger.warning("Unrecognized bool value %r, defaulting to False", v)
+    return False
 
 
 def parse_int_or_str(v: Any) -> int:

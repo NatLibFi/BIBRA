@@ -209,7 +209,11 @@ class ProjectRegistry:
             # Separate global fields from backend-specific extra fields
             project = ProjectConfig(
                 id=project_id,
-                name=str(merged.get("name") or project_id),
+                name=(
+                    str(merged["name"])
+                    if merged.get("name") is not None
+                    else project_id
+                ),
                 backend=backend_type,
                 endpoint=merged.get("endpoint"),
                 api_key=merged.get("api_key"),

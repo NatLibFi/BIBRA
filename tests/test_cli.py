@@ -250,16 +250,15 @@ class TestExtract:
 """Tests for the extract-url command."""
 
 
-def _make_urlopen_mock(chunks=(b"%PDF-1.4 dummy content", b"")):
-    """Build a mock for urllib.request.urlopen that yields the given chunks
-    from .read() and supports use as a context manager."""
+def _make_httpx_stream_mock(chunks=(b"%PDF-1.4 dummy content",)):
+    """Build a mock for httpx stream response that yields the given chunks."""
     mock_response = MagicMock()
-    mock_response.read.side_effect = list(chunks)
-
-    mock_cm = MagicMock()
-    mock_cm.__enter__.return_value = mock_response
-    mock_cm.__exit__.return_value = False
-    return mock_cm
+    mock_response.headers.get.return_value = "application/pdf"
+    mock_response.status_code = 200
+    mock_response.iter_bytes.return_value = chunks
+    mock_response.__enter__.return_value = mock_response
+    mock_response.__exit__.return_value = False
+    return mock_response
 
 
 def _make_backend(json_payload=None):
@@ -309,12 +308,12 @@ class TestExtractUrl:
         """Test extract-url command with a valid URL and successful extraction."""
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.urllib.request.urlopen") as mock_urlopen,
+            patch("bibra.cli.httpx.stream") as mock_stream,
         ):
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
             mock_registry.get_backend.return_value = _make_backend()
-            mock_urlopen.return_value = _make_urlopen_mock()
+            mock_stream.return_value = _make_httpx_stream_mock()
 
             result = self.runner.invoke(
                 extract_url, ["dummy", "https://example.com/paper.pdf"]
@@ -333,12 +332,12 @@ class TestExtractUrl:
 
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.urllib.request.urlopen") as mock_urlopen,
+            patch("bibra.cli.httpx.stream") as mock_stream,
         ):
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
             mock_registry.get_backend.return_value = _make_backend()
-            mock_urlopen.return_value = _make_urlopen_mock()
+            mock_stream.return_value = _make_httpx_stream_mock()
 
             result = self.runner.invoke(
                 extract_url,
@@ -365,12 +364,12 @@ class TestExtractUrl:
 
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.urllib.request.urlopen") as mock_urlopen,
+            patch("bibra.cli.httpx.stream") as mock_stream,
         ):
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
             mock_registry.get_backend.return_value = _make_backend()
-            mock_urlopen.return_value = _make_urlopen_mock()
+            mock_stream.return_value = _make_httpx_stream_mock()
 
             result = self.runner.invoke(
                 extract_url,
@@ -400,7 +399,7 @@ class TestExtractUrl:
         assert "not found" in result.output
 
     def test_extract_url_config_error_converted_to_click_exception(self):
-        """Test that ConfigError while resolving the backend becomes a ClickException."""
+        """Test ConfigError during backend resolution becomes ClickException."""
         with patch("bibra.cli.ProjectRegistry") as mock_registry_cls:
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
@@ -414,15 +413,17 @@ class TestExtractUrl:
         assert "Invalid config syntax" in result.output
 
     def test_extract_url_download_failure_converted_to_click_exception(self):
-        """Test that a failure while downloading the URL is wrapped as 'Extraction failed:'."""
+        """Test download failure is wrapped as 'Extraction failed:'."""
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.urllib.request.urlopen") as mock_urlopen,
+            patch("bibra.cli.httpx.stream") as mock_stream,
         ):
+            import httpx as _httpx
+
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
             mock_registry.get_backend.return_value = _make_backend()
-            mock_urlopen.side_effect = OSError("Name or service not known")
+            mock_stream.side_effect = _httpx.HTTPError("Name or service not known")
 
             result = self.runner.invoke(
                 extract_url, ["dummy", "https://bad.example.invalid/paper.pdf"]
@@ -436,7 +437,7 @@ class TestExtractUrl:
         ClickException with the 'Extraction failed:' prefix."""
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.urllib.request.urlopen") as mock_urlopen,
+            patch("bibra.cli.httpx.stream") as mock_stream,
         ):
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
@@ -447,7 +448,7 @@ class TestExtractUrl:
 
             mock_backend.extract.side_effect = _extract
             mock_registry.get_backend.return_value = mock_backend
-            mock_urlopen.return_value = _make_urlopen_mock()
+            mock_stream.return_value = _make_httpx_stream_mock()
 
             result = self.runner.invoke(
                 extract_url, ["dummy", "https://example.com/paper.pdf"]

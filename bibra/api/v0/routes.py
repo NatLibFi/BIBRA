@@ -3,10 +3,9 @@
 import logging
 import os
 import tempfile
-import urllib.request
 from typing import Annotated
-from urllib.error import HTTPError, URLError
 
+import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import HttpUrl
 
@@ -106,10 +105,11 @@ async def extract(
 async def extract_url(
     project_id: str,
     registry: Annotated[ProjectRegistry, Depends(get_registry)],
-    urls: list[HttpUrl] = Form(...),
+    urls: list[HttpUrl] = Form(...),  # noqa: B008
 ) -> PublicationMetadata:
     """
-    Extract publication metadata from PDF or image files at given URLs for a specific project.
+    Extract publication metadata from PDF or image files at given URLs for a
+    specific project.
 
     Args:
         project_id: The ID of the project to extract metadata for
@@ -120,74 +120,76 @@ async def extract_url(
     """
     temp_files: list[str] = []
     try:
-        for url in urls:
-            # Create a temporary file to save the downloaded PDF for the current URL
-            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-                temp_files.append(tmp.name)
+        async with httpx.AsyncClient() as client:
+            for url in urls:
+                # Create a temporary file to save the downloaded PDF for the current URL
+                with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+                    temp_files.append(tmp.name)
 
-                try:
-                    # Download content from URL
-                    with urllib.request.urlopen(str(url)) as response:
-                        content_type = response.info().get_content_type()
-                        if content_type != "application/pdf":
-                            if os.path.exists(tmp.name):
-                                os.unlink(tmp.name)
-                                temp_files.remove(tmp.name)
-                            raise HTTPException(
-                                status_code=400,
-                                detail=f"'{url}' does not point to a PDF file. Expected 'application/pdf', got '{content_type}'.",
-                            )
+                    try:
+                        url_str = str(url)
+                        async with client.stream("GET", url_str) as response:
+                            content_type = response.headers.get("content-type", "")
+                            if content_type != "application/pdf":
+                                if os.path.exists(tmp.name):
+                                    os.unlink(tmp.name)
+                                    temp_files.remove(tmp.name)
+                                expected = "application/pdf"
+                                detail = (
+                                    f"'{url}' does not point to a PDF file. "
+                                    f"Expected '{expected}', got '{content_type}'."
+                                )
+                                raise HTTPException(status_code=400, detail=detail)
 
-                        while chunk := response.read(1024 * 1024):
-                            tmp.write(chunk)
+                            status_code = response.status_code
+                            if status_code >= 400:
+                                if os.path.exists(tmp.name):
+                                    os.unlink(tmp.name)
+                                    temp_files.remove(tmp.name)
+                                raise HTTPException(
+                                    status_code=status_code,
+                                    detail=str(response.reason_phrase),
+                                )
 
-                except HTTPException:
-                    raise
-                except HTTPError as e:
-                    logger.exception(
-                        f"HTTP Error downloading {url}: {e.code} - {e.reason}"
-                    )
-                    # Clean up the temporary file associated with the failed download
-                    if os.path.exists(tmp.name):
-                        os.unlink(tmp.name)
-                        temp_files.remove(tmp.name)
-                    raise HTTPException(status_code=e.code, detail=str(e))
-                except URLError as e:
-                    logger.exception(f"URL Error downloading {url}: {e.reason}")
-                    # Clean up the temporary file associated with the failed download
-                    if os.path.exists(tmp.name):
-                        os.unlink(tmp.name)
-                        temp_files.remove(tmp.name)
-                    raise HTTPException(status_code=400, detail=str(e))
-                except Exception as e:
-                    logger.exception(
-                        f"An unexpected error occurred during download from {url}: {e}",
-                        exc_info=True,
-                    )
-                    # Clean up the temporary file associated with the failed download
-                    if os.path.exists(tmp.name):
-                        os.unlink(tmp.name)
-                        temp_files.remove(tmp.name)
-                    raise HTTPException(status_code=500, detail=str(e))
+                            async for chunk in response.aiter_bytes(
+                                chunk_size=1024 * 1024
+                            ):
+                                tmp.write(chunk)
 
-        # Get backend for the project
-        try:
-            backend = registry.get_backend(project_id)
-        except ProjectNotFoundError as e:
-            raise HTTPException(status_code=404, detail=str(e))
-        except ConfigError as e:
-            logger.exception("Configuration error")
-            raise HTTPException(status_code=500, detail=str(e))
-        # Extract metadata using the backend
-        result = await backend.extract(temp_files)
-        return result
+                    except HTTPException:
+                        raise
+                    except httpx.HTTPError as e:
+                        logger.exception("HTTP Error downloading %s", url_str)
+                        if os.path.exists(tmp.name):
+                            os.unlink(tmp.name)
+                            temp_files.remove(tmp.name)
+                        raise HTTPException(status_code=500, detail=str(e))
+                    except Exception as e:
+                        logger.exception(
+                            "Unexpected error during download from %s", url
+                        )
+                        if os.path.exists(tmp.name):
+                            os.unlink(tmp.name)
+                            temp_files.remove(tmp.name)
+                        raise HTTPException(status_code=500, detail=str(e))
+
+            # Get backend for the project
+            try:
+                backend = registry.get_backend(project_id)
+            except ProjectNotFoundError as e:
+                raise HTTPException(status_code=404, detail=str(e))
+            except ConfigError as e:
+                logger.exception("Configuration error")
+                raise HTTPException(status_code=500, detail=str(e))
+            # Extract metadata using the backend
+            result = await backend.extract(temp_files)
+            return result
     finally:
         # Clean up all temporary files that were successfully added to temp_files
         for tmp_path in temp_files:
             try:
-                if os.path.exists(
-                    tmp_path
-                ):  # Check if it still exists (might have been removed by an earlier error)
+                # Check if it still exists (might have been removed earlier)
+                if os.path.exists(tmp_path):
                     os.unlink(tmp_path)
             except OSError:
                 logger.debug(

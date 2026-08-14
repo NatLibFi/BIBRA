@@ -2,9 +2,9 @@
 
 import asyncio
 import tempfile
-import urllib.request
 
 import click
+import httpx
 from dotenv import load_dotenv
 
 from bibra.config import (
@@ -136,11 +136,12 @@ def extract_url(project_id: str, url: str, config: str | None, output: str | Non
 
     try:
         with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp:
-            with urllib.request.urlopen(url) as response:
-                while chunk := response.read(1024 * 1024):
+            with httpx.stream("GET", url) as response:
+                if response.status_code >= 400:
+                    raise httpx.HTTPError(f"HTTP {response.status_code} for {url}")
+                for chunk in response.iter_bytes(chunk_size=1024 * 1024):
                     tmp.write(chunk)
-
-            tmp.flush()
+                tmp.flush()
             result = asyncio.run(backend.extract([tmp.name]))
     except Exception as e:
         raise click.ClickException(f"Extraction failed: {e}") from e

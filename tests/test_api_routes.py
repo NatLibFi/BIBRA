@@ -98,21 +98,29 @@ class TestAPIRoutes:
         route = extract_url_routes[0]
         assert isinstance(route, APIRoute)
 
-    async def test_extract_returns_example_metadata(self):
+    async def test_extract_url_returns_example_metadata(self):
         """The /projects/{project_id}/extract-url endpoint should return example
         publication metadata."""
         registry = ProjectRegistry()
 
-        # Mock pdf file download
+        # Mock httpx.AsyncClient stream response
         mock_response = MagicMock()
-        mock_response.info.return_value.get_content_type.return_value = (
-            "application/pdf"
-        )
-        mock_response.read.side_effect = [b"%PDF-1.4 mock content", b""]
-        mock_response.__enter__.return_value = mock_response
-        mock_response.__exit__.return_value = False
+        mock_response.headers.get.return_value = "application/pdf"
+        mock_response.status_code = 200
 
-        with patch("urllib.request.urlopen", return_value=mock_response):
+        async def mock_aiter_bytes(*args, **kwargs):
+            yield b"%PDF-1.4 mock content"
+
+        mock_response.aiter_bytes.return_value = mock_aiter_bytes()
+        mock_response.__aenter__.return_value = mock_response
+        mock_response.__aexit__.return_value = False
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client.__aenter__.return_value = mock_client
+            mock_client.__aexit__.return_value = False
+            mock_client.stream = MagicMock(return_value=mock_response)
+            mock_client_cls.return_value = mock_client
             result = await extract_url(
                 project_id="dummy",
                 registry=registry,

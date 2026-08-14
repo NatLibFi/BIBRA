@@ -119,8 +119,17 @@ async def extract_url(
         PublicationMetadata: Extracted metadata as JSON
     """
     try:
-        async with httpx.AsyncClient() as client:
-            url_str = str(url)
+        backend = registry.get_backend(project_id)
+    except ProjectNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ConfigError as e:
+        logger.exception("Configuration error")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    url_str = str(url)
+
+    try:
+        async with httpx.AsyncClient() as client:  # noqa: SIM117
             async with client.stream("GET", url_str) as response:
                 content_type = response.headers.get("content-type", "")
                 if content_type != "application/pdf":
@@ -138,24 +147,11 @@ async def extract_url(
                         detail=str(response.reason_phrase),
                     )
 
-                with tempfile.NamedTemporaryFile(suffix=".pdf", delete=True) as tmp:
+                with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp:
                     async for chunk in response.aiter_bytes(chunk_size=1024 * 1024):
                         tmp.write(chunk)
                     tmp.flush()
-
-                    # Get backend for the project
-                    try:
-                        backend = registry.get_backend(project_id)
-                    except ProjectNotFoundError as e:
-                        raise HTTPException(status_code=404, detail=str(e))
-                    except ConfigError as e:
-                        logger.exception("Configuration error")
-                        raise HTTPException(status_code=500, detail=str(e))
-
-                    # Extract metadata using the backend
-                    result = await backend.extract([tmp.name])
-                    return result
-
+                    return await backend.extract([tmp.name])
     except httpx.HTTPError as e:
         logger.exception("HTTP Error downloading %s", url_str)
         raise HTTPException(status_code=500, detail=str(e))

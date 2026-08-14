@@ -10,7 +10,12 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from pydantic import HttpUrl
 
 from bibra import __version__
-from bibra.config import ConfigError, ProjectNotFoundError, ProjectRegistry
+from bibra.config import (
+    ConfigError,
+    ProjectNotFoundError,
+    ProjectRegistry,
+    get_url_proxy,
+)
 from bibra.types import Projects, PublicationMetadata, Version
 
 logger = logging.getLogger(__name__)
@@ -141,7 +146,8 @@ async def extract_url(
     url_str = str(url)
 
     try:
-        async with httpx.AsyncClient() as client:
+        proxy = get_url_proxy()
+        async with httpx.AsyncClient(proxy=proxy) as client:
             response = await client.get(url_str)
 
             content_type = response.headers.get("content-type", "")

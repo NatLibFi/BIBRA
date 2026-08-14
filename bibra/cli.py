@@ -12,6 +12,7 @@ from bibra.config import (
     ConfigError,
     ProjectNotFoundError,
     ProjectRegistry,
+    get_url_proxy,
 )
 
 
@@ -165,7 +166,8 @@ def extract_url(project_id: str, url: str, config: str | None, output: str | Non
 
     try:
         with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp:
-            with httpx.stream("GET", url) as response:
+            proxy = get_url_proxy()
+            with httpx.stream("GET", url, proxy=proxy) as response:
                 if response.status_code >= 400:
                     raise httpx.HTTPError(f"HTTP {response.status_code} for {url}")
                 for chunk in response.iter_bytes(chunk_size=1024 * 1024):

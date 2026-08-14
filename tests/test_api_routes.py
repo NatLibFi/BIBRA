@@ -217,3 +217,65 @@ class TestAPIRoutes:
 
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == "Project 'unknown' not found"
+
+    async def test_extract_url_passes_proxy_when_set(self, monkeypatch):
+        """Test that extract-url passes the proxy to httpx.AsyncClient when set."""
+        from pydantic import HttpUrl
+
+        monkeypatch.setenv("BIBRA_URL_PROXY", "http://proxy.example.com:8080")
+
+        registry = ProjectRegistry()
+
+        async def mock_aiter_bytes(*args, **kwargs):
+            yield b"%PDF-1.4 mock content"
+
+        mock_response = MagicMock()
+        mock_response.headers = Headers({"content-type": "application/pdf"})
+        mock_response.status_code = 200
+        mock_response.aiter_bytes.return_value = mock_aiter_bytes()
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client_cls.return_value = mock_client
+            result = await extract_url(
+                project_id="dummy",
+                registry=registry,
+                url=HttpUrl("https://example.com/paper.pdf"),
+            )
+
+        mock_client_cls.assert_called_once_with(proxy="http://proxy.example.com:8080")
+        assert isinstance(result, PublicationMetadata)
+
+    async def test_extract_url_no_proxy_when_not_set(self, monkeypatch):
+        """Test that extract-url passes proxy=None when env var is not set."""
+        from pydantic import HttpUrl
+
+        monkeypatch.delenv("BIBRA_URL_PROXY", raising=False)
+
+        registry = ProjectRegistry()
+
+        async def mock_aiter_bytes(*args, **kwargs):
+            yield b"%PDF-1.4 mock content"
+
+        mock_response = MagicMock()
+        mock_response.headers = Headers({"content-type": "application/pdf"})
+        mock_response.status_code = 200
+        mock_response.aiter_bytes.return_value = mock_aiter_bytes()
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client_cls.return_value = mock_client
+            result = await extract_url(
+                project_id="dummy",
+                registry=registry,
+                url=HttpUrl("https://example.com/paper.pdf"),
+            )
+
+        mock_client_cls.assert_called_once_with(proxy=None)
+        assert isinstance(result, PublicationMetadata)

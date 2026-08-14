@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import sys
 from typing import Any
 
 import Levenshtein
@@ -12,6 +13,9 @@ from bibra.types import PublicationMetadata
 
 # Levenshtein similarity threshold to consider a fuzzy match "correct".
 FUZZY_MATCH_THRESHOLD = 0.95
+
+# Maximum time (seconds) allowed for a single extraction call.
+EXTRACTION_TIMEOUT = 300
 
 
 def load_ground_truth(file_paths: list[str]) -> list[dict[str, Any]]:
@@ -227,28 +231,62 @@ def run_evaluation(
             if url is None:
                 continue
 
-            filepath = downloader.download(url)
-            extracted = asyncio.run(backend.extract([filepath]))
-
             # Parse ground truth through the same model to normalise keys.
             gt_dict = record.get("ground_truth") or {}
             gt = PublicationMetadata(**gt_dict)
 
             language = gt.language
 
-            for field in PublicationMetadata.model_fields:
-                match_type, score = _compare_field(field, gt, extracted)
-                results.append(
-                    {
-                        "url": url,
-                        "language": language,
-                        "field": field,
-                        "predicted_val": getattr(extracted, field),
-                        "true_val": getattr(gt, field),
-                        "match_type": match_type,
-                        "score": score,
-                    }
+            try:
+                filepath = downloader.download(url)
+
+                async def _extract_with_timeout(
+                    path: str = filepath,
+                ):
+                    return await asyncio.wait_for(
+                        backend.extract([path]),
+                        timeout=EXTRACTION_TIMEOUT,
+                    )
+
+                extracted = asyncio.run(_extract_with_timeout())
+
+                for field in PublicationMetadata.model_fields:
+                    match_type, score = _compare_field(field, gt, extracted)
+                    results.append(
+                        {
+                            "url": url,
+                            "language": language,
+                            "field": field,
+                            "predicted_val": getattr(extracted, field),
+                            "true_val": getattr(gt, field),
+                            "match_type": match_type,
+                            "score": score,
+                        }
+                    )
+            except Exception as e:  # noqa: BLE001
+                # Record errors per field so evaluation continues.
+                msg = str(e)
+                exc_name = type(e).__name__
+                if msg:
+                    desc = f"{exc_name}: {msg}"
+                else:
+                    desc = exc_name
+                print(
+                    f"WARNING: Evaluation failed for {url}: {desc}",
+                    file=sys.stderr,
                 )
+                for field in PublicationMetadata.model_fields:
+                    results.append(
+                        {
+                            "url": url,
+                            "language": language,
+                            "field": field,
+                            "predicted_val": None,
+                            "true_val": getattr(gt, field),
+                            "match_type": "error",
+                            "score": 0,
+                        }
+                    )
 
     return results
 

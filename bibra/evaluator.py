@@ -282,10 +282,16 @@ def aggregate_results(
         mean_score = sum(scores) / len(scores)
         rows.append((lang, field, mean_score, len(scores)))
 
+    # Calculate overall score across all fields and languages.
+    all_scores = [r["score"] for r in results]
+    overall_mean = sum(all_scores) / len(all_scores) if all_scores else 0.0
+    overall_count = len(all_scores)
+
     # Format as TSV.
     lines = ["language\tfield\tmean_score\tcount"]
     for lang, field, mean_score, count in rows:
         lang_str = lang if lang else ""
         lines.append(f"{lang_str}\t{field}\t{mean_score:.4f}\t{count}")
+    lines.append(f"-\t-\t{overall_mean:.4f}\t{overall_count}")
 
     return "\n".join(lines)

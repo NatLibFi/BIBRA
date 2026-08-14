@@ -420,9 +420,10 @@ class TestAggregateResults:
         ]
         tsv = aggregate_results(results)
         lines = tsv.split("\n")
-        # Header + one data line.
-        assert len(lines) == 2
+        # Header + one data line + overall summary.
+        assert len(lines) == 3
         assert lines[1] == "en\ttitle\t0.5000\t2"
+        assert lines[2] == "-\t-\t0.5000\t2"
 
     def test_aggregate_groups_by_language_and_field(self):
         results = [
@@ -456,7 +457,7 @@ class TestAggregateResults:
         ]
         tsv = aggregate_results(results)
         lines = tsv.split("\n")
-        assert len(lines) == 4  # header + 3 groups
+        assert len(lines) == 5  # header + 3 groups + overall summary
 
     def test_aggregate_filters_fields(self):
         results = [
@@ -481,13 +482,16 @@ class TestAggregateResults:
         ]
         tsv = aggregate_results(results, fields=("title",))
         lines = tsv.split("\n")
-        assert len(lines) == 2  # header + title only
+        assert len(lines) == 3  # header + title only + overall summary
         assert "title" in lines[1]
         assert "year" not in tsv
 
     def test_aggregate_empty_results(self):
         tsv = aggregate_results([])
-        assert tsv == "language\tfield\tmean_score\tcount"
+        lines = tsv.split("\n")
+        assert len(lines) == 2  # header + overall summary (0.0000)
+        assert lines[0] == "language\tfield\tmean_score\tcount"
+        assert lines[1] == "-\t-\t0.0000\t0"
 
     def test_aggregate_null_language(self):
         results = [

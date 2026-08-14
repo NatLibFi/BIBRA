@@ -129,29 +129,30 @@ async def extract_url(
     url_str = str(url)
 
     try:
-        async with httpx.AsyncClient() as client:  # noqa: SIM117
-            async with client.stream("GET", url_str) as response:
-                content_type = response.headers.get("content-type", "")
-                if content_type != "application/pdf":
-                    expected = "application/pdf"
-                    detail = (
-                        f"'{url}' does not point to a PDF file. "
-                        f"Expected '{expected}', got '{content_type}'."
-                    )
-                    raise HTTPException(status_code=400, detail=detail)
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url_str)
 
-                status_code = response.status_code
-                if status_code >= 400:
-                    raise HTTPException(
-                        status_code=status_code,
-                        detail=str(response.reason_phrase),
-                    )
+            content_type = response.headers.get("content-type", "")
+            if content_type != "application/pdf":
+                expected = "application/pdf"
+                detail = (
+                    f"'{url}' does not point to a PDF file. "
+                    f"Expected '{expected}', got '{content_type}'."
+                )
+                raise HTTPException(status_code=400, detail=detail)
 
-                with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp:
-                    async for chunk in response.aiter_bytes(chunk_size=1024 * 1024):
-                        tmp.write(chunk)
-                    tmp.flush()
-                    return await backend.extract([tmp.name])
+            status_code = response.status_code
+            if status_code >= 400:
+                raise HTTPException(
+                    status_code=status_code,
+                    detail=str(response.reason_phrase),
+                )
+
+            with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp:
+                async for chunk in response.aiter_bytes(chunk_size=1024 * 1024):
+                    tmp.write(chunk)
+                tmp.flush()
+                return await backend.extract([tmp.name])
     except httpx.HTTPError as e:
         logger.exception("HTTP Error downloading %s", url_str)
         raise HTTPException(status_code=500, detail=str(e))

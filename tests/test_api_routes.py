@@ -1,10 +1,11 @@
 """Tests for API routes."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException, Request
 from fastapi.routing import APIRoute
+from httpx import Headers
 
 from bibra.api.v0.routes import (
     extract,
@@ -105,23 +106,19 @@ class TestAPIRoutes:
 
         registry = ProjectRegistry()
 
-        # Mock httpx.AsyncClient stream response
-        mock_response = MagicMock()
-        mock_response.headers.get.return_value = "application/pdf"
-        mock_response.status_code = 200
-
         async def mock_aiter_bytes(*args, **kwargs):
             yield b"%PDF-1.4 mock content"
 
+        mock_response = MagicMock()
+        mock_response.headers = Headers({"content-type": "application/pdf"})
+        mock_response.status_code = 200
         mock_response.aiter_bytes.return_value = mock_aiter_bytes()
-        mock_response.__aenter__.return_value = mock_response
-        mock_response.__aexit__.return_value = False
 
         with patch("httpx.AsyncClient") as mock_client_cls:
             mock_client = MagicMock()
-            mock_client.__aenter__.return_value = mock_client
-            mock_client.__aexit__.return_value = False
-            mock_client.stream = MagicMock(return_value=mock_response)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client.get = AsyncMock(return_value=mock_response)
             mock_client_cls.return_value = mock_client
             result = await extract_url(
                 project_id="dummy",

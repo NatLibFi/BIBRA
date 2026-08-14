@@ -75,10 +75,10 @@ npm run cy:run
 
 ## Use of AI Tools
 
-This project uses AI‑powered development tools, including the [RooCode VSCode extension](https://roocode.com/), to support the development process. AI assistance may be used for tasks such as:
+This project uses AI‑powered development tools, including the [Zoo Code VSCode extension](https://www.zoocode.dev/), to support the development process. AI assistance may be used for tasks such as:
 
-- generating and refactoring code
+- generating and refactoring code and tests
 - drafting documentation
 - exploring ideas and potential solutions
 
-All AI‑generated content is manually reviewed and approved before being included in the project and the use of AI is disclosed. AI tools do not make decisions independently, as we do not consider their output to be error‑free.
+All LLM‑generated content is manually reviewed and approved before being included in the project and the use of AI is disclosed via the [pull request template](.github/PULL_REQUEST_TEMPLATE.md). We indicate AI use, how much human effort went into the work and especially into verifying the result of AI using the [AI Traffic Lights Protocol](https://nlkw.de/en/blog/ai-tlp/) by Nila Löber. AI:ORANGE is the minimum level required for merging pull requests.

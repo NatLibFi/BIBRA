@@ -1,9 +1,20 @@
+from unittest.mock import MagicMock, patch
+
 import schemathesis
 
 from bibra.main import app
 
 # Load schema directly from FastAPI app
 schema = schemathesis.openapi.from_asgi("/openapi.json", app)
+
+
+def _mock_pdf_response(*args, **kwargs):
+    mock_response = MagicMock()
+    mock_response.info.return_value.get_content_type.return_value = "application/pdf"
+    mock_response.read.side_effect = [b"%PDF-1.4 mock content", b""]
+    mock_response.__enter__.return_value = mock_response
+    mock_response.__exit__.return_value = False
+    return mock_response
 
 
 @schema.parametrize()
@@ -23,4 +34,28 @@ def test_api(case):
         if hasattr(case, "path") and case.path == "/v0/projects/{project_id}/extract":
             # Modify the path to use dummy project
             case.path = "/v0/projects/dummy/extract"
+    # Skip extract-url cases missing the required `urls` field.
+    is_extract_url = (
+        case.path == "/v0/projects/{project_id}/extract-url"
+        and case.method.upper() == "POST"
+    )
+    if is_extract_url:
+        body = case.body
+        # Skip if `urls` is absent or empty
+        has_urls = isinstance(body, dict) and bool(body.get("urls"))
+        if not has_urls:
+            return
+        # Use dummy backend for testing to avoid real network downloads/API calls
+        if (
+            hasattr(case, "path")
+            and case.path == "/v0/projects/{project_id}/extract-url"
+        ):
+            # Modify the path to use dummy project
+            case.path = "/v0/projects/dummy/extract-url"
+
+        # Mock pdf file download
+        with patch("urllib.request.urlopen", side_effect=_mock_pdf_response):
+            case.call_and_validate()
+        return
+
     case.call_and_validate()

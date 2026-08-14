@@ -1,6 +1,8 @@
 """CLI interface for BIBRA."""
 
 import asyncio
+import tempfile
+import urllib.request
 
 import click
 from dotenv import load_dotenv
@@ -92,6 +94,54 @@ def extract(project_id: str, file_path: str, config: str | None, output: str | N
 
     try:
         result = asyncio.run(backend.extract([file_path]))
+    except Exception as e:
+        raise click.ClickException(f"Extraction failed: {e}") from e
+
+    json_output = result.model_dump_json(indent=2)
+
+    if output:
+        with open(output, "w", encoding="utf-8") as f:
+            f.write(json_output + "\n")
+        click.echo(f"Output written to {output}")
+    else:
+        click.echo(json_output)
+
+
+@cli.command("extract-url")
+@click.argument("project_id")
+@click.argument("url")
+@click.option(
+    "--config",
+    "-c",
+    default=None,
+    help="Path to the project configuration file (overrides BIBRA_CONFIG).",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(dir_okay=False, writable=True, resolve_path=True),
+    default=None,
+    help="Write JSON output to file instead of stdout",
+)
+def extract_url(project_id: str, url: str, config: str | None, output: str | None):
+    """Extract publication metadata from a PDF or image file at a URL."""
+    registry = ProjectRegistry(config)
+
+    try:
+        backend = registry.get_backend(project_id)
+    except ProjectNotFoundError as e:
+        raise click.UsageError(str(e)) from None
+    except ConfigError as e:
+        raise click.ClickException(str(e)) from None
+
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp:
+            with urllib.request.urlopen(url) as response:
+                while chunk := response.read(1024 * 1024):
+                    tmp.write(chunk)
+
+            tmp.flush()
+            result = asyncio.run(backend.extract([tmp.name]))
     except Exception as e:
         raise click.ClickException(f"Extraction failed: {e}") from e
 

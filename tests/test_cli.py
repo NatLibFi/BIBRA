@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
-from bibra.cli import _make_list_template, cli, extract, list_projects
-from bibra.config import ConfigError
+from bibra.cli import _make_list_template, cli, extract, extract_url, list_projects
+from bibra.config import ConfigError, ProjectNotFoundError
 
 
 class TestCli:
@@ -245,6 +245,216 @@ class TestExtract:
             result = self.runner.invoke(extract, ["dummy", str(test_file)])
             assert result.exit_code != 0
             assert "Invalid config syntax" in result.output
+
+
+"""Tests for the extract-url command."""
+
+
+def _make_urlopen_mock(chunks=(b"%PDF-1.4 dummy content", b"")):
+    """Build a mock for urllib.request.urlopen that yields the given chunks
+    from .read() and supports use as a context manager."""
+    mock_response = MagicMock()
+    mock_response.read.side_effect = list(chunks)
+
+    mock_cm = MagicMock()
+    mock_cm.__enter__.return_value = mock_response
+    mock_cm.__exit__.return_value = False
+    return mock_cm
+
+
+def _make_backend(json_payload=None):
+    """Build a mock backend whose .extract() returns an object with a
+    model_dump_json method, matching what asyncio.run(backend.extract(...))
+    is expected to produce."""
+    if json_payload is None:
+        json_payload = {"title": "Some Paper", "authors": ["A. Author"]}
+
+    mock_result = MagicMock()
+    mock_result.model_dump_json.return_value = json.dumps(json_payload, indent=2)
+
+    mock_backend = MagicMock()
+
+    async def _extract(*args, **kwargs):
+        return mock_result
+
+    mock_backend.extract.side_effect = _extract
+    return mock_backend
+
+
+class TestExtractUrl:
+    """Tests for the extract-url command."""
+
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.runner = CliRunner()
+
+    def test_extract_url_help(self):
+        """Test extract-url help output."""
+        result = self.runner.invoke(extract_url, ["--help"])
+        assert result.exit_code == 0
+        assert not result.exception
+        assert "Extract publication metadata" in result.output
+        assert "PROJECT_ID" in result.output
+        assert "URL" in result.output
+        assert "--output" in result.output
+        assert "-o" in result.output
+
+    def test_extract_url_missing_url(self):
+        """Test extract-url command with only a project id (missing URL)."""
+        result = self.runner.invoke(extract_url, ["test-project"])
+        assert result.exit_code != 0
+        assert result.exception
+
+    def test_extract_url_with_valid_url(self):
+        """Test extract-url command with a valid URL and successful extraction."""
+        with (
+            patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
+            patch("bibra.cli.urllib.request.urlopen") as mock_urlopen,
+        ):
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = _make_backend()
+            mock_urlopen.return_value = _make_urlopen_mock()
+
+            result = self.runner.invoke(
+                extract_url, ["dummy", "https://example.com/paper.pdf"]
+            )
+
+        assert result.exit_code == 0
+        assert not result.exception
+
+        output = result.output.strip()
+        data = json.loads(output)
+        assert "title" in data or "authors" in data
+
+    def test_extract_url_with_output_option(self, tmp_path):
+        """Test extract-url command with --output option to write JSON to file."""
+        output_file = tmp_path / "output.json"
+
+        with (
+            patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
+            patch("bibra.cli.urllib.request.urlopen") as mock_urlopen,
+        ):
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = _make_backend()
+            mock_urlopen.return_value = _make_urlopen_mock()
+
+            result = self.runner.invoke(
+                extract_url,
+                [
+                    "dummy",
+                    "https://example.com/paper.pdf",
+                    "--output",
+                    str(output_file),
+                ],
+            )
+
+        assert result.exit_code == 0
+        assert not result.exception
+        assert "Output written to" in result.output
+
+        assert output_file.exists()
+        content = output_file.read_text(encoding="utf-8")
+        data = json.loads(content.strip())
+        assert data is not None
+
+    def test_extract_url_with_short_output_option(self, tmp_path):
+        """Test extract-url command with -o short option."""
+        output_file = tmp_path / "output.json"
+
+        with (
+            patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
+            patch("bibra.cli.urllib.request.urlopen") as mock_urlopen,
+        ):
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = _make_backend()
+            mock_urlopen.return_value = _make_urlopen_mock()
+
+            result = self.runner.invoke(
+                extract_url,
+                ["dummy", "https://example.com/paper.pdf", "-o", str(output_file)],
+            )
+
+        assert result.exit_code == 0
+        assert not result.exception
+        assert "Output written to" in result.output
+
+    def test_extract_url_with_nonexistent_project(self):
+        """Test extract-url command with a project that isn't found."""
+        with patch("bibra.cli.ProjectRegistry") as mock_registry_cls:
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.side_effect = ProjectNotFoundError(
+                "Project 'nonexistent-project' not found"
+            )
+
+            result = self.runner.invoke(
+                extract_url,
+                ["nonexistent-project", "https://example.com/paper.pdf"],
+            )
+
+        assert result.exit_code != 0
+        assert result.exception
+        assert "not found" in result.output
+
+    def test_extract_url_config_error_converted_to_click_exception(self):
+        """Test that ConfigError while resolving the backend becomes a ClickException."""
+        with patch("bibra.cli.ProjectRegistry") as mock_registry_cls:
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.side_effect = ConfigError("Invalid config syntax")
+
+            result = self.runner.invoke(
+                extract_url, ["dummy", "https://example.com/paper.pdf"]
+            )
+
+        assert result.exit_code != 0
+        assert "Invalid config syntax" in result.output
+
+    def test_extract_url_download_failure_converted_to_click_exception(self):
+        """Test that a failure while downloading the URL is wrapped as 'Extraction failed:'."""
+        with (
+            patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
+            patch("bibra.cli.urllib.request.urlopen") as mock_urlopen,
+        ):
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = _make_backend()
+            mock_urlopen.side_effect = OSError("Name or service not known")
+
+            result = self.runner.invoke(
+                extract_url, ["dummy", "https://bad.example.invalid/paper.pdf"]
+            )
+
+        assert result.exit_code != 0
+        assert "Extraction failed:" in result.output
+
+    def test_extract_url_generic_exception_converted_to_click_exception(self):
+        """Test that a generic Exception during extraction is wrapped in
+        ClickException with the 'Extraction failed:' prefix."""
+        with (
+            patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
+            patch("bibra.cli.urllib.request.urlopen") as mock_urlopen,
+        ):
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_backend = MagicMock()
+
+            async def _extract(*args, **kwargs):
+                raise RuntimeError("PDF corrupted")
+
+            mock_backend.extract.side_effect = _extract
+            mock_registry.get_backend.return_value = mock_backend
+            mock_urlopen.return_value = _make_urlopen_mock()
+
+            result = self.runner.invoke(
+                extract_url, ["dummy", "https://example.com/paper.pdf"]
+            )
+
+        assert result.exit_code != 0
+        assert "Extraction failed: PDF corrupted" in result.output
 
 
 class TestMakeListTemplate:

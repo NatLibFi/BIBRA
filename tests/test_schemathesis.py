@@ -61,11 +61,16 @@ def test_api(case):
             case.path = "/v0/projects/dummy/extract-url"
 
         # Mock httpx.AsyncClient stream response
+        mock_response = _mock_httpx_response()
+
+        async def async_get(*args, **kwargs):
+            return mock_response
+
         with patch("httpx.AsyncClient") as mock_client:
             mock_client.__aenter__.return_value = mock_client
             mock_client.__aexit__.return_value = False
-            mock_response = _mock_httpx_response()
             mock_client.stream = MagicMock(return_value=mock_response)
+            mock_client.get = async_get
             with patch("httpx.AsyncClient", return_value=mock_client):
                 case.call_and_validate()
         return

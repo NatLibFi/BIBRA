@@ -1,6 +1,7 @@
 """CLI interface for BIBRA."""
 
 import asyncio
+import json
 
 import click
 from dotenv import load_dotenv
@@ -10,6 +11,7 @@ from bibra.config import (
     ProjectNotFoundError,
     ProjectRegistry,
 )
+from bibra.evaluator import load_ground_truth, run_evaluation
 
 
 def _make_list_template(column_headings: tuple, *rows: tuple) -> str:
@@ -103,3 +105,45 @@ def extract(project_id: str, file_path: str, config: str | None, output: str | N
         click.echo(f"Output written to {output}")
     else:
         click.echo(json_output)
+
+
+@cli.command("eval")
+@click.argument("project_id")
+@click.argument(
+    "ground_truth_files",
+    type=click.Path(exists=True, dir_okay=False),
+    nargs=-1,
+    required=True,
+)
+@click.option(
+    "--config",
+    "-c",
+    default=None,
+    help="Path to the project configuration file (overrides BIBRA_CONFIG).",
+)
+def eval_(
+    project_id: str,
+    ground_truth_files: tuple[str, ...],
+    config: str | None,
+):
+    """Evaluate metadata extraction against ground truth JSONL files."""
+    registry = ProjectRegistry(config)
+
+    try:
+        backend = registry.get_backend(project_id)
+    except ProjectNotFoundError as e:
+        raise click.UsageError(str(e)) from None
+    except ConfigError as e:
+        raise click.ClickException(str(e)) from None
+
+    records = load_ground_truth(list(ground_truth_files))
+
+    if not records:
+        raise click.ClickException("No ground truth records found in input files")
+
+    try:
+        results = run_evaluation(backend, records)
+    except Exception as e:
+        raise click.ClickException(f"Evaluation failed: {e}") from e
+
+    click.echo(json.dumps(results, indent=2))

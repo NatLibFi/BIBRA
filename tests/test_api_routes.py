@@ -1,6 +1,6 @@
 """Tests for API routes."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import HTTPException, Request
@@ -8,6 +8,7 @@ from fastapi.routing import APIRoute
 
 from bibra.api.v0.routes import (
     extract,
+    extract_url,
     get_registry,
     list_projects,
     router,
@@ -75,6 +76,60 @@ class TestAPIRoutes:
         assert result.e_isbn == ["978-0-123456-78-9"]
         assert result.type_coar == "article"
 
+        # Verify fields that don't have values are None or empty lists
+        assert result.alt_title is None
+        assert result.p_isbn == []
+        assert result.e_issn is None
+
+    def test_extract_url_route_exists(self):
+        """The router should have a project-specific extract-url route."""
+        routes = [str(r.path) for r in router.routes]
+        assert "/projects/{project_id}/extract-url" in routes
+
+    def test_extract_url_route_is_post_method(self):
+        """The extract-url route should use POST method."""
+        extract_url_routes = [
+            r
+            for r in router.routes
+            if str(r.path) == "/projects/{project_id}/extract-url"
+        ]
+        assert len(extract_url_routes) >= 1
+        # Check that the route uses POST method
+        route = extract_url_routes[0]
+        assert isinstance(route, APIRoute)
+
+    async def test_extract_returns_example_metadata(self):
+        """The /projects/{project_id}/extract-url endpoint should return example
+        publication metadata."""
+        registry = ProjectRegistry()
+
+        # Mock pdf file download
+        mock_response = MagicMock()
+        mock_response.info.return_value.get_content_type.return_value = (
+            "application/pdf"
+        )
+        mock_response.read.side_effect = [b"%PDF-1.4 mock content", b""]
+        mock_response.__enter__.return_value = mock_response
+        mock_response.__exit__.return_value = False
+
+        with patch("urllib.request.urlopen", return_value=mock_response):
+            result = await extract_url(
+                project_id="dummy",
+                registry=registry,
+                urls=["https://example.com/paper.pdf"],
+            )
+
+        assert isinstance(result, PublicationMetadata)
+        assert result.language == "en"
+        assert (
+            result.title == "Machine Learning Approaches for Software Defect Prediction"
+        )
+        assert result.creator == ["Smith, John", "Johnson, Emily"]
+        assert result.year == "2023"
+        assert result.publisher == ["Springer", "ACM"]
+        assert result.doi == "10.1234/example.doi.12345"
+        assert result.e_isbn == ["978-0-123456-78-9"]
+        assert result.type_coar == "article"
         # Verify fields that don't have values are None or empty lists
         assert result.alt_title is None
         assert result.p_isbn == []

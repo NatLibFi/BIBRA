@@ -457,6 +457,53 @@ class TestExtractUrl:
         assert result.exit_code != 0
         assert "Extraction failed: PDF corrupted" in result.output
 
+    def test_extract_url_passes_proxy_when_set(self):
+        """Test that extract-url passes the proxy to httpx.stream when set."""
+        with (
+            patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
+            patch("bibra.cli.httpx.stream") as mock_stream,
+        ):
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = _make_backend()
+            mock_stream.return_value = _make_httpx_stream_mock()
+
+            result = self.runner.invoke(
+                extract_url,
+                ["dummy", "https://example.com/paper.pdf"],
+                env={"BIBRA_URL_PROXY": "http://proxy.example.com:8080"},
+            )
+
+        assert result.exit_code == 0
+        mock_stream.assert_called_once_with(
+            "GET",
+            "https://example.com/paper.pdf",
+            proxy="http://proxy.example.com:8080",
+        )
+
+    def test_extract_url_no_proxy_when_not_set(self):
+        """Test that extract-url passes proxy=None when env var is not set."""
+        with (
+            patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
+            patch("bibra.cli.httpx.stream") as mock_stream,
+        ):
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = _make_backend()
+            mock_stream.return_value = _make_httpx_stream_mock()
+
+            result = self.runner.invoke(
+                extract_url,
+                ["dummy", "https://example.com/paper.pdf"],
+            )
+
+        assert result.exit_code == 0
+        mock_stream.assert_called_once_with(
+            "GET",
+            "https://example.com/paper.pdf",
+            proxy=None,
+        )
+
 
 class TestMakeListTemplate:
     """Tests for the _make_list_template helper function."""

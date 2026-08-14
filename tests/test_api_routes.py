@@ -101,6 +101,8 @@ class TestAPIRoutes:
     async def test_extract_url_returns_example_metadata(self):
         """The /projects/{project_id}/extract-url endpoint should return example
         publication metadata."""
+        from pydantic import HttpUrl
+
         registry = ProjectRegistry()
 
         # Mock httpx.AsyncClient stream response
@@ -124,7 +126,7 @@ class TestAPIRoutes:
             result = await extract_url(
                 project_id="dummy",
                 registry=registry,
-                urls=["https://example.com/paper.pdf"],
+                url=HttpUrl("https://example.com/paper.pdf"),
             )
 
         assert isinstance(result, PublicationMetadata)

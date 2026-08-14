@@ -105,93 +105,60 @@ async def extract(
 async def extract_url(
     project_id: str,
     registry: Annotated[ProjectRegistry, Depends(get_registry)],
-    urls: list[HttpUrl] = Form(...),  # noqa: B008
+    url: HttpUrl = Form(...),  # noqa: B008
 ) -> PublicationMetadata:
     """
-    Extract publication metadata from PDF or image files at given URLs for a
+    Extract publication metadata from a PDF or image file at a given URL for a
     specific project.
 
     Args:
         project_id: The ID of the project to extract metadata for
-        urls: List of URLs, each pointing to a file to process
+        url: URL pointing to a file to process
 
     Returns:
         PublicationMetadata: Extracted metadata as JSON
     """
-    temp_files: list[str] = []
     try:
         async with httpx.AsyncClient() as client:
-            for url in urls:
-                # Create a temporary file to save the downloaded PDF for the current URL
-                with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-                    temp_files.append(tmp.name)
+            url_str = str(url)
+            async with client.stream("GET", url_str) as response:
+                content_type = response.headers.get("content-type", "")
+                if content_type != "application/pdf":
+                    expected = "application/pdf"
+                    detail = (
+                        f"'{url}' does not point to a PDF file. "
+                        f"Expected '{expected}', got '{content_type}'."
+                    )
+                    raise HTTPException(status_code=400, detail=detail)
 
+                status_code = response.status_code
+                if status_code >= 400:
+                    raise HTTPException(
+                        status_code=status_code,
+                        detail=str(response.reason_phrase),
+                    )
+
+                with tempfile.NamedTemporaryFile(suffix=".pdf", delete=True) as tmp:
+                    async for chunk in response.aiter_bytes(chunk_size=1024 * 1024):
+                        tmp.write(chunk)
+                    tmp.flush()
+
+                    # Get backend for the project
                     try:
-                        url_str = str(url)
-                        async with client.stream("GET", url_str) as response:
-                            content_type = response.headers.get("content-type", "")
-                            if content_type != "application/pdf":
-                                if os.path.exists(tmp.name):
-                                    os.unlink(tmp.name)
-                                    temp_files.remove(tmp.name)
-                                expected = "application/pdf"
-                                detail = (
-                                    f"'{url}' does not point to a PDF file. "
-                                    f"Expected '{expected}', got '{content_type}'."
-                                )
-                                raise HTTPException(status_code=400, detail=detail)
-
-                            status_code = response.status_code
-                            if status_code >= 400:
-                                if os.path.exists(tmp.name):
-                                    os.unlink(tmp.name)
-                                    temp_files.remove(tmp.name)
-                                raise HTTPException(
-                                    status_code=status_code,
-                                    detail=str(response.reason_phrase),
-                                )
-
-                            async for chunk in response.aiter_bytes(
-                                chunk_size=1024 * 1024
-                            ):
-                                tmp.write(chunk)
-
-                    except HTTPException:
-                        raise
-                    except httpx.HTTPError as e:
-                        logger.exception("HTTP Error downloading %s", url_str)
-                        if os.path.exists(tmp.name):
-                            os.unlink(tmp.name)
-                            temp_files.remove(tmp.name)
-                        raise HTTPException(status_code=500, detail=str(e))
-                    except Exception as e:
-                        logger.exception(
-                            "Unexpected error during download from %s", url
-                        )
-                        if os.path.exists(tmp.name):
-                            os.unlink(tmp.name)
-                            temp_files.remove(tmp.name)
+                        backend = registry.get_backend(project_id)
+                    except ProjectNotFoundError as e:
+                        raise HTTPException(status_code=404, detail=str(e))
+                    except ConfigError as e:
+                        logger.exception("Configuration error")
                         raise HTTPException(status_code=500, detail=str(e))
 
-            # Get backend for the project
-            try:
-                backend = registry.get_backend(project_id)
-            except ProjectNotFoundError as e:
-                raise HTTPException(status_code=404, detail=str(e))
-            except ConfigError as e:
-                logger.exception("Configuration error")
-                raise HTTPException(status_code=500, detail=str(e))
-            # Extract metadata using the backend
-            result = await backend.extract(temp_files)
-            return result
-    finally:
-        # Clean up all temporary files that were successfully added to temp_files
-        for tmp_path in temp_files:
-            try:
-                # Check if it still exists (might have been removed earlier)
-                if os.path.exists(tmp_path):
-                    os.unlink(tmp_path)
-            except OSError:
-                logger.debug(
-                    "Failed to remove temporary file: %s", tmp_path, exc_info=True
-                )
+                    # Extract metadata using the backend
+                    result = await backend.extract([tmp.name])
+                    return result
+
+    except httpx.HTTPError as e:
+        logger.exception("HTTP Error downloading %s", url_str)
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        logger.exception("Unexpected error during download from %s", url)
+        raise HTTPException(status_code=500, detail=str(e))

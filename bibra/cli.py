@@ -1,7 +1,6 @@
 """CLI interface for BIBRA."""
 
 import asyncio
-import json
 
 import click
 import uvicorn
@@ -12,7 +11,7 @@ from bibra.config import (
     ProjectNotFoundError,
     ProjectRegistry,
 )
-from bibra.evaluator import load_ground_truth, run_evaluation
+from bibra.evaluator import aggregate_results, load_ground_truth, run_evaluation
 
 
 def _make_list_template(column_headings: tuple, *rows: tuple) -> str:
@@ -147,7 +146,7 @@ def eval_(
     except Exception as e:
         raise click.ClickException(f"Evaluation failed: {e}") from e
 
-    click.echo(json.dumps(results, indent=2))
+    click.echo(aggregate_results(results))
 
 
 @cli.command("serve")

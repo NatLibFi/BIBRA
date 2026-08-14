@@ -41,16 +41,16 @@ def test_api(case):
         if hasattr(case, "path") and case.path == "/v0/projects/{project_id}/extract":
             # Modify the path to use dummy project
             case.path = "/v0/projects/dummy/extract"
-    # Skip extract-url cases missing the required `urls` field.
+    # Skip extract-url cases missing the required `url` field.
     is_extract_url = (
         case.path == "/v0/projects/{project_id}/extract-url"
         and case.method.upper() == "POST"
     )
     if is_extract_url:
         body = case.body
-        # Skip if `urls` is absent or empty
-        has_urls = isinstance(body, dict) and bool(body.get("urls"))
-        if not has_urls:
+        # Skip if `url` is absent or empty
+        has_url = isinstance(body, dict) and bool(body.get("url"))
+        if not has_url:
             return
         # Use dummy backend for testing to avoid real network downloads/API calls
         if (

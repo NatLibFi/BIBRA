@@ -15,13 +15,13 @@ updates:
     cooldown:
       default-days: 10
 
-  - package-ecosystem: "uv"
-    directory: "/"
-    patterns:
-      - "*"
-    multi-ecosystem-group: "all"
-    cooldown:
-      default-days: 10
+  # - package-ecosystem: "uv"
+  #   directory: "/"
+  #   patterns:
+  #     - "*"
+  #   multi-ecosystem-group: "all"
+  #   cooldown:
+  #     default-days: 10
 
   - package-ecosystem: "npm"
     directory: "/"

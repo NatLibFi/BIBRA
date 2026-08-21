@@ -1,7 +1,7 @@
 [project]
 name = "bibra"
 version = "0.1.0-dev"
-description = "Add your description here"
+description = "Tool for bibliographic metadata extraction"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

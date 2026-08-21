@@ -1,5 +1,6 @@
 import logging
 import os
+from importlib.resources import files
 
 import uvicorn
 from dotenv import load_dotenv
@@ -18,10 +19,18 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="BIBRA API", version=__version__)
 
 # Mount static files at /static path
-app.mount("/static", StaticFiles(directory="bibra/static"), name="static")
+app.mount(
+    "/static", StaticFiles(directory=files("bibra").joinpath("static")), name="static"
+)
 
-# Mount node_modules for static files (e.g., Bootstrap) if directory exists
-if os.path.isdir("node_modules"):
+# Mount node_modules for static files (e.g., Bootstrap) if it exists within package...
+if files("bibra").joinpath("node_modules").is_dir():
+    app.mount(
+        "/node_modules",
+        StaticFiles(directory=files("bibra").joinpath("node_modules")),
+        name="node_modules",
+    )
+elif os.path.isdir("node_modules"):  # ...or in the current directory
     app.mount(
         "/node_modules", StaticFiles(directory="node_modules"), name="node_modules"
     )
@@ -30,7 +39,7 @@ if os.path.isdir("node_modules"):
 @app.get("/", response_class=HTMLResponse)
 async def root():
     """Return the static index.html page."""
-    return FileResponse("bibra/static/index.html")
+    return FileResponse(files("bibra").joinpath("static/index.html"))
 
 
 app.include_router(v0_router, prefix="/v0")

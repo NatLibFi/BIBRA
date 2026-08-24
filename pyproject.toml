@@ -9,6 +9,7 @@ dependencies = [
     "fastapi==0.136.1",
     "pydantic-ai-slim[openai]>=1.93.0",
     "python-dotenv>=1.2.2",
+    "python-Levenshtein>=0.27.4",
     "python-multipart>=0.0.28",
     "uvicorn==0.46.0",
     "pymupdf>=1.27.2",
@@ -38,6 +39,10 @@ build-backend = "uv_build"
 
 [tool.uv]
 exclude-newer = "1 week"
+
+[tool.uv.exclude-newer-package]
+levenshtein = "2026-08-09"
+python-levenshtein = "2026-08-09"
 
 [tool.uv.build-backend]
 module-root = ""

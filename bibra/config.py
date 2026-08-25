@@ -4,6 +4,7 @@ This module provides project configuration loading from TOML files,
 with support for environment variable interpolation.
 """
 
+import importlib
 import os
 import tomllib
 from dataclasses import dataclass, field
@@ -13,9 +14,6 @@ from typing import Any
 from pydantic import ValidationError
 
 from bibra.backend.base import BaseBackend
-from bibra.backend.dummy import DummyBackend
-from bibra.backend.greylitlm import GreyLitLMBackend
-from bibra.backend.nuextract import NuExtractBackend
 
 
 class ConfigError(Exception):
@@ -51,11 +49,26 @@ class BackendConfigError(ConfigError):
     description = "Invalid backend configuration"
 
 
-_BACKEND_MAP: dict[str, type[BaseBackend]] = {
-    "dummy": DummyBackend,
-    "greylitlm": GreyLitLMBackend,
-    "nuextract": NuExtractBackend,
+# Map of backend type -> "module.ClassName" import path.
+_BACKEND_MAP: dict[str, str] = {
+    "dummy": "bibra.backend.dummy:DummyBackend",
+    "greylitlm": "bibra.backend.greylitlm:GreyLitLMBackend",
+    "nuextract": "bibra.backend.nuextract:NuExtractBackend",
 }
+
+
+def _get_backend_class(backend_type: str) -> type[BaseBackend] | None:
+    """Import and return the backend class for the given backend type.
+
+    Backend modules are imported on demand (and cached by Python's
+    import machinery) to keep CLI startup fast.
+    """
+    if backend_type not in _BACKEND_MAP:
+        return None
+    import_path = _BACKEND_MAP.get(backend_type)
+    module_path, class_name = import_path.split(":", 1)
+    return getattr(importlib.import_module(module_path), class_name)
+
 
 # Keys recognized as global/project-level metadata.
 # All other keys are passed as-is into the backend-specific ``extra`` dict.
@@ -245,7 +258,7 @@ class ProjectRegistry:
         if project is None:
             raise ProjectNotFoundError(f"Unknown project: {project_id}")
 
-        backend_class = _BACKEND_MAP.get(project.backend)
+        backend_class = _get_backend_class(project.backend)
         if backend_class is None:
             raise BackendConfigError(
                 f"Unknown backend type for project '{project_id}': {project.backend}"

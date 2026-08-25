@@ -64,9 +64,9 @@ See the available CLI commands:
 
     uv run bibra
 
-Start up the server:
+Start up the API server and Web UI (add `--reload` for auto-reloading while developing):
 
-    uv run uvicorn bibra.main:app
+    uv run bibra run
 
 ## Testing
 

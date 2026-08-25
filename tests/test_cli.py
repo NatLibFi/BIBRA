@@ -2,6 +2,9 @@
 
 import importlib
 import json
+import subprocess
+import sys
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -266,3 +269,39 @@ class TestMakeListTemplate:
         # Should use max of heading and row lengths
         expected = "{:<2}  {:<16}"
         assert template == expected
+
+
+class TestCliStartupTime:
+    """Startup time regression tests for the CLI to avoid accidentally making
+    it slow to start.
+    """
+
+    MAX_HELP_WALL_TIME_S = 0.5
+    RUNS = 3
+    HELP_CMD: tuple[str, ...] = (
+        sys.executable,
+        "-c",
+        "from bibra.cli import cli; cli()",
+        "--help",
+    )
+
+    @classmethod
+    def _run_help(cls) -> float:
+        """Run `bibra --help` in a fresh subprocess and return the wall time."""
+        start = time.perf_counter()
+        subprocess.run(cls.HELP_CMD, check=True, capture_output=True)
+        return time.perf_counter() - start
+
+    def test_cli_help_starts_fast(self):
+        """`bibra --help` must stay fast in a fresh interpreter.
+
+        The minimum of several runs is used so that a single cold-cache or
+        transiently slow measurement cannot fail the test, while a genuine
+        regression (all runs slow) always does.
+        """
+        times = [self._run_help() for _ in range(self.RUNS)]
+        elapsed = min(times)
+        assert elapsed < self.MAX_HELP_WALL_TIME_S, (
+            f"`bibra --help` took {elapsed:.2f} s (min of {times}); "
+            f"exceeds the {self.MAX_HELP_WALL_TIME_S} s budget."
+        )

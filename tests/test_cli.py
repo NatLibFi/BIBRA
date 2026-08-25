@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
-from bibra.cli import _make_list_template, cli, extract, list_projects
+from bibra.cli import _make_list_template, cli, extract, list_projects, run
 from bibra.config import ConfigError
 
 
@@ -26,6 +26,7 @@ class TestCli:
         assert "BIBRA - Bibliographic metadata extraction tool" in result.output
         assert "list-projects" in result.output
         assert "extract" in result.output
+        assert "run" in result.output
 
     def test_cli_version(self):
         """Test CLI version output."""
@@ -245,6 +246,57 @@ class TestExtract:
             result = self.runner.invoke(extract, ["dummy", str(test_file)])
             assert result.exit_code != 0
             assert "Invalid config syntax" in result.output
+
+
+class TestRun:
+    """Tests for the run command."""
+
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.runner = CliRunner()
+
+    def test_run_help(self):
+        """Test run help output."""
+        result = self.runner.invoke(run, ["--help"])
+        assert result.exit_code == 0
+        assert not result.exception
+        assert "Run the BIBRA API server" in result.output
+        assert "--host" in result.output
+        assert "--port" in result.output
+        assert "-p" in result.output
+        assert "--reload" in result.output
+
+    def test_run_defaults(self):
+        """Test that run calls uvicorn.run with default host and port."""
+        with patch("bibra.cli.uvicorn.run") as mock_uvicorn_run:
+            result = self.runner.invoke(run)
+            assert result.exit_code == 0
+            assert not result.exception
+            mock_uvicorn_run.assert_called_once_with(
+                "bibra.main:app", host="127.0.0.1", port=8000, reload=False
+            )
+
+    def test_run_with_options(self):
+        """Test that run passes host, port, and reload to uvicorn.run."""
+        with patch("bibra.cli.uvicorn.run") as mock_uvicorn_run:
+            result = self.runner.invoke(
+                run, ["--host", "0.0.0.0", "--port", "24272", "--reload"]
+            )
+            assert result.exit_code == 0
+            assert not result.exception
+            mock_uvicorn_run.assert_called_once_with(
+                "bibra.main:app", host="0.0.0.0", port=24272, reload=True
+            )
+
+    def test_run_with_short_port_option(self):
+        """Test that run passes the short -p port option to uvicorn.run."""
+        with patch("bibra.cli.uvicorn.run") as mock_uvicorn_run:
+            result = self.runner.invoke(run, ["-p", "9999"])
+            assert result.exit_code == 0
+            assert not result.exception
+            mock_uvicorn_run.assert_called_once_with(
+                "bibra.main:app", host="127.0.0.1", port=9999, reload=False
+            )
 
 
 class TestMakeListTemplate:

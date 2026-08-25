@@ -3,6 +3,7 @@
 import asyncio
 
 import click
+import uvicorn
 from dotenv import load_dotenv
 
 from bibra.config import (
@@ -103,3 +104,31 @@ def extract(project_id: str, file_path: str, config: str | None, output: str | N
         click.echo(f"Output written to {output}")
     else:
         click.echo(json_output)
+
+
+@cli.command("run")
+@click.option(
+    "--host",
+    default="127.0.0.1",
+    show_default=True,
+    help="Interface address to bind the server to.",
+)
+@click.option(
+    "--port",
+    "-p",
+    default=8000,
+    show_default=True,
+    type=int,
+    help="Port to bind the server to.",
+)
+@click.option(
+    "--reload",
+    is_flag=True,
+    default=False,
+    help="Enable auto-reloading (useful during development).",
+)
+def run(host: str, port: int, reload: bool):
+    """Run the BIBRA API server (FastAPI + Web UI) in the foreground."""
+    # The app is passed as a string import path so that uvicorn's
+    # auto-reloader can import it in a separate worker process.
+    uvicorn.run("bibra.main:app", host=host, port=port, reload=reload)

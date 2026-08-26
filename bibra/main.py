@@ -20,14 +20,16 @@ app = FastAPI(title="BIBRA API", version=__version__)
 
 # Mount static files at /static path
 app.mount(
-    "/static", StaticFiles(directory=files("bibra").joinpath("static")), name="static"
+    "/static",
+    StaticFiles(directory=str(files("bibra").joinpath("static"))),
+    name="static",
 )
 
 # Mount node_modules for static files (e.g., Bootstrap) if it exists within package...
 if files("bibra").joinpath("node_modules").is_dir():
     app.mount(
         "/node_modules",
-        StaticFiles(directory=files("bibra").joinpath("node_modules")),
+        StaticFiles(directory=str(files("bibra").joinpath("node_modules"))),
         name="node_modules",
     )
 elif os.path.isdir("node_modules"):  # ...or in the current directory
@@ -39,7 +41,7 @@ elif os.path.isdir("node_modules"):  # ...or in the current directory
 @app.get("/", response_class=HTMLResponse)
 async def root():
     """Return the static index.html page."""
-    return FileResponse(files("bibra").joinpath("static/index.html"))
+    return FileResponse(str(files("bibra").joinpath("static/index.html")))
 
 
 app.include_router(v0_router, prefix="/v0")

@@ -115,7 +115,7 @@ class TestGreyLitLMBackend:
             run_id="eb39170b-e7f3-4a16-bb90-350bc61053b0",
         )
 
-        expected = PublicationMetadata(**metadata)
+        expected = PublicationMetadata(**metadata)  # ty: ignore[invalid-argument-type]
         mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         # Create a mock agent
@@ -238,7 +238,7 @@ class TestGreyLitLMBackend:
         mock_response = MockModelResponse(
             parts=[MockTextPart(content=json_string)],
         )
-        expected = PublicationMetadata(**metadata)
+        expected = PublicationMetadata(**metadata)  # ty: ignore[invalid-argument-type]
         mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         mock_agent = MagicMock()

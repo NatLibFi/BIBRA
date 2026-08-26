@@ -107,7 +107,7 @@ class TestNuExtractBackend:
             run_id="test-run-id",
         )
 
-        expected = PublicationMetadata(**metadata)
+        expected = PublicationMetadata(**metadata)  # ty: ignore[invalid-argument-type]
         mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         mock_agent = MagicMock()
@@ -245,7 +245,7 @@ class TestNuExtractBackend:
         json_string = json.dumps(metadata)
 
         mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
-        expected = PublicationMetadata(**metadata)
+        expected = PublicationMetadata(**metadata)  # ty: ignore[invalid-argument-type]
         mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         mock_agent = MagicMock()

@@ -183,8 +183,8 @@ class TestGreyLitLMBackend:
         """Backend should fall back to str() when response has no 'parts'."""
         mock_response = MagicMock()
         del mock_response.parts
-        mock_response.__str__ = lambda self: (
-            '{"language": "sv", "title": "Fallback Test"}'
+        mock_response.__str__ = MagicMock(
+            return_value='{"language": "sv", "title": "Fallback Test"}'
         )
 
         expected = PublicationMetadata(language="sv", title="Fallback Test")

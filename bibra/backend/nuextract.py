@@ -118,8 +118,10 @@ def _pdf_pages_to_binary_content(pdf_path: str, dpi: int = 170) -> list[BinaryCo
     return contents
 
 
-class NuExtractBackend(BaseBackend):
+class NuExtractBackend(BaseBackend[NuExtractConfig]):
     """Backend for metadata extraction using nuextract3 vision model."""
+
+    cfg: NuExtractConfig
 
     def __init__(
         self,

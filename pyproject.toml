@@ -49,9 +49,6 @@ line-length = 88
 # Add the `line-too-long` rule to the enforced rule set.
 extend-select = ["E501"]
 
-[tool.setuptools.packages.find]
-include = ["bibra*"]
-
 [tool.bumpversion]
 current_version = "0.2.0-dev"
 parse = """(?x)

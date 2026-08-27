@@ -1,6 +1,6 @@
 [project]
 name = "bibra"
-version = "0.2.0-dev"
+version = "0.2.0.dev0"
 description = "Tool for bibliographic metadata extraction"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -50,18 +50,15 @@ line-length = 88
 extend-select = ["E501"]
 
 [tool.bumpversion]
-current_version = "0.2.0-dev"
+current_version = "0.2.0.dev0"
 parse = """(?x)
     (?P<major>0|[1-9]\\d*)\\.
     (?P<minor>0|[1-9]\\d*)\\.
     (?P<patch>0|[1-9]\\d*)
-    (?:
-        -                             # dash separator for pre-release section
-        (?P<release>[a-zA-Z-]+)       # pre-release label
-    )?                                # pre-release section is optional
+    (?:\\.dev(?P<release>\\d+))?
 """
 serialize = [
-    "{major}.{minor}.{patch}-{release}",
+    "{major}.{minor}.{patch}.dev{release}",
     "{major}.{minor}.{patch}",
 ]
 tag = true
@@ -73,6 +70,12 @@ filename = "pyproject.toml"
 search = "version = \"{current_version}\""
 replace = "version = \"{new_version}\""
 
+[[tool.bumpversion.files]]
+filename = "uv.lock"
+search = "name = \"bibra\"\nversion = \"{current_version}\""
+replace = "name = \"bibra\"\nversion = \"{new_version}\""
+
 [tool.bumpversion.parts.release]
-values = ["dev", "prod"]
-optional_value = "prod"
+values = ["0", "1"]
+optional_value = "1"
+first_value = "0"

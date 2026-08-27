@@ -107,7 +107,7 @@ class TestNuExtractBackend:
             run_id="test-run-id",
         )
 
-        expected = PublicationMetadata(**metadata)  # ty: ignore[invalid-argument-type]
+        expected = PublicationMetadata.model_validate(metadata)
         mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         mock_agent = MagicMock()
@@ -150,7 +150,7 @@ class TestNuExtractBackend:
         metadata = {"language": "en", "title": "Empty List Title"}
         json_string = json.dumps(metadata)
         mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
-        expected = PublicationMetadata(**metadata)
+        expected = PublicationMetadata.model_validate(metadata)
         mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         mock_agent = MagicMock()
@@ -174,7 +174,7 @@ class TestNuExtractBackend:
             metadata = {"language": "en", "title": "No PDF Title"}
             json_string = json.dumps(metadata)
             mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
-            expected = PublicationMetadata(**metadata)
+            expected = PublicationMetadata.model_validate(metadata)
             mock_run_result = MockRunResult(response=mock_response, output=expected)
 
             mock_agent = MagicMock()
@@ -209,7 +209,7 @@ class TestNuExtractBackend:
         metadata = {"language": "en", "title": "Should Not Appear"}
         json_string = json.dumps(metadata)
         mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
-        expected = PublicationMetadata(**metadata)
+        expected = PublicationMetadata.model_validate(metadata)
         mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         mock_agent = MagicMock()
@@ -245,7 +245,7 @@ class TestNuExtractBackend:
         json_string = json.dumps(metadata)
 
         mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
-        expected = PublicationMetadata(**metadata)  # ty: ignore[invalid-argument-type]
+        expected = PublicationMetadata.model_validate(metadata)
         mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         mock_agent = MagicMock()
@@ -278,7 +278,7 @@ class TestNuExtractBackend:
         metadata = {"language": "en", "title": "Test Title"}
         json_string = json.dumps(metadata)
         mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
-        expected = PublicationMetadata(**metadata)
+        expected = PublicationMetadata.model_validate(metadata)
         mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         mock_agent = MagicMock()
@@ -307,7 +307,7 @@ class TestNuExtractBackend:
         metadata = {"language": "en", "title": "Test Title"}
         json_string = json.dumps(metadata)
         mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
-        expected = PublicationMetadata(**metadata)
+        expected = PublicationMetadata.model_validate(metadata)
         mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         mock_agent = MagicMock()
@@ -336,7 +336,7 @@ class TestNuExtractBackend:
         metadata = {"language": "en", "title": "Test Title"}
         json_string = json.dumps(metadata)
         mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
-        expected = PublicationMetadata(**metadata)
+        expected = PublicationMetadata.model_validate(metadata)
         mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         mock_agent = MagicMock()
@@ -364,7 +364,7 @@ class TestNuExtractBackend:
         metadata = {"language": "en", "title": "Test Title"}
         json_string = json.dumps(metadata)
         mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
-        expected = PublicationMetadata(**metadata)
+        expected = PublicationMetadata.model_validate(metadata)
         mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         mock_agent = MagicMock()

@@ -95,54 +95,64 @@ class TestChunkScore:
         """Chunk with a year should get +500 score and 'year' feat."""
         score, feats = _chunk_score("Published in 2024", 0)
         assert score is not None
+        assert feats is not None
         assert "year" in feats
 
     def test_doi_detection(self):
         """Chunk with DOI should get +1000 score and 'doi' feat."""
         score, feats = _chunk_score("DOI: 10.1234/test", 0)
         assert score is not None
+        assert feats is not None
         assert "doi" in feats
 
     def test_isbn_detection(self):
         """Chunk with ISBN should get +1000 score and 'isbn' feat."""
         score, feats = _chunk_score("ISBN: 978-0-123456-78-9", 0)
         assert score is not None
+        assert feats is not None
         assert "isbn" in feats
 
     def test_issn_detection(self):
         """Chunk with ISSN should get +1000 score and 'issn' feat."""
         score, feats = _chunk_score("ISSN: 1234-5678", 0)
         assert score is not None
+        assert feats is not None
         assert "issn" in feats
 
     def test_http_detection(self):
         """Chunk with URL should get +1000 score and 'http' feat."""
         score, feats = _chunk_score("https://example.com", 0)
         assert score is not None
+        assert feats is not None
         assert "http" in feats
 
     def test_headline_detection(self):
         """Chunk starting with # should get +1000 score and 'headline' feat."""
         score, feats = _chunk_score("# Introduction", 0)
         assert score is not None
+        assert feats is not None
         assert "headline" in feats
 
     def test_high_comma_proportion(self):
         """Chunk with high comma proportion should get bonus score."""
         score, feats = _chunk_score("a,b,c,d,e,f,g", 0)
         assert score is not None
+        assert feats is not None
         assert "commas" in feats
 
     def test_high_emph_proportion(self):
         """Chunk with high emphasis proportion should get bonus score."""
         score, feats = _chunk_score("*a*b*c*d*", 0)
         assert score is not None
+        assert feats is not None
         assert "emph" in feats
 
     def test_page_penalty(self):
         """Later pages should get a score penalty."""
         score0, _ = _chunk_score("Test content here", 0)
         score5, _ = _chunk_score("Test content here", 5)
+        assert score0 is not None
+        assert score5 is not None
         assert score5 < score0  # later page has lower score
 
 

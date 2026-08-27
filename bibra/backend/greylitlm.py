@@ -38,8 +38,10 @@ class GreyLitLMConfig(BaseModel):
     )
 
 
-class GreyLitLMBackend(BaseBackend):
+class GreyLitLMBackend(BaseBackend[GreyLitLMConfig]):
     """Backend for metadata extraction using GreyLitLM (fine-tuned LLM)."""
+
+    cfg: GreyLitLMConfig
 
     def __init__(
         self,

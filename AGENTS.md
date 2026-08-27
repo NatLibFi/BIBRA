@@ -18,12 +18,13 @@ Python code style follows Ruff format. Max line length 88 chars. Imports on top 
 
 ## Code Quality Enforcement
 
-**Ruff checks are a mandatory gate before claiming any task complete.** Every agentic tool invocation must run both:
+**Ruff checks are a mandatory gate before claiming any task complete.** Every agentic tool invocation must run:
 
 1. `uv run ruff check --fix` — linting (auto-fix where possible)
 2. `uv run ruff format` — formatting (auto-format)
+3. `uv run ty check` — type checking
 
-Run the checks again with `uv run ruff check` and `uv run ruff format --check` to verify everything passes. Do **not** claim a task complete until both pass.
+Run the checks again with `uv run ruff check`, `uv run ruff format --check`, and `uv run ty check` to verify everything passes. Do **not** claim a task complete until all pass.
 
 ## Testing
 
@@ -44,7 +45,8 @@ Run Cypress E2E tests in headless mode with the helper script: `bash cypress/run
 Before considering a task completed, ensure:
 1. ✅ `uv run ruff check --fix` applied and `uv run ruff check` passes
 2. ✅ `uv run ruff format` applied and `uv run ruff format --check` passes
-3. ✅ All pytest tests pass (`uv run pytest -v`)
-4. ✅ All Cypress E2E tests pass (`bash cypress/run_cypress.sh`)
+3. ✅ `uv run ty check` passes
+4. ✅ All pytest tests pass (`uv run pytest -v`)
+5. ✅ All Cypress E2E tests pass (`bash cypress/run_cypress.sh`)
 
-**Note: Steps 1–2 must pass before steps 3–4. Ruff should auto-fix issues where possible; manually fix anything it can't.**
+**Note: Steps 1–3 must pass before steps 4–5. Ruff should auto-fix issues where possible; manually fix anything it can't.**

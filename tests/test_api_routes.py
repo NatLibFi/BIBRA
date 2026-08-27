@@ -25,7 +25,7 @@ class TestAPIRoutes:
 
     def test_projects_route_exists(self):
         """The router should have a projects route."""
-        routes = [str(r.path) for r in router.routes]
+        routes = [str(r.path) for r in router.routes if isinstance(r, APIRoute)]
         assert "/projects" in routes
 
     async def test_list_projects_returns_projects(self):
@@ -41,13 +41,16 @@ class TestAPIRoutes:
 
     def test_extract_route_exists(self):
         """The router should have a project-specific extract route."""
-        routes = [str(r.path) for r in router.routes]
+        routes = [str(r.path) for r in router.routes if isinstance(r, APIRoute)]
         assert "/projects/{project_id}/extract" in routes
 
     def test_extract_route_is_post_method(self):
         """The extract route should use POST method."""
         extract_routes = [
-            r for r in router.routes if str(r.path) == "/projects/{project_id}/extract"
+            r
+            for r in router.routes
+            if isinstance(r, APIRoute)
+            and str(r.path) == "/projects/{project_id}/extract"
         ]
         assert len(extract_routes) >= 1
         # Check that the route uses POST method

@@ -41,7 +41,9 @@ def _emph_proportion(chunk: str) -> float:
     return (chunk.count("_") + chunk.count("*")) / len(chunk)
 
 
-def _chunk_score(chunk: str, page_num: int) -> tuple[int | None, set[str] | None]:
+def _chunk_score(
+    chunk: str, page_num: int
+) -> tuple[float, set[str]] | tuple[None, None]:
     """Score a text chunk to determine its informativeness.
 
     Returns a tuple of (score, feats) or (None, None) for low-quality chunks.

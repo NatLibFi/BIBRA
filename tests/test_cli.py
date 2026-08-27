@@ -1,6 +1,7 @@
 """Tests for CLI commands."""
 
 import importlib
+import importlib.metadata
 import json
 from unittest.mock import MagicMock, patch
 

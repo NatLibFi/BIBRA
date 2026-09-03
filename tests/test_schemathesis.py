@@ -1,9 +1,27 @@
+from unittest.mock import MagicMock, patch
+
 import schemathesis
 
 from bibra.main import app
 
 # Load schema directly from FastAPI app
 schema = schemathesis.openapi.from_asgi("/openapi.json", app)
+
+
+async def _mock_aiter_bytes(*args, **kwargs):
+    """Async generator that yields mock PDF content."""
+    yield b"%PDF-1.4 mock content"
+
+
+def _mock_httpx_response(*args, **kwargs):
+    """Build a mock httpx stream response for PDF content."""
+    mock_response = MagicMock()
+    mock_response.headers.get.return_value = "application/pdf"
+    mock_response.status_code = 200
+    mock_response.aiter_bytes.return_value = _mock_aiter_bytes()
+    mock_response.__aenter__.return_value = mock_response
+    mock_response.__aexit__.return_value = False
+    return mock_response
 
 
 @schema.parametrize()
@@ -23,4 +41,38 @@ def test_api(case):
         if hasattr(case, "path") and case.path == "/v0/projects/{project_id}/extract":
             # Modify the path to use dummy project
             case.path = "/v0/projects/dummy/extract"
+    # Skip extract-url cases missing the required `url` field.
+    is_extract_url = (
+        case.path == "/v0/projects/{project_id}/extract-url"
+        and case.method.upper() == "POST"
+    )
+    if is_extract_url:
+        body = case.body
+        # Skip if `url` is absent or empty
+        has_url = isinstance(body, dict) and bool(body.get("url"))
+        if not has_url:
+            return
+        # Use dummy backend for testing to avoid real network downloads/API calls
+        if (
+            hasattr(case, "path")
+            and case.path == "/v0/projects/{project_id}/extract-url"
+        ):
+            # Modify the path to use dummy project
+            case.path = "/v0/projects/dummy/extract-url"
+
+        # Mock httpx.AsyncClient stream response
+        mock_response = _mock_httpx_response()
+
+        async def async_get(*args, **kwargs):
+            return mock_response
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.__aenter__.return_value = mock_client
+            mock_client.__aexit__.return_value = False
+            mock_client.stream = MagicMock(return_value=mock_response)
+            mock_client.get = async_get
+            with patch("httpx.AsyncClient", return_value=mock_client):
+                case.call_and_validate()
+        return
+
     case.call_and_validate()

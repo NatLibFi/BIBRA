@@ -607,3 +607,25 @@ class TestInterpolateEnvVars:
     def test_unclosed_placeholder_with_trailing_text(self):
         """Test that an unclosed ${ followed by text is left as-is."""
         assert _interpolate_env_vars("prefix${BAR suffix") == "prefix${BAR suffix"
+
+
+class TestGetUrlProxy:
+    """Tests for get_url_proxy helper function."""
+
+    def test_returns_proxy_when_set(self, monkeypatch):
+        """Test that get_url_proxy returns the proxy URL when set."""
+        monkeypatch.setenv("BIBRA_URL_PROXY", "http://proxy.example.com:8080")
+        from bibra.config import get_url_proxy
+
+        assert get_url_proxy() == "http://proxy.example.com:8080"
+
+    def test_returns_none_when_not_set(self, monkeypatch):
+        """Test that get_url_proxy returns None when the env var is not set."""
+        monkeypatch.delenv("BIBRA_URL_PROXY", raising=False)
+        # Re-import to get fresh import
+        import importlib
+
+        import bibra.config
+
+        importlib.reload(bibra.config)
+        assert bibra.config.get_url_proxy() is None

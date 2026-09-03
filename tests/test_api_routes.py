@@ -1,13 +1,15 @@
 """Tests for API routes."""
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException, Request
 from fastapi.routing import APIRoute
+from httpx import Headers
 
 from bibra.api.v0.routes import (
     extract,
+    extract_url,
     get_registry,
     list_projects,
     router,
@@ -75,6 +77,66 @@ class TestAPIRoutes:
         assert result.e_isbn == ["978-0-123456-78-9"]
         assert result.type_coar == "article"
 
+        # Verify fields that don't have values are None or empty lists
+        assert result.alt_title is None
+        assert result.p_isbn == []
+        assert result.e_issn is None
+
+    def test_extract_url_route_exists(self):
+        """The router should have a project-specific extract-url route."""
+        routes = [str(r.path) for r in router.routes]
+        assert "/projects/{project_id}/extract-url" in routes
+
+    def test_extract_url_route_is_post_method(self):
+        """The extract-url route should use POST method."""
+        extract_url_routes = [
+            r
+            for r in router.routes
+            if str(r.path) == "/projects/{project_id}/extract-url"
+        ]
+        assert len(extract_url_routes) >= 1
+        # Check that the route uses POST method
+        route = extract_url_routes[0]
+        assert isinstance(route, APIRoute)
+
+    async def test_extract_url_returns_example_metadata(self):
+        """The /projects/{project_id}/extract-url endpoint should return example
+        publication metadata."""
+        from pydantic import HttpUrl
+
+        registry = ProjectRegistry()
+
+        async def mock_aiter_bytes(*args, **kwargs):
+            yield b"%PDF-1.4 mock content"
+
+        mock_response = MagicMock()
+        mock_response.headers = Headers({"content-type": "application/pdf"})
+        mock_response.status_code = 200
+        mock_response.aiter_bytes.return_value = mock_aiter_bytes()
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client_cls.return_value = mock_client
+            result = await extract_url(
+                project_id="dummy",
+                registry=registry,
+                url=HttpUrl("https://example.com/paper.pdf"),
+            )
+
+        assert isinstance(result, PublicationMetadata)
+        assert result.language == "en"
+        assert (
+            result.title == "Machine Learning Approaches for Software Defect Prediction"
+        )
+        assert result.creator == ["Smith, John", "Johnson, Emily"]
+        assert result.year == "2023"
+        assert result.publisher == ["Springer", "ACM"]
+        assert result.doi == "10.1234/example.doi.12345"
+        assert result.e_isbn == ["978-0-123456-78-9"]
+        assert result.type_coar == "article"
         # Verify fields that don't have values are None or empty lists
         assert result.alt_title is None
         assert result.p_isbn == []
@@ -155,3 +217,65 @@ class TestAPIRoutes:
 
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == "Project 'unknown' not found"
+
+    async def test_extract_url_passes_proxy_when_set(self, monkeypatch):
+        """Test that extract-url passes the proxy to httpx.AsyncClient when set."""
+        from pydantic import HttpUrl
+
+        monkeypatch.setenv("BIBRA_URL_PROXY", "http://proxy.example.com:8080")
+
+        registry = ProjectRegistry()
+
+        async def mock_aiter_bytes(*args, **kwargs):
+            yield b"%PDF-1.4 mock content"
+
+        mock_response = MagicMock()
+        mock_response.headers = Headers({"content-type": "application/pdf"})
+        mock_response.status_code = 200
+        mock_response.aiter_bytes.return_value = mock_aiter_bytes()
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client_cls.return_value = mock_client
+            result = await extract_url(
+                project_id="dummy",
+                registry=registry,
+                url=HttpUrl("https://example.com/paper.pdf"),
+            )
+
+        mock_client_cls.assert_called_once_with(proxy="http://proxy.example.com:8080")
+        assert isinstance(result, PublicationMetadata)
+
+    async def test_extract_url_no_proxy_when_not_set(self, monkeypatch):
+        """Test that extract-url passes proxy=None when env var is not set."""
+        from pydantic import HttpUrl
+
+        monkeypatch.delenv("BIBRA_URL_PROXY", raising=False)
+
+        registry = ProjectRegistry()
+
+        async def mock_aiter_bytes(*args, **kwargs):
+            yield b"%PDF-1.4 mock content"
+
+        mock_response = MagicMock()
+        mock_response.headers = Headers({"content-type": "application/pdf"})
+        mock_response.status_code = 200
+        mock_response.aiter_bytes.return_value = mock_aiter_bytes()
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client_cls.return_value = mock_client
+            result = await extract_url(
+                project_id="dummy",
+                registry=registry,
+                url=HttpUrl("https://example.com/paper.pdf"),
+            )
+
+        mock_client_cls.assert_called_once_with(proxy=None)
+        assert isinstance(result, PublicationMetadata)

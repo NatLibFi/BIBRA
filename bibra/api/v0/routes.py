@@ -5,10 +5,17 @@ import os
 import tempfile
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+import httpx
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from pydantic import HttpUrl
 
 from bibra import __version__
-from bibra.config import ConfigError, ProjectNotFoundError, ProjectRegistry
+from bibra.config import (
+    ConfigError,
+    ProjectNotFoundError,
+    ProjectRegistry,
+    get_url_proxy,
+)
 from bibra.types import PublicationMetadata
 
 logger = logging.getLogger(__name__)
@@ -94,3 +101,67 @@ async def extract(
                 logger.debug(
                     "Failed to remove temporary file: %s", tmp_path, exc_info=True
                 )
+
+
+@router.post(
+    "/projects/{project_id}/extract-url",
+    responses={400: {"description": "Bad Request - malformed data"}},
+)
+async def extract_url(
+    project_id: str,
+    registry: Annotated[ProjectRegistry, Depends(get_registry)],
+    url: HttpUrl = Form(...),  # noqa: B008
+) -> PublicationMetadata:
+    """
+    Extract publication metadata from a PDF or image file at a given URL for a
+    specific project.
+
+    Args:
+        project_id: The ID of the project to extract metadata for
+        url: URL pointing to a file to process
+
+    Returns:
+        PublicationMetadata: Extracted metadata as JSON
+    """
+    try:
+        backend = registry.get_backend(project_id)
+    except ProjectNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ConfigError as e:
+        logger.exception("Configuration error")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    url_str = str(url)
+
+    try:
+        proxy = get_url_proxy()
+        async with httpx.AsyncClient(proxy=proxy) as client:
+            response = await client.get(url_str)
+
+            content_type = response.headers.get("content-type", "")
+            if content_type != "application/pdf":
+                expected = "application/pdf"
+                detail = (
+                    f"'{url}' does not point to a PDF file. "
+                    f"Expected '{expected}', got '{content_type}'."
+                )
+                raise HTTPException(status_code=400, detail=detail)
+
+            status_code = response.status_code
+            if status_code >= 400:
+                raise HTTPException(
+                    status_code=status_code,
+                    detail=str(response.reason_phrase),
+                )
+
+            with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp:
+                async for chunk in response.aiter_bytes(chunk_size=1024 * 1024):
+                    tmp.write(chunk)
+                tmp.flush()
+                return await backend.extract([tmp.name])
+    except httpx.HTTPError as e:
+        logger.exception("HTTP Error downloading %s", url_str)
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        logger.exception("Unexpected error during download from %s", url)
+        raise HTTPException(status_code=500, detail=str(e))

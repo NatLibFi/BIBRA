@@ -277,3 +277,12 @@ class ProjectRegistry:
             }
             for project in self._projects.values()
         ]
+
+
+def get_url_proxy() -> str | None:
+    """Return the BIBRA_URL_PROXY environment variable value.
+
+    Returns:
+        The proxy URL string, or None if not set.
+    """
+    return os.environ.get("BIBRA_URL_PROXY")

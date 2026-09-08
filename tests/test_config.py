@@ -625,7 +625,7 @@ class TestGetUrlProxy:
         # Re-import to get fresh import
         import importlib
 
-        import bibra.config
+        from bibra import config as bibra_config
 
-        importlib.reload(bibra.config)
-        assert bibra.config.get_url_proxy() is None
+        importlib.reload(bibra_config)
+        assert bibra_config.get_url_proxy() is None

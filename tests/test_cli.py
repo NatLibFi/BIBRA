@@ -304,6 +304,7 @@ class TestServe:
             mock_uvicorn_run.assert_called_once_with(
                 "bibra.main:app", host="127.0.0.1", port=9999, reload=False
             )
+# Tests for the extract-url command.
 
 
 def _make_httpx_stream_mock(chunks=(b"%PDF-1.4 dummy content",)):

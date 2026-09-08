@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import schemathesis
 
@@ -19,8 +19,8 @@ def _mock_httpx_response(*args, **kwargs):
     mock_response.headers.get.return_value = "application/pdf"
     mock_response.status_code = 200
     mock_response.aiter_bytes.return_value = _mock_aiter_bytes()
-    mock_response.__aenter__.return_value = mock_response
-    mock_response.__aexit__.return_value = False
+    mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+    mock_response.__aexit__ = AsyncMock(return_value=False)
     return mock_response
 
 
@@ -63,14 +63,11 @@ def test_api(case):
         # Mock httpx2.AsyncClient stream response
         mock_response = _mock_httpx_response()
 
-        async def async_get(*args, **kwargs):
-            return mock_response
-
         with patch("httpx2.AsyncClient") as mock_client:
-            mock_client.__aenter__.return_value = mock_client
-            mock_client.__aexit__.return_value = False
-            mock_client.stream = MagicMock(return_value=mock_response)
-            mock_client.get = async_get
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client.stream = AsyncMock(return_value=mock_response)
+            mock_client.get = AsyncMock(return_value=mock_response)
             with patch("httpx2.AsyncClient", return_value=mock_client):
                 case.call_and_validate()
         return

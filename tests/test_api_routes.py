@@ -97,6 +97,7 @@ class TestAPIRoutes:
         route = extract_url_routes[0]
         assert isinstance(route, APIRoute)
         assert "POST" in route.methods
+
     async def test_extract_url_returns_example_metadata(self):
         """The /projects/{project_id}/extract-url endpoint should return example
         publication metadata."""

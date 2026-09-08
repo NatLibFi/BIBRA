@@ -13,7 +13,7 @@ from bibra.types import Projects, PublicationMetadata, Version
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["v0"])
+router = APIRouter()
 
 
 def get_registry(request: Request) -> ProjectRegistry:
@@ -30,13 +30,17 @@ def get_registry(request: Request) -> ProjectRegistry:
     return registry
 
 
-@router.get("/", response_model=Version, summary="Get version information")
+@router.get(
+    "/", response_model=Version, summary="Get version information", tags=["General"]
+)
 async def root():
     """Return version information of BIBRA and the API."""
     return {"version": __version__, "message": "Welcome to BIBRA API v0"}
 
 
-@router.get("/projects", response_model=Projects, summary="List projects")
+@router.get(
+    "/projects", response_model=Projects, summary="List projects", tags=["Projects"]
+)
 async def list_projects(registry: Annotated[ProjectRegistry, Depends(get_registry)]):
     """Return a list of configured projects."""
     try:
@@ -50,6 +54,7 @@ async def list_projects(registry: Annotated[ProjectRegistry, Depends(get_registr
 @router.post(
     "/projects/{project_id}/extract",
     summary="Extract metadata",
+    tags=["Extraction"],
     responses={400: {"description": "Bad Request - malformed multipart data"}},
 )
 async def extract(

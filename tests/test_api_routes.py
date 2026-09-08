@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException, Request
 from fastapi.routing import APIRoute
-from httpx import Headers
+from httpx2 import Headers
 
 from bibra.api.v0.routes import (
     extract,
@@ -114,7 +114,7 @@ class TestAPIRoutes:
         mock_response.status_code = 200
         mock_response.aiter_bytes.return_value = mock_aiter_bytes()
 
-        with patch("httpx.AsyncClient") as mock_client_cls:
+        with patch("httpx2.AsyncClient") as mock_client_cls:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=False)
@@ -219,7 +219,7 @@ class TestAPIRoutes:
         assert exc_info.value.detail == "Project 'unknown' not found"
 
     async def test_extract_url_passes_proxy_when_set(self, monkeypatch):
-        """Test that extract-url passes the proxy to httpx.AsyncClient when set."""
+        """Test that extract-url passes the proxy to httpx2.AsyncClient when set."""
         from pydantic import HttpUrl
 
         monkeypatch.setenv("BIBRA_URL_PROXY", "http://proxy.example.com:8080")
@@ -234,7 +234,7 @@ class TestAPIRoutes:
         mock_response.status_code = 200
         mock_response.aiter_bytes.return_value = mock_aiter_bytes()
 
-        with patch("httpx.AsyncClient") as mock_client_cls:
+        with patch("httpx2.AsyncClient") as mock_client_cls:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=False)
@@ -265,7 +265,7 @@ class TestAPIRoutes:
         mock_response.status_code = 200
         mock_response.aiter_bytes.return_value = mock_aiter_bytes()
 
-        with patch("httpx.AsyncClient") as mock_client_cls:
+        with patch("httpx2.AsyncClient") as mock_client_cls:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=False)

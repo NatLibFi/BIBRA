@@ -5,7 +5,7 @@ import os
 import tempfile
 from typing import Annotated
 
-import httpx
+import httpx2
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import HttpUrl
 
@@ -147,7 +147,7 @@ async def extract_url(
 
     try:
         proxy = get_url_proxy()
-        async with httpx.AsyncClient(proxy=proxy) as client:
+        async with httpx2.AsyncClient(proxy=proxy) as client:
             response = await client.get(url_str)
 
             content_type = response.headers.get("content-type", "")
@@ -171,7 +171,7 @@ async def extract_url(
                     tmp.write(chunk)
                 tmp.flush()
                 return await backend.extract([tmp.name])
-    except httpx.HTTPError as e:
+    except httpx2.HTTPError as e:
         logger.exception("HTTP Error downloading %s", url_str)
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:

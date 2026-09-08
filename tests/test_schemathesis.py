@@ -14,7 +14,7 @@ async def _mock_aiter_bytes(*args, **kwargs):
 
 
 def _mock_httpx_response(*args, **kwargs):
-    """Build a mock httpx stream response for PDF content."""
+    """Build a mock httpx2 stream response for PDF content."""
     mock_response = MagicMock()
     mock_response.headers.get.return_value = "application/pdf"
     mock_response.status_code = 200
@@ -60,18 +60,18 @@ def test_api(case):
             # Modify the path to use dummy project
             case.path = "/v0/projects/dummy/extract-url"
 
-        # Mock httpx.AsyncClient stream response
+        # Mock httpx2.AsyncClient stream response
         mock_response = _mock_httpx_response()
 
         async def async_get(*args, **kwargs):
             return mock_response
 
-        with patch("httpx.AsyncClient") as mock_client:
+        with patch("httpx2.AsyncClient") as mock_client:
             mock_client.__aenter__.return_value = mock_client
             mock_client.__aexit__.return_value = False
             mock_client.stream = MagicMock(return_value=mock_response)
             mock_client.get = async_get
-            with patch("httpx.AsyncClient", return_value=mock_client):
+            with patch("httpx2.AsyncClient", return_value=mock_client):
                 case.call_and_validate()
         return
 

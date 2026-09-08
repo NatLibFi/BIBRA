@@ -307,7 +307,7 @@ class TestServe:
 
 
 def _make_httpx_stream_mock(chunks=(b"%PDF-1.4 dummy content",)):
-    """Build a mock for httpx stream response that yields the given chunks."""
+    """Build a mock for httpx2 stream response that yields the given chunks."""
     mock_response = MagicMock()
     mock_response.headers.get.return_value = "application/pdf"
     mock_response.status_code = 200
@@ -364,7 +364,7 @@ class TestExtractUrl:
         """Test extract-url command with a valid URL and successful extraction."""
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.httpx.stream") as mock_stream,
+            patch("bibra.cli.httpx2.stream") as mock_stream,
         ):
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
@@ -388,7 +388,7 @@ class TestExtractUrl:
 
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.httpx.stream") as mock_stream,
+            patch("bibra.cli.httpx2.stream") as mock_stream,
         ):
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
@@ -420,7 +420,7 @@ class TestExtractUrl:
 
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.httpx.stream") as mock_stream,
+            patch("bibra.cli.httpx2.stream") as mock_stream,
         ):
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
@@ -472,9 +472,9 @@ class TestExtractUrl:
         """Test download failure is wrapped as 'Extraction failed:'."""
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.httpx.stream") as mock_stream,
+            patch("bibra.cli.httpx2.stream") as mock_stream,
         ):
-            import httpx as _httpx
+            import httpx2 as _httpx
 
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
@@ -493,7 +493,7 @@ class TestExtractUrl:
         ClickException with the 'Extraction failed:' prefix."""
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.httpx.stream") as mock_stream,
+            patch("bibra.cli.httpx2.stream") as mock_stream,
         ):
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
@@ -514,10 +514,10 @@ class TestExtractUrl:
         assert "Extraction failed: PDF corrupted" in result.output
 
     def test_extract_url_passes_proxy_when_set(self):
-        """Test that extract-url passes the proxy to httpx.stream when set."""
+        """Test that extract-url passes the proxy to httpx2.stream when set."""
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.httpx.stream") as mock_stream,
+            patch("bibra.cli.httpx2.stream") as mock_stream,
         ):
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
@@ -541,7 +541,7 @@ class TestExtractUrl:
         """Test that extract-url passes proxy=None when env var is not set."""
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.httpx.stream") as mock_stream,
+            patch("bibra.cli.httpx2.stream") as mock_stream,
         ):
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry

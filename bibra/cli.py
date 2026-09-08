@@ -4,7 +4,7 @@ import asyncio
 import tempfile
 
 import click
-import httpx
+import httpx2
 import uvicorn
 from dotenv import load_dotenv
 
@@ -167,9 +167,9 @@ def extract_url(project_id: str, url: str, config: str | None, output: str | Non
     try:
         with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp:
             proxy = get_url_proxy()
-            with httpx.stream("GET", url, proxy=proxy) as response:
+            with httpx2.stream("GET", url, proxy=proxy) as response:
                 if response.status_code >= 400:
-                    raise httpx.HTTPError(f"HTTP {response.status_code} for {url}")
+                    raise httpx2.HTTPError(f"HTTP {response.status_code} for {url}")
                 for chunk in response.iter_bytes(chunk_size=1024 * 1024):
                     tmp.write(chunk)
                 tmp.flush()

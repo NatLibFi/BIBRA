@@ -150,21 +150,21 @@ async def extract_url(
         async with httpx2.AsyncClient(proxy=proxy) as client:
             response = await client.get(url_str)
 
-            content_type = response.headers.get("content-type", "")
-            if content_type != "application/pdf":
-                expected = "application/pdf"
-                detail = (
-                    f"'{url}' does not point to a PDF file. "
-                    f"Expected '{expected}', got '{content_type}'."
-                )
-                raise HTTPException(status_code=400, detail=detail)
-
             status_code = response.status_code
             if status_code >= 400:
                 raise HTTPException(
                     status_code=status_code,
                     detail=str(response.reason_phrase),
                 )
+
+            content_type = response.headers.get("content-type", "")
+            if content_type.split(";", 1)[0].strip().lower() != "application/pdf":
+                expected = "application/pdf"
+                detail = (
+                    f"'{url}' does not point to a PDF file. "
+                    f"Expected '{expected}', got '{content_type}'."
+                )
+                raise HTTPException(status_code=400, detail=detail)
 
             with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp:
                 async for chunk in response.aiter_bytes(chunk_size=1024 * 1024):

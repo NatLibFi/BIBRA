@@ -625,3 +625,17 @@ class TestGetUrlProxy:
 
         monkeypatch.delenv("BIBRA_URL_PROXY", raising=False)
         assert get_url_proxy() is None
+
+    def test_returns_none_when_empty(self, monkeypatch):
+        """Test that an empty BIBRA_URL_PROXY is normalized to None."""
+        from bibra.config import get_url_proxy
+
+        monkeypatch.setenv("BIBRA_URL_PROXY", "")
+        assert get_url_proxy() is None
+
+    def test_returns_none_when_whitespace(self, monkeypatch):
+        """Test that a whitespace-only BIBRA_URL_PROXY is normalized to None."""
+        from bibra.config import get_url_proxy
+
+        monkeypatch.setenv("BIBRA_URL_PROXY", "   \t\n  ")
+        assert get_url_proxy() is None

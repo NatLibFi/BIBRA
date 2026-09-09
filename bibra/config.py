@@ -282,7 +282,11 @@ class ProjectRegistry:
 def get_url_proxy() -> str | None:
     """Return the BIBRA_URL_PROXY environment variable value.
 
+    Blank or whitespace-only values are normalized to None, so that
+    callers can safely pass the result to httpx proxy arguments.
+
     Returns:
-        The proxy URL string, or None if not set.
+        The proxy URL string, or None if not set or blank.
     """
-    return os.environ.get("BIBRA_URL_PROXY")
+    proxy = os.environ.get("BIBRA_URL_PROXY")
+    return proxy.strip() if proxy and proxy.strip() else None

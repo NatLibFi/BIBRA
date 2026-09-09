@@ -68,6 +68,34 @@ Start up the API server and Web UI (add `--reload` for auto-reloading while deve
 
     uv run bibra serve
 
+## Security
+
+The `extract-url` endpoints (API and CLI) fetch a user-supplied URL, which is a
+classic Server-Side Request Forgery (SSRF) vector. BIBRA mitigates this with a
+hardened fetch layer (`bibra/net_security.py`) that applies defense in depth:
+
+- **Egress is off by default.** URL fetch/extraction is refused unless
+  `BIBRA_URL_PROXY` is set. A configured proxy is the recommended production
+  setup (a forward proxy with egress allowlists is the strongest single
+  control); the special value `direct` opts into direct egress with full
+  in-app validation instead.
+- **Scheme allowlist.** Only `https` by default (extend with
+  `BIBRA_URL_SCHEMES`).
+- **Resolved-IP blocking.** The resolved destination IP is checked at connect
+  time (not just the initial URL) against a table of non-public ranges —
+  loopback, RFC 1918, link-local/cloud metadata (`169.254.169.254`), CGNAT,
+  and reserved multicast/unique-local ranges — for both IPv4 and IPv6. This
+  also covers every redirect hop, which defeats DNS-rebinding and
+  redirect-based bypasses.
+- **Resource limits.** A hard byte cap (`BIBRA_URL_MAX_BYTES`) and explicit
+  timeouts (`BIBRA_URL_TIMEOUT`) are enforced, and redirects are bounded
+  (`BIBRA_URL_MAX_REDIRECTS`).
+- **Content verification.** The response `Content-Type` must be in
+  `BIBRA_URL_CONTENT_TYPES` and the bytes must pass a magic-byte check before
+  being handed to a backend.
+
+These options (all `BIBRA_URL_*`) are documented in [.env.example](.env.example).
+
 ## Testing
 
 ### Python Tests

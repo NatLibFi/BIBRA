@@ -4,6 +4,7 @@ This module provides project configuration loading from TOML files,
 with support for environment variable interpolation.
 """
 
+import logging
 import os
 import tomllib
 from dataclasses import dataclass, field
@@ -16,6 +17,8 @@ from bibra.backend.base import BaseBackend
 from bibra.backend.dummy import DummyBackend
 from bibra.backend.greylitlm import GreyLitLMBackend
 from bibra.backend.nuextract import NuExtractBackend
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigError(Exception):
@@ -279,6 +282,94 @@ class ProjectRegistry:
         ]
 
 
+# Sentinel value for BIBRA_URL_PROXY meaning "fetch directly, with the
+# full in-app URL validation". Any other non-blank value is treated as a
+# proxy URL; a blank/unset value means URL fetching is refused entirely.
+URL_FETCH_DIRECT = "direct"
+
+# Defaults for the URL fetch policy (BIBRA_URL_* env vars).
+DEFAULT_URL_SCHEMES: list[str] = ["https"]
+DEFAULT_URL_CONTENT_TYPES: list[str] = ["application/pdf"]
+DEFAULT_URL_MAX_BYTES: int = 50 * 1024 * 1024  # 50 MiB
+DEFAULT_URL_TIMEOUT: float = 30.0  # seconds
+DEFAULT_URL_MAX_REDIRECTS: int = 5
+DEFAULT_URL_ALLOW_IP_HOSTS: bool = False
+
+
+@dataclass(frozen=True)
+class UrlFetchPolicy:
+    """Policy governing how BIBRA fetches user-supplied URLs (SSRF hardening).
+
+    Attributes:
+        proxy: The egress proxy URL, the literal sentinel "direct" (see
+            URL_FETCH_DIRECT) for direct egress, or None to refuse fetching.
+        schemes: Allowed URL schemes (e.g. ["https"]).
+        content_types: Allowed response content types (MIME, no parameters).
+        max_bytes: Hard cap on total downloaded bytes.
+        timeout: Seconds for connect/read/write/pool timeouts.
+        max_redirects: Maximum number of redirect hops; every hop is
+            re-validated against the policy.
+        allow_ip_hosts: Whether URLs whose host is an IP literal are allowed.
+    """
+
+    proxy: str | None
+    schemes: tuple[str, ...]
+    content_types: tuple[str, ...]
+    max_bytes: int
+    timeout: float
+    max_redirects: int
+    allow_ip_hosts: bool
+
+    @property
+    def proxy_required(self) -> bool:
+        """True when URL fetching must be refused (no proxy or direct set)."""
+        return self.proxy is None
+
+
+def _parse_list_env(name: str, default: list[str]) -> tuple[str, ...]:
+    """Parse a comma-separated env var into a tuple of stripped strings.
+
+    Falls back to the default when the variable is unset or blank.
+    """
+    raw = os.environ.get(name, "")
+    items = [item.strip() for item in raw.split(",") if item.strip()]
+    return tuple(items) if items else tuple(default)
+
+
+def _parse_int_env(name: str, default: int) -> int:
+    """Parse a positive-integer env var, falling back to the default."""
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.debug("Invalid %s=%r; using default %d", name, raw, default)
+        return default
+    return value if value > 0 else default
+
+
+def _parse_float_env(name: str, default: float) -> float:
+    """Parse a positive-float env var, falling back to the default."""
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        logger.debug("Invalid %s=%r; using default %f", name, raw, default)
+        return default
+    return value if value > 0 else default
+
+
+def _parse_bool_env(name: str, default: bool) -> bool:
+    """Parse a boolean env var (1/true/yes/on), falling back to the default."""
+    raw = os.environ.get(name, "").strip().lower()
+    if not raw:
+        return default
+    return raw in {"1", "true", "yes", "on"}
+
+
 def get_url_proxy() -> str | None:
     """Return the BIBRA_URL_PROXY environment variable value.
 
@@ -290,3 +381,31 @@ def get_url_proxy() -> str | None:
     """
     proxy = os.environ.get("BIBRA_URL_PROXY")
     return proxy.strip() if proxy and proxy.strip() else None
+
+
+def load_url_fetch_policy() -> UrlFetchPolicy:
+    """Build a UrlFetchPolicy from the BIBRA_URL_* environment variables.
+
+    Semantics of BIBRA_URL_PROXY:
+      - unset/blank: URL fetching is refused (proxy_required is True)
+      - "direct": direct egress is allowed, subject to full in-app validation
+      - anything else: used as the egress proxy URL
+
+    Invalid numeric/boolean values are logged and replaced by their
+    defaults, so that a misconfigured setting never crashes the app.
+    """
+    return UrlFetchPolicy(
+        proxy=get_url_proxy(),
+        schemes=_parse_list_env("BIBRA_URL_SCHEMES", DEFAULT_URL_SCHEMES),
+        content_types=_parse_list_env(
+            "BIBRA_URL_CONTENT_TYPES", DEFAULT_URL_CONTENT_TYPES
+        ),
+        max_bytes=_parse_int_env("BIBRA_URL_MAX_BYTES", DEFAULT_URL_MAX_BYTES),
+        timeout=_parse_float_env("BIBRA_URL_TIMEOUT", DEFAULT_URL_TIMEOUT),
+        max_redirects=_parse_int_env(
+            "BIBRA_URL_MAX_REDIRECTS", DEFAULT_URL_MAX_REDIRECTS
+        ),
+        allow_ip_hosts=_parse_bool_env(
+            "BIBRA_URL_ALLOW_IP_HOSTS", DEFAULT_URL_ALLOW_IP_HOSTS
+        ),
+    )

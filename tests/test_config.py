@@ -12,7 +12,9 @@ from bibra.config import (
     ConfigParseError,
     ProjectConfig,
     ProjectRegistry,
+    UrlFetchPolicy,
     _interpolate_env_vars,
+    load_url_fetch_policy,
 )
 
 
@@ -639,3 +641,162 @@ class TestGetUrlProxy:
 
         monkeypatch.setenv("BIBRA_URL_PROXY", "   \t\n  ")
         assert get_url_proxy() is None
+
+
+class TestLoadUrlFetchPolicy:
+    """Tests for load_url_fetch_policy and UrlFetchPolicy."""
+
+    URL_ENV_VARS = (
+        "BIBRA_URL_PROXY",
+        "BIBRA_URL_SCHEMES",
+        "BIBRA_URL_CONTENT_TYPES",
+        "BIBRA_URL_MAX_BYTES",
+        "BIBRA_URL_TIMEOUT",
+        "BIBRA_URL_MAX_REDIRECTS",
+        "BIBRA_URL_ALLOW_IP_HOSTS",
+    )
+
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, monkeypatch):
+        for var in self.URL_ENV_VARS:
+            monkeypatch.delenv(var, raising=False)
+
+    def test_defaults_when_nothing_set(self):
+        """Default policy: proxy required, https-only, PDF only."""
+        policy = load_url_fetch_policy()
+
+        assert isinstance(policy, UrlFetchPolicy)
+        assert policy.proxy is None
+        assert policy.proxy_required is True
+        assert policy.schemes == ("https",)
+        assert policy.content_types == ("application/pdf",)
+        assert policy.max_bytes == 50 * 1024 * 1024
+        assert policy.timeout == 30.0
+        assert policy.max_redirects == 5
+        assert policy.allow_ip_hosts is False
+
+    def test_proxy_url(self, monkeypatch):
+        """A non-sentinel BIBRA_URL_PROXY value is used as the proxy URL."""
+        monkeypatch.setenv("BIBRA_URL_PROXY", "http://proxy.example.com:8080")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.proxy == "http://proxy.example.com:8080"
+        assert policy.proxy_required is False
+
+    def test_proxy_direct_sentinel(self, monkeypatch):
+        """The literal value 'direct' enables direct egress with validation."""
+        monkeypatch.setenv("BIBRA_URL_PROXY", "direct")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.proxy == "direct"
+        assert policy.proxy_required is False
+
+    def test_proxy_direct_is_case_sensitive(self, monkeypatch):
+        """'Direct' is not the sentinel and is treated as a proxy URL."""
+        monkeypatch.setenv("BIBRA_URL_PROXY", "Direct")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.proxy == "Direct"
+
+    def test_proxy_blank_means_refused(self, monkeypatch):
+        """A blank BIBRA_URL_PROXY means URL fetching is refused."""
+        monkeypatch.setenv("BIBRA_URL_PROXY", "   ")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.proxy is None
+        assert policy.proxy_required is True
+
+    def test_schemes_custom(self, monkeypatch):
+        """BIBRA_URL_SCHEMES is parsed as a comma-separated list."""
+        monkeypatch.setenv("BIBRA_URL_SCHEMES", "https, http ,ftp")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.schemes == ("https", "http", "ftp")
+
+    def test_schemes_blank_falls_back_to_default(self, monkeypatch):
+        """A blank BIBRA_URL_SCHEMES falls back to the https default."""
+        monkeypatch.setenv("BIBRA_URL_SCHEMES", " , ,")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.schemes == ("https",)
+
+    def test_content_types_custom(self, monkeypatch):
+        """BIBRA_URL_CONTENT_TYPES is parsed as a comma-separated list."""
+        monkeypatch.setenv("BIBRA_URL_CONTENT_TYPES", "application/pdf, image/png")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.content_types == ("application/pdf", "image/png")
+
+    def test_max_bytes_custom(self, monkeypatch):
+        """BIBRA_URL_MAX_BYTES accepts a positive integer."""
+        monkeypatch.setenv("BIBRA_URL_MAX_BYTES", "1024")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.max_bytes == 1024
+
+    def test_max_bytes_invalid_falls_back_to_default(self, monkeypatch):
+        """A non-numeric BIBRA_URL_MAX_BYTES falls back to the default."""
+        monkeypatch.setenv("BIBRA_URL_MAX_BYTES", "huge")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.max_bytes == 50 * 1024 * 1024
+
+    def test_max_bytes_non_positive_falls_back_to_default(self, monkeypatch):
+        """A non-positive BIBRA_URL_MAX_BYTES falls back to the default."""
+        monkeypatch.setenv("BIBRA_URL_MAX_BYTES", "-5")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.max_bytes == 50 * 1024 * 1024
+
+    def test_timeout_custom(self, monkeypatch):
+        """BIBRA_URL_TIMEOUT accepts a positive float."""
+        monkeypatch.setenv("BIBRA_URL_TIMEOUT", "1.5")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.timeout == 1.5
+
+    def test_timeout_invalid_falls_back_to_default(self, monkeypatch):
+        """A non-numeric BIBRA_URL_TIMEOUT falls back to the default."""
+        monkeypatch.setenv("BIBRA_URL_TIMEOUT", "soon")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.timeout == 30.0
+
+    def test_max_redirects_custom(self, monkeypatch):
+        """BIBRA_URL_MAX_REDIRECTS accepts a positive integer."""
+        monkeypatch.setenv("BIBRA_URL_MAX_REDIRECTS", "2")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.max_redirects == 2
+
+    def test_allow_ip_hosts_truthy_values(self, monkeypatch):
+        """BIBRA_URL_ALLOW_IP_HOSTS accepts common truthy spellings."""
+        for value in ("1", "true", "TRUE", "yes", "on"):
+            monkeypatch.setenv("BIBRA_URL_ALLOW_IP_HOSTS", value)
+            assert load_url_fetch_policy().allow_ip_hosts is True
+
+    def test_allow_ip_hosts_falsy_values(self, monkeypatch):
+        """BIBRA_URL_ALLOW_IP_HOSTS accepts common falsy spellings."""
+        for value in ("0", "false", "no", "off", "garbage"):
+            monkeypatch.setenv("BIBRA_URL_ALLOW_IP_HOSTS", value)
+            assert load_url_fetch_policy().allow_ip_hosts is False
+
+    def test_policy_is_frozen(self):
+        """UrlFetchPolicy instances are immutable."""
+        policy = load_url_fetch_policy()
+
+        with pytest.raises(AttributeError):
+            policy.timeout = 1.0

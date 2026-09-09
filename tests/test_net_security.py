@@ -292,16 +292,19 @@ class TestIsPdf:
         assert is_pdf(b"\xef\xbb\xbf%PDF-1.5\n") is True
 
     @pytest.mark.parametrize(
-        ["data"],
+        ["label", "data"],
         [
-            [b"PK\x03\x04"],  # zip
-            [b"\x89PNG\r\n\x1a\n"],  # png
-            [b"<html>not a pdf</html>"],
-            [b""],
-            [b"\x00" * 2048],
+            ["zip", b"PK\x03\x04"],
+            ["png", b"\x89PNG\r\n\x1a\n"],
+            ["html", b"<html>not a pdf</html>"],
+            ["empty", b""],
+            ["null_bytes", b"\x00" * 2048],
         ],
+        ids=["zip", "png", "html", "empty", "null_bytes"],
     )
-    def test_non_pdf_rejected(self, data: bytes):
+    def test_non_pdf_rejected(self, label: str, data: bytes):
+        """Non-PDF content is rejected."""
+        assert is_pdf(data) is False
         """Non-PDF content is rejected."""
         assert is_pdf(data) is False
 

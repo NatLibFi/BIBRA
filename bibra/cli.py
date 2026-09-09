@@ -183,8 +183,11 @@ def extract_url(project_id: str, url: str, config: str | None, output: str | Non
             if tmp_path is not None:
                 try:
                     os.unlink(tmp_path)
-                except OSError:
-                    pass
+                except OSError as e:
+                    click.echo(
+                        f"Warning: could not remove temporary file {tmp_path}: {e}",
+                        err=True,
+                    )
     except Exception as e:
         raise click.ClickException(f"Extraction failed: {e}") from e
 

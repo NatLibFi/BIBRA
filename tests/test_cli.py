@@ -308,16 +308,7 @@ class TestServe:
 
 # Tests for the extract-url command.
 
-
-def _make_httpx_stream_mock(chunks=(b"%PDF-1.4 dummy content",)):
-    """Build a mock for httpx2 stream response that yields the given chunks."""
-    mock_response = MagicMock()
-    mock_response.headers.get.return_value = "application/pdf"
-    mock_response.status_code = 200
-    mock_response.iter_bytes.return_value = chunks
-    mock_response.__enter__.return_value = mock_response
-    mock_response.__exit__.return_value = False
-    return mock_response
+MOCK_PDF_BYTES = b"%PDF-1.4 dummy content"
 
 
 def _make_backend(json_payload=None):
@@ -367,12 +358,11 @@ class TestExtractUrl:
         """Test extract-url command with a valid URL and successful extraction."""
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.httpx2.stream") as mock_stream,
+            patch("bibra.cli.fetch_file_sync", return_value=MOCK_PDF_BYTES),
         ):
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
             mock_registry.get_backend.return_value = _make_backend()
-            mock_stream.return_value = _make_httpx_stream_mock()
 
             result = self.runner.invoke(
                 extract_url, ["dummy", "https://example.com/paper.pdf"]
@@ -391,12 +381,11 @@ class TestExtractUrl:
 
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.httpx2.stream") as mock_stream,
+            patch("bibra.cli.fetch_file_sync", return_value=MOCK_PDF_BYTES),
         ):
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
             mock_registry.get_backend.return_value = _make_backend()
-            mock_stream.return_value = _make_httpx_stream_mock()
 
             result = self.runner.invoke(
                 extract_url,
@@ -423,12 +412,11 @@ class TestExtractUrl:
 
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.httpx2.stream") as mock_stream,
+            patch("bibra.cli.fetch_file_sync", return_value=MOCK_PDF_BYTES),
         ):
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
             mock_registry.get_backend.return_value = _make_backend()
-            mock_stream.return_value = _make_httpx_stream_mock()
 
             result = self.runner.invoke(
                 extract_url,
@@ -473,16 +461,18 @@ class TestExtractUrl:
 
     def test_extract_url_download_failure_converted_to_click_exception(self):
         """Test download failure is wrapped as 'Extraction failed:'."""
+        import httpx2 as _httpx
+
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.httpx2.stream") as mock_stream,
+            patch(
+                "bibra.cli.fetch_file_sync",
+                side_effect=_httpx.HTTPError("Name or service not known"),
+            ),
         ):
-            import httpx2 as _httpx
-
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
             mock_registry.get_backend.return_value = _make_backend()
-            mock_stream.side_effect = _httpx.HTTPError("Name or service not known")
 
             result = self.runner.invoke(
                 extract_url, ["dummy", "https://bad.example.invalid/paper.pdf"]
@@ -496,7 +486,7 @@ class TestExtractUrl:
         ClickException with the 'Extraction failed:' prefix."""
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.httpx2.stream") as mock_stream,
+            patch("bibra.cli.fetch_file_sync", return_value=MOCK_PDF_BYTES),
         ):
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
@@ -507,7 +497,6 @@ class TestExtractUrl:
 
             mock_backend.extract.side_effect = _extract
             mock_registry.get_backend.return_value = mock_backend
-            mock_stream.return_value = _make_httpx_stream_mock()
 
             result = self.runner.invoke(
                 extract_url, ["dummy", "https://example.com/paper.pdf"]
@@ -516,16 +505,17 @@ class TestExtractUrl:
         assert result.exit_code != 0
         assert "Extraction failed: PDF corrupted" in result.output
 
-    def test_extract_url_passes_proxy_when_set(self):
-        """Test that extract-url passes the proxy to httpx2.stream when set."""
+    def test_extract_url_uses_configured_proxy(self):
+        """Test that the fetch policy passed to fetch_file_sync carries the proxy."""
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.httpx2.stream") as mock_stream,
+            patch(
+                "bibra.cli.fetch_file_sync", return_value=MOCK_PDF_BYTES
+            ) as mock_fetch,
         ):
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
             mock_registry.get_backend.return_value = _make_backend()
-            mock_stream.return_value = _make_httpx_stream_mock()
 
             result = self.runner.invoke(
                 extract_url,
@@ -534,35 +524,51 @@ class TestExtractUrl:
             )
 
         assert result.exit_code == 0
-        mock_stream.assert_called_once_with(
-            "GET",
-            "https://example.com/paper.pdf",
-            proxy="http://proxy.example.com:8080",
-        )
+        args, _ = mock_fetch.call_args
+        assert args[0] == "https://example.com/paper.pdf"
+        assert args[1].proxy == "http://proxy.example.com:8080"
 
-    def test_extract_url_no_proxy_when_not_set(self):
-        """Test that extract-url passes proxy=None when env var is not set."""
-        with (
-            patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.httpx2.stream") as mock_stream,
-            patch("bibra.cli.get_url_proxy", return_value=None),
-        ):
+    def test_extract_url_refused_when_proxy_not_set(self, monkeypatch):
+        """Without BIBRA_URL_PROXY, the real fetch path refuses before any
+        network I/O and the command reports that URL fetching is disabled."""
+        monkeypatch.delenv("BIBRA_URL_PROXY", raising=False)
+
+        with patch("bibra.cli.ProjectRegistry") as mock_registry_cls:
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
             mock_registry.get_backend.return_value = _make_backend()
-            mock_stream.return_value = _make_httpx_stream_mock()
 
             result = self.runner.invoke(
                 extract_url,
                 ["dummy", "https://example.com/paper.pdf"],
             )
 
-        assert result.exit_code == 0
-        mock_stream.assert_called_once_with(
-            "GET",
-            "https://example.com/paper.pdf",
-            proxy=None,
-        )
+        assert result.exit_code != 0
+        assert "BIBRA_URL_PROXY" in result.output
+
+    def test_extract_url_policy_error_converted_to_click_exception(self):
+        """A URL rejected by the fetch policy becomes a ClickException."""
+        from bibra.net_security import UrlPolicyError
+
+        with (
+            patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
+            patch(
+                "bibra.cli.fetch_file_sync",
+                side_effect=UrlPolicyError("URL rejected by fetch policy"),
+            ),
+        ):
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = _make_backend()
+
+            result = self.runner.invoke(
+                extract_url,
+                ["dummy", "http://169.254.169.254/latest/meta-data/"],
+            )
+
+        assert result.exit_code != 0
+        assert "Extraction failed: URL rejected by fetch policy" in result.output
+        assert "169.254.169.254" not in result.output
 
 
 class TestMakeListTemplate:

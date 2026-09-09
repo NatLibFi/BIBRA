@@ -1,10 +1,10 @@
 """CLI interface for BIBRA."""
 
 import asyncio
+import os
 import tempfile
 
 import click
-import httpx2
 import uvicorn
 from dotenv import load_dotenv
 
@@ -12,7 +12,12 @@ from bibra.config import (
     ConfigError,
     ProjectNotFoundError,
     ProjectRegistry,
-    get_url_proxy,
+    load_url_fetch_policy,
+)
+from bibra.net_security import (
+    ProxyRequiredError,
+    UrlPolicyError,
+    fetch_file_sync,
 )
 
 
@@ -154,7 +159,14 @@ def serve(host: str, port: int, reload: bool):
     help="Write JSON output to file instead of stdout",
 )
 def extract_url(project_id: str, url: str, config: str | None, output: str | None):
-    """Extract publication metadata from a PDF or image file at a URL."""
+    """Extract publication metadata from a PDF or image file at a URL.
+
+    The download is performed with the SSRF-hardened fetch layer
+    (``bibra.net_security``): egress is only allowed through a configured
+    proxy or in explicit direct mode (see BIBRA_URL_PROXY), the URL and
+    every redirect hop are validated against the fetch policy, and the
+    downloaded bytes are verified before being handed to the backend.
+    """
     registry = ProjectRegistry(config)
 
     try:
@@ -164,32 +176,35 @@ def extract_url(project_id: str, url: str, config: str | None, output: str | Non
     except ConfigError as e:
         raise click.ClickException(str(e)) from None
 
+    policy = load_url_fetch_policy()
+
     try:
-        import os
-
-        tmp_path: str | None = None
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-                tmp_path = tmp.name
-                proxy = get_url_proxy()
-                with httpx2.stream("GET", url, proxy=proxy) as response:
-                    if response.status_code >= 400:
-                        raise httpx2.HTTPError(f"HTTP {response.status_code} for {url}")
-                    for chunk in response.iter_bytes(chunk_size=1024 * 1024):
-                        tmp.write(chunk)
-
-            result = asyncio.run(backend.extract([tmp_path]))
-        finally:
-            if tmp_path is not None:
-                try:
-                    os.unlink(tmp_path)
-                except OSError as e:
-                    click.echo(
-                        f"Warning: could not remove temporary file {tmp_path}: {e}",
-                        err=True,
-                    )
+        data = fetch_file_sync(url, policy)
+    except ProxyRequiredError as e:
+        raise click.ClickException(e.MESSAGE) from None
+    except UrlPolicyError as e:
+        raise click.ClickException(f"Extraction failed: {e}") from None
     except Exception as e:
         raise click.ClickException(f"Extraction failed: {e}") from e
+
+    tmp_path: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+            tmp_path = tmp.name
+            tmp.write(data)
+
+        result = asyncio.run(backend.extract([tmp_path]))
+    except Exception as e:
+        raise click.ClickException(f"Extraction failed: {e}") from e
+    finally:
+        if tmp_path is not None:
+            try:
+                os.unlink(tmp_path)
+            except OSError as e:
+                click.echo(
+                    f"Warning: could not remove temporary file {tmp_path}: {e}",
+                    err=True,
+                )
 
     json_output = result.model_dump_json(indent=2)
 

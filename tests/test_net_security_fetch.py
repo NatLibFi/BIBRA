@@ -1,0 +1,375 @@
+"""Integration tests for the fetch layer in bibra/net_security.py.
+
+These tests spin up real HTTP servers bound to 127.0.0.1 to prove the SSRF
+mitigations end-to-end:
+
+    - connect-time resolved-IP blocking (loopback literals and the
+      localhost hostname are refused without any patching)
+    - redirect-hijack refusal (a reachable host 302-redirecting to the
+      cloud-metadata address is refused on the hop)
+    - hard size-cap enforcement (Content-Length pre-check and mid-stream)
+    - content-type allowlist and magic-byte verification
+    - proxy-required refusal
+
+Because the loopback range is blocked by design, tests that need a
+*successful* fetch from the local test server monkeypatch
+``net_security.is_blocked_ip`` to allow the connection. Tests that assert
+blocking use the real, unpatched check.
+"""
+
+import asyncio
+import http.server
+import socketserver
+import threading
+
+import httpx2
+import pytest
+
+import bibra.net_security as ns
+from bibra.config import UrlFetchPolicy
+from bibra.net_security import (
+    DownloadSizeExceededError,
+    ProxyRequiredError,
+    UrlPolicyError,
+    fetch_file,
+    fetch_file_sync,
+    is_pdf,
+)
+
+PDF_BODY = b"%PDF-1.7\n% fake pdf content\n%%EOF\n"
+METADATA_IP = "169.254.169.254"
+
+
+def _make_policy(**overrides) -> UrlFetchPolicy:
+    """Build a policy that allows http to localhost for these tests."""
+    defaults = {
+        "proxy": "direct",
+        "schemes": ("http",),
+        "content_types": ("application/pdf",),
+        "max_bytes": 1024 * 1024,
+        "timeout": 5.0,
+        "max_redirects": 3,
+        "allow_ip_hosts": True,
+    }
+    defaults.update(overrides)
+    return UrlFetchPolicy(**defaults)
+
+
+class _Handler(http.server.BaseHTTPRequestHandler):
+    """Base handler; subclasses override do_GET."""
+
+    def log_message(self, *args):
+        pass
+
+    def _send(self, body: bytes, content_type: str = "application/pdf"):
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+class _RedirectHandler(_Handler):
+    """302-redirect every request to a class-level Location."""
+
+    location: str = ""
+
+    def do_GET(self):
+        self.send_response(302)
+        self.send_header("Location", self.location)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+
+def _start_server(handler_cls) -> tuple[socketserver.TCPServer, int]:
+    """Start a TCPServer on 127.0.0.1 with a free port; return (srv, port)."""
+    srv = socketserver.TCPServer(("127.0.0.1", 0), handler_cls)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv, srv.server_address[1]
+
+
+@pytest.fixture
+def pdf_server():
+    """A local server that serves a valid PDF body."""
+
+    class Handler(_Handler):
+        def do_GET(self):
+            self._send(PDF_BODY)
+
+    srv, port = _start_server(Handler)
+    yield port
+    srv.shutdown()
+    srv.server_close()
+
+
+class TestConnectTimeBlocking:
+    """The resolved destination IP must be blocked at connect time."""
+
+    def test_ip_literal_loopback_refused(self, pdf_server):
+        """A loopback IP literal is refused (real, unpatched check)."""
+        policy = _make_policy()
+
+        with pytest.raises(UrlPolicyError):
+            asyncio.run(fetch_file(f"http://127.0.0.1:{pdf_server}/x.pdf", policy))
+
+    def test_localhost_hostname_refused(self, pdf_server):
+        """http://localhost resolves to loopback and is refused.
+
+        Exercises the async DNS-resolution path (loop.getaddrinfo) with a
+        real hostname, no patching.
+        """
+        policy = _make_policy(allow_ip_hosts=False)
+
+        with pytest.raises(UrlPolicyError):
+            asyncio.run(fetch_file(f"http://localhost:{pdf_server}/x.pdf", policy))
+
+    def test_metadata_ip_literal_refused(self, pdf_server):
+        """The cloud-metadata IP is refused even in proxy-required bypass."""
+        policy = _make_policy()
+
+        with pytest.raises(UrlPolicyError):
+            asyncio.run(fetch_file(f"http://{METADATA_IP}/latest/meta-data/", policy))
+
+
+class TestRedirectRevalidation:
+    """Redirect hops must pass the same destination check."""
+
+    def test_public_to_public_redirect_ok(self, pdf_server, monkeypatch):
+        """A redirect between reachable hosts is followed successfully."""
+
+        # Allow loopback so both hops can connect; we assert the redirect
+        # was followed and the final body returned.
+        monkeypatch.setattr(ns, "is_blocked_ip", lambda ip: False)
+
+        class Redir(_RedirectHandler):
+            location = f"http://127.0.0.1:{pdf_server}/final.pdf"
+
+        srv, port = _start_server(Redir)
+        try:
+            data = asyncio.run(
+                fetch_file(f"http://127.0.0.1:{port}/start", _make_policy())
+            )
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+        assert data == PDF_BODY
+
+    def test_redirect_to_metadata_refused_on_hop(self, monkeypatch):
+        """A reachable host that 302s to the metadata IP is refused.
+
+        The initial hop (127.0.0.1) is allowed by the patched check, so the
+        UrlPolicyError can only come from the redirect target being
+        re-validated at connect time.
+        """
+
+        def blocked(ip):
+            return str(ip) == METADATA_IP
+
+        monkeypatch.setattr(ns, "is_blocked_ip", blocked)
+
+        class Redir(_RedirectHandler):
+            location = f"http://{METADATA_IP}/latest/meta-data/"
+
+        srv, port = _start_server(Redir)
+        try:
+            with pytest.raises(UrlPolicyError):
+                asyncio.run(
+                    fetch_file(f"http://127.0.0.1:{port}/start", _make_policy())
+                )
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+    def test_too_many_redirects(self, monkeypatch):
+        """Exceeding max_redirects raises instead of looping forever."""
+
+        monkeypatch.setattr(ns, "is_blocked_ip", lambda ip: False)
+
+        class Redir(_RedirectHandler):
+            location = "/loop"
+
+        srv, port = _start_server(Redir)
+        try:
+            with pytest.raises(httpx2.TooManyRedirects):
+                asyncio.run(
+                    fetch_file(
+                        f"http://127.0.0.1:{port}/loop",
+                        _make_policy(max_redirects=2),
+                    )
+                )
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+
+class TestSizeCap:
+    """The hard byte cap must be enforced."""
+
+    def test_content_length_precheck(self, monkeypatch):
+        """A Content-Length above the cap aborts before reading the body."""
+
+        monkeypatch.setattr(ns, "is_blocked_ip", lambda ip: False)
+
+        class Big(_Handler):
+            def do_GET(self):
+                self._send(b"%PDF-1.7\n" + b"x" * (5 * 1024 * 1024))
+
+        srv, port = _start_server(Big)
+        try:
+            with pytest.raises(DownloadSizeExceededError):
+                asyncio.run(
+                    fetch_file(
+                        f"http://127.0.0.1:{port}/big.pdf",
+                        _make_policy(max_bytes=1024),
+                    )
+                )
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+    def test_mid_stream_abort(self, monkeypatch):
+        """Without a Content-Length, the cap aborts mid-stream."""
+
+        monkeypatch.setattr(ns, "is_blocked_ip", lambda ip: False)
+
+        class NoLength(_Handler):
+            def do_GET(self):
+                self.send_response(200)
+                self.send_header("Content-Type", "application/pdf")
+                self.end_headers()
+                self.wfile.write(b"%PDF-1.7\n" + b"x" * (2 * 1024 * 1024))
+
+        srv, port = _start_server(NoLength)
+        try:
+            with pytest.raises(DownloadSizeExceededError):
+                asyncio.run(
+                    fetch_file(
+                        f"http://127.0.0.1:{port}/big.pdf",
+                        _make_policy(max_bytes=4096),
+                    )
+                )
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+    def test_within_cap_succeeds(self, pdf_server, monkeypatch):
+        """A body under the cap is returned in full."""
+
+        monkeypatch.setattr(ns, "is_blocked_ip", lambda ip: False)
+
+        data = asyncio.run(
+            fetch_file(
+                f"http://127.0.0.1:{pdf_server}/x.pdf",
+                _make_policy(max_bytes=len(PDF_BODY)),
+            )
+        )
+
+        assert data == PDF_BODY
+
+
+class TestContentValidation:
+    """Content-type and magic-byte checks must reject non-PDF bodies."""
+
+    def test_wrong_content_type_refused(self, monkeypatch):
+        """A non-PDF Content-Type is refused even for PDF-like bytes."""
+
+        monkeypatch.setattr(ns, "is_blocked_ip", lambda ip: False)
+
+        class Handler(_Handler):
+            def do_GET(self):
+                self._send(PDF_BODY, content_type="text/html")
+
+        srv, port = _start_server(Handler)
+        try:
+            with pytest.raises(UrlPolicyError):
+                asyncio.run(fetch_file(f"http://127.0.0.1:{port}/x", _make_policy()))
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+    def test_content_type_with_parameters_accepted(self, pdf_server, monkeypatch):
+        """'application/pdf; charset=...' is accepted (parameters stripped)."""
+
+        monkeypatch.setattr(ns, "is_blocked_ip", lambda ip: False)
+
+        class Handler(_Handler):
+            def do_GET(self):
+                self._send(PDF_BODY, content_type="application/pdf; charset=utf-8")
+
+        srv, port = _start_server(Handler)
+        try:
+            data = asyncio.run(fetch_file(f"http://127.0.0.1:{port}/x", _make_policy()))
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+        assert data == PDF_BODY
+
+    def test_bad_magic_bytes_refused(self, monkeypatch):
+        """PDF Content-Type but non-PDF bytes is refused."""
+
+        monkeypatch.setattr(ns, "is_blocked_ip", lambda ip: False)
+
+        class Handler(_Handler):
+            def do_GET(self):
+                self._send(b"this is not a pdf at all")
+
+        srv, port = _start_server(Handler)
+        try:
+            with pytest.raises(UrlPolicyError):
+                asyncio.run(fetch_file(f"http://127.0.0.1:{port}/x", _make_policy()))
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+    def test_http_error_status_raises(self, monkeypatch):
+        """A 404 response raises httpx2.HTTPError (not a policy error)."""
+
+        monkeypatch.setattr(ns, "is_blocked_ip", lambda ip: False)
+
+        class Handler(_Handler):
+            def do_GET(self):
+                self.send_response(404)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
+        srv, port = _start_server(Handler)
+        try:
+            with pytest.raises(httpx2.HTTPError):
+                asyncio.run(fetch_file(f"http://127.0.0.1:{port}/x", _make_policy()))
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+
+class TestProxyRequired:
+    """URL fetching must be refused when no proxy/direct is configured."""
+
+    def test_refused_when_proxy_unset(self, pdf_server):
+        """proxy=None refuses before any network activity."""
+        policy = _make_policy(proxy=None)
+
+        with pytest.raises(ProxyRequiredError):
+            asyncio.run(fetch_file(f"http://127.0.0.1:{pdf_server}/x.pdf", policy))
+
+
+class TestFetchFileSync:
+    """The sync wrapper must work outside an event loop (CLI path)."""
+
+    def test_success(self, pdf_server, monkeypatch):
+        """fetch_file_sync returns the body for a valid PDF."""
+
+        monkeypatch.setattr(ns, "is_blocked_ip", lambda ip: False)
+
+        data = fetch_file_sync(
+            f"http://127.0.0.1:{pdf_server}/paper.pdf", _make_policy()
+        )
+
+        assert data == PDF_BODY
+        assert is_pdf(data)
+
+    def test_policy_error_propagates(self, pdf_server):
+        """Policy violations propagate through the sync wrapper."""
+        with pytest.raises(UrlPolicyError):
+            fetch_file_sync(f"http://127.0.0.1:{pdf_server}/paper.pdf", _make_policy())

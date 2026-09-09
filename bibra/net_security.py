@@ -1,10 +1,9 @@
 """Network security helpers for fetching user-supplied URLs.
 
-This module implements the validation layer of BIBRA's SSRF mitigation.
-It contains no network I/O; the fetch function built on top of it lives in
-a later step.
+This module implements BIBRA's SSRF mitigation: a validation layer and a
+hardened fetch function.
 
-Key components:
+Validation components:
     - ``UrlPolicyError``: raised when a URL or downloaded content violates
       the fetch policy. Carries a safe, generic message suitable for
       client-facing error responses; full details are logged server-side.
@@ -15,17 +14,33 @@ Key components:
     - ``ContentValidator`` / ``is_pdf``: pluggable byte-level content
       checks (magic bytes). Currently PDFs are the only supported type;
       future file types add their own validators.
+
+Fetch components:
+    - ``fetch_file`` / ``fetch_file_sync``: download a user-supplied URL
+      with defense in depth: static URL validation, connect-time resolved-IP
+      checking (closes DNS-rebinding and covers every redirect hop), a hard
+      size cap, explicit timeouts, and content-type plus magic-byte
+      verification. Egress is only permitted through a configured proxy or in
+      explicit "direct" mode.
 """
 
+import asyncio
 import ipaddress
 import logging
 import re
+import socket
 import urllib.parse
 from typing import Protocol
 
-from bibra.config import UrlFetchPolicy
+import httpx2
+
+from bibra.config import URL_FETCH_DIRECT, UrlFetchPolicy
 
 logger = logging.getLogger(__name__)
+
+#: Read the response body in chunks no larger than this while enforcing the
+#: size cap, so we can abort mid-stream without buffering unbounded data.
+_FETCH_CHUNK_SIZE = 65536
 
 #: IPv4 ranges that must never be reachable through user-supplied URLs.
 BLOCKED_IPV4_NETS: tuple[ipaddress.IPv4Network, ...] = (
@@ -219,3 +234,224 @@ def is_pdf(data: bytes) -> bool:
     first 1024 bytes of the file.
     """
     return b"%PDF" in data[:1024]
+
+
+class DownloadSizeExceededError(UrlPolicyError):
+    """Raised when a download exceeds the policy's ``max_bytes`` cap."""
+
+    MESSAGE = "Download rejected by fetch policy"
+
+
+class _BlockedDestinationError(Exception):
+    """Internal: a resolved destination IP is blocked by policy.
+
+    Not a ``UrlPolicyError`` on purpose — it is raised inside a transport
+    hook and translated there; callers never see it directly.
+    """
+
+    def __init__(self, url: str, ip: str):
+        super().__init__(f"blocked destination {ip} for {url}")
+        self.url = url
+        self.ip = ip
+
+
+async def _check_destination(host: str, port: int | None) -> None:
+    """Raise _BlockedDestinationError if any resolved IP is blocked.
+
+    Resolves the hostname on the running event loop (non-blocking) and
+    checks every address a connection could hit, which enforces the
+    blocked-IP policy at connect time and mitigates DNS rebinding.
+    IP literals are checked directly without a DNS lookup.
+    """
+    literal = parse_ip_host(host)
+    if literal is not None:
+        if is_blocked_ip(literal):
+            raise _BlockedDestinationError(f"http://{host}", str(literal))
+        return
+
+    if port is None:
+        port = 443
+    loop = asyncio.get_running_loop()
+    try:
+        infos = await loop.getaddrinfo(
+            host,
+            port,
+            type=socket.SOCK_STREAM,
+            proto=socket.IPPROTO_TCP,
+        )
+    except socket.gaierror as e:
+        logger.warning("DNS resolution failed for %s: %s", host, e)
+        raise _BlockedDestinationError(f"http://{host}", "unresolvable") from None
+    seen: set[str] = set()
+    for info in infos:
+        ip_str = info[4][0]
+        if ip_str in seen:
+            continue
+        seen.add(ip_str)
+        ip = _normalize_ip(ipaddress.ip_address(ip_str))
+        if is_blocked_ip(ip):
+            raise _BlockedDestinationError(f"http://{host}", str(ip))
+
+
+def _build_async_transport(proxy: str | None) -> httpx2.AsyncHTTPTransport:
+    """Build an async transport that validates each request's destination.
+
+    Every request URL's resolved IP is re-checked at connect time, which
+    closes the DNS-rebinding window and covers every redirect hop
+    (httpx issues a fresh request through the transport for each hop).
+
+    Args:
+        proxy: Proxy URL to route through, or None for direct egress.
+    """
+    proxy_arg = httpx2.Proxy(proxy) if proxy else None
+
+    class _SafeAsyncTransport(httpx2.AsyncHTTPTransport):
+        async def handle_async_request(self, request: httpx2.Request):
+            await _check_destination(request.url.host, request.url.port)
+            return await super().handle_async_request(request)
+
+    return _SafeAsyncTransport(proxy=proxy_arg)
+
+
+def _client_kwargs(policy: UrlFetchPolicy) -> dict:
+    """Build httpx2 AsyncClient kwargs from the policy.
+
+    The ``transport`` kwarg carries the destination-validating transport;
+    no ``proxy`` kwarg is used so that the client does not also mount its
+    own proxy transport (the proxy, when configured, lives inside our
+    transport).
+    """
+    timeout = httpx2.Timeout(policy.timeout)
+    proxy: str | None = None
+    if policy.proxy is not None and policy.proxy != URL_FETCH_DIRECT:
+        proxy = policy.proxy
+
+    return {
+        "timeout": timeout,
+        "follow_redirects": True,
+        "max_redirects": policy.max_redirects,
+        "transport": _build_async_transport(proxy),
+    }
+
+
+def _validate_response_headers(
+    response: httpx2.Response, policy: UrlFetchPolicy
+) -> None:
+    """Check the response Content-Type against the policy allowlist."""
+    raw = response.headers.get("content-type", "")
+    media_type = raw.split(";", 1)[0].strip().lower()
+    if media_type not in policy.content_types:
+        logger.warning(
+            "Content-Type %r rejected (allowed: %s)",
+            media_type,
+            ",".join(policy.content_types),
+        )
+        raise UrlPolicyError("URL rejected by fetch policy")
+
+
+def _validate_content(
+    data: bytes, expected_types: tuple[ContentValidator, ...]
+) -> None:
+    """Verify the downloaded bytes pass at least one content validator."""
+    if not any(v(data) for v in expected_types):
+        logger.warning("Downloaded content failed magic-byte validation")
+        raise UrlPolicyError("URL rejected by fetch policy")
+
+
+async def fetch_file(
+    url: str,
+    policy: UrlFetchPolicy,
+    *,
+    expected_types: tuple[ContentValidator, ...] = (is_pdf,),
+) -> bytes:
+    """Download a user-supplied URL with SSRF protection (async).
+
+    Layers of defense, in order:
+      1. ``validate_url`` (static: proxy mode, scheme, host, IP literal)
+      2. httpx2 request through a wrapped transport that re-validates the
+         resolved destination IP at connect time for every redirect hop
+      3. hard ``max_bytes`` cap, enforced against Content-Length and by
+         counting streamed bytes
+      4. explicit timeouts (``policy.timeout``)
+      5. Content-Type allowlist + at-least-one magic-byte validator
+
+    Args:
+        url: The URL to fetch.
+        policy: The active UrlFetchPolicy.
+        expected_types: Content validators; the body must pass at least one.
+
+    Returns:
+        The downloaded bytes.
+
+    Raises:
+        ProxyRequiredError: If no proxy/direct egress is configured.
+        DownloadSizeExceededError: If the body exceeds ``policy.max_bytes``.
+        UrlPolicyError: If any other policy rule is violated.
+        httpx2.HTTPError: If the network request itself fails.
+    """
+    validate_url(url, policy)
+
+    kwargs = _client_kwargs(policy)
+
+    try:
+        async with (
+            httpx2.AsyncClient(**kwargs) as client,
+            client.stream("GET", url) as response,
+        ):
+            if response.status_code >= 400:
+                logger.warning("HTTP %d fetching %s", response.status_code, url)
+                raise httpx2.HTTPError(f"HTTP {response.status_code} while downloading")
+            _validate_response_headers(response, policy)
+
+            # Pre-check Content-Length when present.
+            content_length = response.headers.get("content-length")
+            if content_length is not None:
+                try:
+                    if int(content_length) > policy.max_bytes:
+                        raise DownloadSizeExceededError(
+                            DownloadSizeExceededError.MESSAGE
+                        )
+                except ValueError:
+                    logger.debug(
+                        "Non-numeric Content-Length %r from %s",
+                        content_length,
+                        url,
+                    )
+
+            chunks: list[bytes] = []
+            total = 0
+            async for chunk in response.aiter_bytes(chunk_size=_FETCH_CHUNK_SIZE):
+                total += len(chunk)
+                if total > policy.max_bytes:
+                    logger.warning(
+                        "Download from %s exceeded %d bytes; aborting",
+                        url,
+                        policy.max_bytes,
+                    )
+                    raise DownloadSizeExceededError(DownloadSizeExceededError.MESSAGE)
+                chunks.append(chunk)
+            data = b"".join(chunks)
+    except _BlockedDestinationError as e:
+        logger.warning("Blocked destination during fetch: %s", e)
+        raise UrlPolicyError("URL rejected by fetch policy") from None
+
+    _validate_content(data, expected_types)
+    return data
+
+
+def fetch_file_sync(
+    url: str,
+    policy: UrlFetchPolicy,
+    *,
+    expected_types: tuple[ContentValidator, ...] = (is_pdf,),
+) -> bytes:
+    """Synchronous wrapper around :func:`fetch_file` for the CLI.
+
+    Runs the async fetch on a fresh event loop. Safe to call from a
+    synchronous (non-loop) context such as the Click CLI.
+    """
+
+    async def _run() -> bytes:
+        return await fetch_file(url, policy, expected_types=expected_types)
+
+    return asyncio.run(_run())

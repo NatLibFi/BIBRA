@@ -66,8 +66,8 @@ def test_api(case):
         with patch("httpx2.AsyncClient") as mock_client:
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=False)
-            mock_client.stream = AsyncMock(return_value=mock_response)
-            mock_client.get = AsyncMock(return_value=mock_response)
+            # client.stream() is a sync call returning an async context manager
+            mock_client.stream = MagicMock(return_value=mock_response)
             with patch("httpx2.AsyncClient", return_value=mock_client):
                 case.call_and_validate()
         return

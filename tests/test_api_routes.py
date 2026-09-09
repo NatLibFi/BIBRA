@@ -18,6 +18,33 @@ from bibra.config import ConfigError, ProjectNotFoundError, ProjectRegistry
 from bibra.types import PublicationMetadata
 
 
+def _make_stream_client_mock():
+    """Build a mock httpx2.AsyncClient matching extract_url()'s streaming usage.
+
+    The mock supports ``async with client as c: async with c.stream(...) as r``
+    and yields a single PDF-like byte chunk from ``r.aiter_bytes()``.
+    """
+
+    async def mock_aiter_bytes(*args, **kwargs):
+        yield b"%PDF-1.4 mock content"
+
+    mock_response = MagicMock()
+    mock_response.headers = Headers({"content-type": "application/pdf"})
+    mock_response.status_code = 200
+    mock_response.reason_phrase = "OK"
+    mock_response.aiter_bytes.return_value = mock_aiter_bytes()
+
+    mock_stream_cm = MagicMock()
+    mock_stream_cm.__aenter__ = AsyncMock(return_value=mock_response)
+    mock_stream_cm.__aexit__ = AsyncMock(return_value=False)
+
+    mock_client = MagicMock()
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_client.stream.return_value = mock_stream_cm
+    return mock_client
+
+
 class TestAPIRoutes:
     """Tests for API v0 routes."""
 
@@ -105,19 +132,8 @@ class TestAPIRoutes:
 
         registry = ProjectRegistry()
 
-        async def mock_aiter_bytes(*args, **kwargs):
-            yield b"%PDF-1.4 mock content"
-
-        mock_response = MagicMock()
-        mock_response.headers = Headers({"content-type": "application/pdf"})
-        mock_response.status_code = 200
-        mock_response.aiter_bytes.return_value = mock_aiter_bytes()
-
         with patch("httpx2.AsyncClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
-            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client = _make_stream_client_mock()
             mock_client_cls.return_value = mock_client
             result = await extract_url(
                 project_id="dummy",
@@ -225,19 +241,8 @@ class TestAPIRoutes:
 
         registry = ProjectRegistry()
 
-        async def mock_aiter_bytes(*args, **kwargs):
-            yield b"%PDF-1.4 mock content"
-
-        mock_response = MagicMock()
-        mock_response.headers = Headers({"content-type": "application/pdf"})
-        mock_response.status_code = 200
-        mock_response.aiter_bytes.return_value = mock_aiter_bytes()
-
         with patch("httpx2.AsyncClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
-            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client = _make_stream_client_mock()
             mock_client_cls.return_value = mock_client
             result = await extract_url(
                 project_id="dummy",
@@ -256,19 +261,8 @@ class TestAPIRoutes:
 
         registry = ProjectRegistry()
 
-        async def mock_aiter_bytes(*args, **kwargs):
-            yield b"%PDF-1.4 mock content"
-
-        mock_response = MagicMock()
-        mock_response.headers = Headers({"content-type": "application/pdf"})
-        mock_response.status_code = 200
-        mock_response.aiter_bytes.return_value = mock_aiter_bytes()
-
         with patch("httpx2.AsyncClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
-            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client = _make_stream_client_mock()
             mock_client_cls.return_value = mock_client
             result = await extract_url(
                 project_id="dummy",

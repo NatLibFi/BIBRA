@@ -155,7 +155,7 @@ async def extract_url(
             if status_code >= 400:
                 raise HTTPException(
                     status_code=status_code,
-                    detail=str(response.reason_phrase),
+                    detail=f"HTTP {status_code} while downloading {url_str}",
                 )
 
             content_type = response.headers.get("content-type", "")
@@ -185,9 +185,11 @@ async def extract_url(
                             tmp_path,
                             exc_info=True,
                         )
+    except HTTPException:
+        raise
     except httpx2.HTTPError as e:
         logger.exception("HTTP Error downloading %s", url_str)
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
-        logger.exception("Unexpected error during download from %s", url)
+        logger.exception("Unexpected error during download from %s", url_str)
         raise HTTPException(status_code=500, detail=str(e))

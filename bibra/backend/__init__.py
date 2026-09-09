@@ -19,3 +19,8 @@ def __getattr__(name: str) -> Any:
         if name in names:
             return getattr(importlib.import_module(module), name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    """Return module attributes, including lazily exported names."""
+    return sorted(set(globals()) | set(__all__))

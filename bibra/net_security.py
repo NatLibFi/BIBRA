@@ -104,7 +104,7 @@ class ContentValidator(Protocol):
 
     def __call__(self, data: bytes) -> bool:
         """Return True if data matches the expected content type."""
-        ...
+        raise NotImplementedError
 
 
 def _normalize_ip(

@@ -191,7 +191,8 @@ def validate_url(url: str, policy: UrlFetchPolicy) -> None:
         host = parts.hostname or ""
         # Accessing .port raises ValueError for non-numeric or
         # out-of-range ports; treat those as malformed URLs.
-        _port = parts.port
+        # The value itself is unused, so discard it into a throwaway name.
+        _ = parts.port
     except ValueError:
         logger.warning("Malformed URL rejected: %r", url)
         raise UrlPolicyError("URL rejected by fetch policy") from None

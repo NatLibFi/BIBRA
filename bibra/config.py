@@ -13,7 +13,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from bibra.backend.base import BaseBackend
+from bibra.backend import BaseBackend
 
 
 class ConfigError(Exception):

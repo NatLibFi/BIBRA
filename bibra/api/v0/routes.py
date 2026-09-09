@@ -14,8 +14,9 @@ from bibra.config import (
     ConfigError,
     ProjectNotFoundError,
     ProjectRegistry,
-    get_url_proxy,
+    load_url_fetch_policy,
 )
+from bibra.net_security import ProxyRequiredError, UrlPolicyError, fetch_file
 from bibra.types import Projects, PublicationMetadata, Version
 
 logger = logging.getLogger(__name__)
@@ -117,7 +118,11 @@ async def extract(
 
 @router.post(
     "/projects/{project_id}/extract-url",
-    responses={400: {"description": "Bad Request - malformed data"}},
+    responses={
+        400: {"description": "Bad Request - URL or content violates the fetch policy"},
+        502: {"description": "Bad Gateway - download failed"},
+        503: {"description": "Service Unavailable - URL fetching is not configured"},
+    },
 )
 async def extract_url(
     project_id: str,
@@ -128,12 +133,23 @@ async def extract_url(
     Extract publication metadata from a PDF or image file at a given URL for a
     specific project.
 
+    The download is performed with the SSRF-hardened fetch layer
+    (``bibra.net_security``): egress is only allowed through a configured
+    proxy or in explicit direct mode, the URL and every redirect hop are
+    validated against the fetch policy, and the downloaded bytes are
+    verified before being handed to the backend.
+
     Args:
         project_id: The ID of the project to extract metadata for
         url: URL pointing to a file to process
 
     Returns:
         PublicationMetadata: Extracted metadata as JSON
+
+    Raises:
+        HTTPException: 400 if the URL or content violates the fetch policy,
+            404 if the project is unknown, 502 if the download fails,
+            503 if URL fetching is disabled (no proxy/direct configured).
     """
     try:
         backend = registry.get_backend(project_id)
@@ -144,52 +160,36 @@ async def extract_url(
         raise HTTPException(status_code=500, detail=str(e))
 
     url_str = str(url)
+    policy = load_url_fetch_policy()
 
     try:
-        proxy = get_url_proxy()
-        async with (
-            httpx2.AsyncClient(proxy=proxy) as client,
-            client.stream("GET", url_str) as response,
-        ):
-            status_code = response.status_code
-            if status_code >= 400:
-                raise HTTPException(
-                    status_code=status_code,
-                    detail=f"HTTP {status_code} while downloading {url_str}",
-                )
-
-            content_type = response.headers.get("content-type", "")
-            if content_type.split(";", 1)[0].strip().lower() != "application/pdf":
-                expected = "application/pdf"
-                detail = (
-                    f"'{url}' does not point to a PDF file. "
-                    f"Expected '{expected}', got '{content_type}'."
-                )
-                raise HTTPException(status_code=400, detail=detail)
-
-            tmp_path: str | None = None
-            try:
-                with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-                    tmp_path = tmp.name
-                    async for chunk in response.aiter_bytes(chunk_size=1024 * 1024):
-                        tmp.write(chunk)
-
-                return await backend.extract([tmp_path])
-            finally:
-                if tmp_path is not None:
-                    try:
-                        os.unlink(tmp_path)
-                    except OSError:
-                        logger.debug(
-                            "Failed to remove temporary file: %s",
-                            tmp_path,
-                            exc_info=True,
-                        )
-    except HTTPException:
-        raise
-    except httpx2.HTTPError as e:
+        data = await fetch_file(url_str, policy)
+    except ProxyRequiredError as e:
+        logger.info("URL fetch refused (no proxy configured): %s", url_str)
+        raise HTTPException(status_code=503, detail=e.MESSAGE)
+    except UrlPolicyError as e:
+        # Client-facing message stays generic; details were logged by
+        # the fetch layer.
+        logger.info("URL rejected by fetch policy: %s", url_str)
+        raise HTTPException(status_code=400, detail=str(e))
+    except httpx2.HTTPError:
         logger.exception("HTTP Error downloading %s", url_str)
-        raise HTTPException(status_code=500, detail=str(e))
-    except Exception as e:
-        logger.exception("Unexpected error during download from %s", url_str)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=502, detail="Failed to download URL")
+
+    tmp_path: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+            tmp_path = tmp.name
+            tmp.write(data)
+
+        return await backend.extract([tmp_path])
+    finally:
+        if tmp_path is not None:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                logger.debug(
+                    "Failed to remove temporary file: %s",
+                    tmp_path,
+                    exc_info=True,
+                )

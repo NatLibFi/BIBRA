@@ -2,10 +2,10 @@
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx2
 import pytest
 from fastapi import HTTPException, Request
 from fastapi.routing import APIRoute
-from httpx2 import Headers
 
 from bibra.api.v0.routes import (
     extract,
@@ -15,34 +15,8 @@ from bibra.api.v0.routes import (
     router,
 )
 from bibra.config import ConfigError, ProjectNotFoundError, ProjectRegistry
+from bibra.net_security import ProxyRequiredError, UrlPolicyError
 from bibra.types import PublicationMetadata
-
-
-def _make_stream_client_mock():
-    """Build a mock httpx2.AsyncClient matching extract_url()'s streaming usage.
-
-    The mock supports ``async with client as c: async with c.stream(...) as r``
-    and yields a single PDF-like byte chunk from ``r.aiter_bytes()``.
-    """
-
-    async def mock_aiter_bytes(*args, **kwargs):
-        yield b"%PDF-1.4 mock content"
-
-    mock_response = MagicMock()
-    mock_response.headers = Headers({"content-type": "application/pdf"})
-    mock_response.status_code = 200
-    mock_response.reason_phrase = "OK"
-    mock_response.aiter_bytes.return_value = mock_aiter_bytes()
-
-    mock_stream_cm = MagicMock()
-    mock_stream_cm.__aenter__ = AsyncMock(return_value=mock_response)
-    mock_stream_cm.__aexit__ = AsyncMock(return_value=False)
-
-    mock_client = MagicMock()
-    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-    mock_client.__aexit__ = AsyncMock(return_value=False)
-    mock_client.stream.return_value = mock_stream_cm
-    return mock_client
 
 
 class TestAPIRoutes:
@@ -125,21 +99,28 @@ class TestAPIRoutes:
         assert isinstance(route, APIRoute)
         assert "POST" in route.methods
 
-    async def test_extract_url_returns_example_metadata(self):
+    async def test_extract_url_returns_example_metadata(self, monkeypatch):
         """The /projects/{project_id}/extract-url endpoint should return example
         publication metadata."""
         from pydantic import HttpUrl
 
         registry = ProjectRegistry()
+        monkeypatch.setenv("BIBRA_URL_PROXY", "direct")
 
-        with patch("httpx2.AsyncClient") as mock_client_cls:
-            mock_client = _make_stream_client_mock()
-            mock_client_cls.return_value = mock_client
+        with patch(
+            "bibra.api.v0.routes.fetch_file",
+            new=AsyncMock(return_value=b"%PDF-1.4 mock content"),
+        ) as mock_fetch:
             result = await extract_url(
                 project_id="dummy",
                 registry=registry,
                 url=HttpUrl("https://example.com/paper.pdf"),
             )
+
+        mock_fetch.assert_awaited_once()
+        args, _ = mock_fetch.call_args
+        assert args[0] == "https://example.com/paper.pdf"
+        assert args[1].proxy == "direct"
 
         assert isinstance(result, PublicationMetadata)
         assert result.language == "en"
@@ -233,42 +214,130 @@ class TestAPIRoutes:
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == "Project 'unknown' not found"
 
-    async def test_extract_url_passes_proxy_when_set(self, monkeypatch):
-        """Test that extract-url passes the proxy to httpx2.AsyncClient when set."""
+    async def test_extract_url_uses_configured_proxy(self, monkeypatch):
+        """The fetch policy passed to fetch_file carries the configured proxy."""
         from pydantic import HttpUrl
 
         monkeypatch.setenv("BIBRA_URL_PROXY", "http://proxy.example.com:8080")
 
         registry = ProjectRegistry()
 
-        with patch("httpx2.AsyncClient") as mock_client_cls:
-            mock_client = _make_stream_client_mock()
-            mock_client_cls.return_value = mock_client
+        with patch(
+            "bibra.api.v0.routes.fetch_file",
+            new=AsyncMock(return_value=b"%PDF-1.4 mock content"),
+        ) as mock_fetch:
             result = await extract_url(
                 project_id="dummy",
                 registry=registry,
                 url=HttpUrl("https://example.com/paper.pdf"),
             )
 
-        mock_client_cls.assert_called_once_with(proxy="http://proxy.example.com:8080")
+        args, _ = mock_fetch.call_args
+        assert args[1].proxy == "http://proxy.example.com:8080"
         assert isinstance(result, PublicationMetadata)
 
-    async def test_extract_url_no_proxy_when_not_set(self, monkeypatch):
-        """Test that extract-url passes proxy=None when env var is not set."""
+    async def test_extract_url_refused_when_proxy_not_set(self, monkeypatch):
+        """With no proxy/direct configured the endpoint returns 503."""
         from pydantic import HttpUrl
 
         monkeypatch.delenv("BIBRA_URL_PROXY", raising=False)
 
         registry = ProjectRegistry()
 
-        with patch("httpx2.AsyncClient") as mock_client_cls:
-            mock_client = _make_stream_client_mock()
-            mock_client_cls.return_value = mock_client
-            result = await extract_url(
+        with (
+            patch(
+                "bibra.api.v0.routes.fetch_file",
+                new=AsyncMock(
+                    side_effect=ProxyRequiredError(ProxyRequiredError.MESSAGE)
+                ),
+            ) as mock_fetch,
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            await extract_url(
                 project_id="dummy",
                 registry=registry,
                 url=HttpUrl("https://example.com/paper.pdf"),
             )
 
-        mock_client_cls.assert_called_once_with(proxy=None)
-        assert isinstance(result, PublicationMetadata)
+        mock_fetch.assert_awaited_once()
+        assert exc_info.value.status_code == 503
+        assert "BIBRA_URL_PROXY" in exc_info.value.detail
+
+    async def test_extract_url_policy_error_returns_400(self, monkeypatch):
+        """A URL rejected by the fetch policy returns 400 with a generic detail."""
+        from pydantic import HttpUrl
+
+        monkeypatch.setenv("BIBRA_URL_PROXY", "direct")
+
+        registry = ProjectRegistry()
+
+        with (
+            patch(
+                "bibra.api.v0.routes.fetch_file",
+                new=AsyncMock(
+                    side_effect=UrlPolicyError("URL rejected by fetch policy")
+                ),
+            ),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            await extract_url(
+                project_id="dummy",
+                registry=registry,
+                url=HttpUrl("http://169.254.169.254/latest/meta-data/"),
+            )
+
+        assert exc_info.value.status_code == 400
+        assert "169.254.169.254" not in exc_info.value.detail
+
+    async def test_extract_url_http_error_returns_502(self, monkeypatch):
+        """A failed download returns 502 without leaking internal details."""
+        from pydantic import HttpUrl
+
+        monkeypatch.setenv("BIBRA_URL_PROXY", "direct")
+
+        registry = ProjectRegistry()
+
+        with (
+            patch(
+                "bibra.api.v0.routes.fetch_file",
+                new=AsyncMock(
+                    side_effect=httpx2.HTTPError("connection refused to internal host")
+                ),
+            ),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            await extract_url(
+                project_id="dummy",
+                registry=registry,
+                url=HttpUrl("https://example.com/paper.pdf"),
+            )
+
+        assert exc_info.value.status_code == 502
+        assert "internal" not in exc_info.value.detail
+
+    async def test_extract_url_cleanup_temp_file_on_backend_error(self, monkeypatch):
+        """The temporary file is removed even if the backend raises."""
+        from pydantic import HttpUrl
+
+        monkeypatch.setenv("BIBRA_URL_PROXY", "direct")
+
+        registry = ProjectRegistry()
+        mock_backend = MagicMock()
+        mock_backend.extract = AsyncMock(side_effect=RuntimeError("boom"))
+        registry.get_backend = MagicMock(return_value=mock_backend)
+
+        with (
+            patch(
+                "bibra.api.v0.routes.fetch_file",
+                new=AsyncMock(return_value=b"%PDF-1.4 mock content"),
+            ),
+            patch("bibra.api.v0.routes.os.unlink") as mock_unlink,
+            pytest.raises(RuntimeError, match="boom"),
+        ):
+            await extract_url(
+                project_id="dummy",
+                registry=registry,
+                url=HttpUrl("https://example.com/paper.pdf"),
+            )
+
+        mock_unlink.assert_called_once()

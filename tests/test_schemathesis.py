@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import schemathesis
 
@@ -6,22 +6,6 @@ from bibra.main import app
 
 # Load schema directly from FastAPI app
 schema = schemathesis.openapi.from_asgi("/openapi.json", app)
-
-
-async def _mock_aiter_bytes(*args, **kwargs):
-    """Async generator that yields mock PDF content."""
-    yield b"%PDF-1.4 mock content"
-
-
-def _mock_httpx_response(*args, **kwargs):
-    """Build a mock httpx2 stream response for PDF content."""
-    mock_response = MagicMock()
-    mock_response.headers.get.return_value = "application/pdf"
-    mock_response.status_code = 200
-    mock_response.aiter_bytes.return_value = _mock_aiter_bytes()
-    mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-    mock_response.__aexit__ = AsyncMock(return_value=False)
-    return mock_response
 
 
 @schema.parametrize()
@@ -52,7 +36,8 @@ def test_api(case):
         has_url = isinstance(body, dict) and bool(body.get("url"))
         if not has_url:
             return
-        # Use dummy backend for testing to avoid real network downloads/API calls
+        # Use dummy backend for testing to avoid real network downloads/API
+        # calls
         if (
             hasattr(case, "path")
             and case.path == "/v0/projects/{project_id}/extract-url"
@@ -60,16 +45,14 @@ def test_api(case):
             # Modify the path to use dummy project
             case.path = "/v0/projects/dummy/extract-url"
 
-        # Mock httpx2.AsyncClient stream response
-        mock_response = _mock_httpx_response()
-
-        with patch("httpx2.AsyncClient") as mock_client:
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
-            # client.stream() is a sync call returning an async context manager
-            mock_client.stream = MagicMock(return_value=mock_response)
-            with patch("httpx2.AsyncClient", return_value=mock_client):
-                case.call_and_validate()
+        # Mock the hardened fetch layer so no network activity occurs. The
+        # SSRF validation logic itself is covered by dedicated tests in
+        # tests/test_net_security.py and tests/test_net_security_fetch.py.
+        with patch(
+            "bibra.api.v0.routes.fetch_file",
+            new=AsyncMock(return_value=b"%PDF-1.4 mock content"),
+        ):
+            case.call_and_validate()
         return
 
     case.call_and_validate()

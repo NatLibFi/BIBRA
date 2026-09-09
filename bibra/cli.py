@@ -1,6 +1,7 @@
 """CLI interface for BIBRA."""
 
 import asyncio
+import dataclasses
 import os
 import tempfile
 
@@ -9,16 +10,13 @@ import uvicorn
 from dotenv import load_dotenv
 
 from bibra.config import (
+    URL_FETCH_DIRECT,
     ConfigError,
     ProjectNotFoundError,
     ProjectRegistry,
     load_url_fetch_policy,
 )
-from bibra.net_security import (
-    ProxyRequiredError,
-    UrlPolicyError,
-    fetch_file_sync,
-)
+from bibra.net_security import UrlPolicyError, fetch_file_sync
 
 
 def _make_list_template(column_headings: tuple, *rows: tuple) -> str:
@@ -162,10 +160,15 @@ def extract_url(project_id: str, url: str, config: str | None, output: str | Non
     """Extract publication metadata from a PDF or image file at a URL.
 
     The download is performed with the SSRF-hardened fetch layer
-    (``bibra.net_security``): egress is only allowed through a configured
-    proxy or in explicit direct mode (see BIBRA_URL_PROXY), the URL and
-    every redirect hop are validated against the fetch policy, and the
-    downloaded bytes are verified before being handed to the backend.
+    (``bibra.net_security``): the URL and every redirect hop are validated
+    against the fetch policy, and the downloaded bytes are verified before
+    being handed to the backend.
+
+    Unlike the REST API, the CLI is more lenient about egress: when
+    BIBRA_URL_PROXY is not set it behaves as if it were set to "direct",
+    i.e. it fetches directly (with full in-app validation) instead of
+    refusing. Set BIBRA_URL_PROXY to a proxy URL to route CLI downloads
+    through a proxy.
     """
     registry = ProjectRegistry(config)
 
@@ -177,11 +180,11 @@ def extract_url(project_id: str, url: str, config: str | None, output: str | Non
         raise click.ClickException(str(e)) from None
 
     policy = load_url_fetch_policy()
+    if policy.proxy is None:
+        policy = dataclasses.replace(policy, proxy=URL_FETCH_DIRECT)
 
     try:
         data = fetch_file_sync(url, policy)
-    except ProxyRequiredError as e:
-        raise click.ClickException(e.MESSAGE) from None
     except UrlPolicyError as e:
         raise click.ClickException(f"Extraction failed: {e}") from None
     except Exception as e:

@@ -74,11 +74,16 @@ The `extract-url` endpoints (API and CLI) fetch a user-supplied URL, which is a
 classic Server-Side Request Forgery (SSRF) vector. BIBRA mitigates this with a
 hardened fetch layer (`bibra/net_security.py`) that applies defense in depth:
 
-- **Egress is off by default.** URL fetch/extraction is refused unless
-  `BIBRA_URL_PROXY` is set. A configured proxy is the recommended production
-  setup (a forward proxy with egress allowlists is the strongest single
-  control); the special value `direct` opts into direct egress with full
-  in-app validation instead.
+- **Egress is off by default (API).** The REST API refuses URL
+  fetch/extraction unless `BIBRA_URL_PROXY` is set. A configured proxy is the
+  recommended production setup (a forward proxy with egress allowlists is the
+  strongest single control); the special value `direct` opts into direct
+  egress with full in-app validation instead.
+- **CLI fallback.** The CLI is intentionally more lenient for local one-off
+  use: when `BIBRA_URL_PROXY` is unset, `extract-url` behaves as if it were
+  set to `direct` (fetches directly, still with full in-app validation).
+  Set `BIBRA_URL_PROXY` to a proxy URL to route CLI downloads through a
+  proxy.
 - **Scheme allowlist.** Only `https` by default (extend with
   `BIBRA_URL_SCHEMES`).
 - **Resolved-IP blocking.** The resolved destination IP is checked at connect

@@ -528,12 +528,18 @@ class TestExtractUrl:
         assert args[0] == "https://example.com/paper.pdf"
         assert args[1].proxy == "http://proxy.example.com:8080"
 
-    def test_extract_url_refused_when_proxy_not_set(self, monkeypatch):
-        """Without BIBRA_URL_PROXY, the real fetch path refuses before any
-        network I/O and the command reports that URL fetching is disabled."""
+    def test_extract_url_falls_back_to_direct_when_proxy_not_set(self, monkeypatch):
+        """Unlike the API, the CLI is lenient: with BIBRA_URL_PROXY unset it
+        behaves as if it were "direct" (full validation still applies)."""
         monkeypatch.delenv("BIBRA_URL_PROXY", raising=False)
 
-        with patch("bibra.cli.ProjectRegistry") as mock_registry_cls:
+        with (
+            patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
+            patch(
+                "bibra.cli.fetch_file_sync",
+                return_value=MOCK_PDF_BYTES,
+            ) as mock_fetch,
+        ):
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
             mock_registry.get_backend.return_value = _make_backend()
@@ -543,8 +549,34 @@ class TestExtractUrl:
                 ["dummy", "https://example.com/paper.pdf"],
             )
 
-        assert result.exit_code != 0
-        assert "BIBRA_URL_PROXY" in result.output
+        assert result.exit_code == 0
+        args, _ = mock_fetch.call_args
+        assert args[0] == "https://example.com/paper.pdf"
+        assert args[1].proxy == "direct"
+
+    def test_extract_url_proxy_not_overridden_when_set(self, monkeypatch):
+        """An explicitly configured proxy URL is used as-is by the CLI."""
+        monkeypatch.setenv("BIBRA_URL_PROXY", "http://proxy.example.com:8080")
+
+        with (
+            patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
+            patch(
+                "bibra.cli.fetch_file_sync",
+                return_value=MOCK_PDF_BYTES,
+            ) as mock_fetch,
+        ):
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = _make_backend()
+
+            result = self.runner.invoke(
+                extract_url,
+                ["dummy", "https://example.com/paper.pdf"],
+            )
+
+        assert result.exit_code == 0
+        args, _ = mock_fetch.call_args
+        assert args[1].proxy == "http://proxy.example.com:8080"
 
     def test_extract_url_policy_error_converted_to_click_exception(self):
         """A URL rejected by the fetch policy becomes a ClickException."""

@@ -27,14 +27,6 @@ import pytest
 
 import bibra.net_security as ns
 from bibra.config import UrlFetchPolicy
-from bibra.net_security import (
-    DownloadSizeExceededError,
-    ProxyRequiredError,
-    UrlPolicyError,
-    fetch_file,
-    fetch_file_sync,
-    is_pdf,
-)
 
 PDF_BODY = b"%PDF-1.7\n% fake pdf content\n%%EOF\n"
 METADATA_IP = "169.254.169.254"
@@ -109,8 +101,8 @@ class TestConnectTimeBlocking:
         """A loopback IP literal is refused (real, unpatched check)."""
         policy = _make_policy()
 
-        with pytest.raises(UrlPolicyError):
-            asyncio.run(fetch_file(f"http://127.0.0.1:{pdf_server}/x.pdf", policy))
+        with pytest.raises(ns.UrlPolicyError):
+            asyncio.run(ns.fetch_file(f"http://127.0.0.1:{pdf_server}/x.pdf", policy))
 
     def test_localhost_hostname_refused(self, pdf_server):
         """http://localhost resolves to loopback and is refused.
@@ -120,15 +112,17 @@ class TestConnectTimeBlocking:
         """
         policy = _make_policy(allow_ip_hosts=False)
 
-        with pytest.raises(UrlPolicyError):
-            asyncio.run(fetch_file(f"http://localhost:{pdf_server}/x.pdf", policy))
+        with pytest.raises(ns.UrlPolicyError):
+            asyncio.run(ns.fetch_file(f"http://localhost:{pdf_server}/x.pdf", policy))
 
     def test_metadata_ip_literal_refused(self, pdf_server):
         """The cloud-metadata IP is refused even in proxy-required bypass."""
         policy = _make_policy()
 
-        with pytest.raises(UrlPolicyError):
-            asyncio.run(fetch_file(f"http://{METADATA_IP}/latest/meta-data/", policy))
+        with pytest.raises(ns.UrlPolicyError):
+            asyncio.run(
+                ns.fetch_file(f"http://{METADATA_IP}/latest/meta-data/", policy)
+            )
 
 
 class TestRedirectRevalidation:
@@ -147,7 +141,7 @@ class TestRedirectRevalidation:
         srv, port = _start_server(Redir)
         try:
             data = asyncio.run(
-                fetch_file(f"http://127.0.0.1:{port}/start", _make_policy())
+                ns.fetch_file(f"http://127.0.0.1:{port}/start", _make_policy())
             )
         finally:
             srv.shutdown()
@@ -173,9 +167,9 @@ class TestRedirectRevalidation:
 
         srv, port = _start_server(Redir)
         try:
-            with pytest.raises(UrlPolicyError):
+            with pytest.raises(ns.UrlPolicyError):
                 asyncio.run(
-                    fetch_file(f"http://127.0.0.1:{port}/start", _make_policy())
+                    ns.fetch_file(f"http://127.0.0.1:{port}/start", _make_policy())
                 )
         finally:
             srv.shutdown()
@@ -193,7 +187,7 @@ class TestRedirectRevalidation:
         try:
             with pytest.raises(httpx2.TooManyRedirects):
                 asyncio.run(
-                    fetch_file(
+                    ns.fetch_file(
                         f"http://127.0.0.1:{port}/loop",
                         _make_policy(max_redirects=2),
                     )
@@ -217,9 +211,9 @@ class TestSizeCap:
 
         srv, port = _start_server(Big)
         try:
-            with pytest.raises(DownloadSizeExceededError):
+            with pytest.raises(ns.DownloadSizeExceededError):
                 asyncio.run(
-                    fetch_file(
+                    ns.fetch_file(
                         f"http://127.0.0.1:{port}/big.pdf",
                         _make_policy(max_bytes=1024),
                     )
@@ -242,9 +236,9 @@ class TestSizeCap:
 
         srv, port = _start_server(NoLength)
         try:
-            with pytest.raises(DownloadSizeExceededError):
+            with pytest.raises(ns.DownloadSizeExceededError):
                 asyncio.run(
-                    fetch_file(
+                    ns.fetch_file(
                         f"http://127.0.0.1:{port}/big.pdf",
                         _make_policy(max_bytes=4096),
                     )
@@ -259,7 +253,7 @@ class TestSizeCap:
         monkeypatch.setattr(ns, "is_blocked_ip", lambda ip: False)
 
         data = asyncio.run(
-            fetch_file(
+            ns.fetch_file(
                 f"http://127.0.0.1:{pdf_server}/x.pdf",
                 _make_policy(max_bytes=len(PDF_BODY)),
             )
@@ -282,8 +276,8 @@ class TestContentValidation:
 
         srv, port = _start_server(Handler)
         try:
-            with pytest.raises(UrlPolicyError):
-                asyncio.run(fetch_file(f"http://127.0.0.1:{port}/x", _make_policy()))
+            with pytest.raises(ns.UrlPolicyError):
+                asyncio.run(ns.fetch_file(f"http://127.0.0.1:{port}/x", _make_policy()))
         finally:
             srv.shutdown()
             srv.server_close()
@@ -299,7 +293,9 @@ class TestContentValidation:
 
         srv, port = _start_server(Handler)
         try:
-            data = asyncio.run(fetch_file(f"http://127.0.0.1:{port}/x", _make_policy()))
+            data = asyncio.run(
+                ns.fetch_file(f"http://127.0.0.1:{port}/x", _make_policy())
+            )
         finally:
             srv.shutdown()
             srv.server_close()
@@ -317,8 +313,8 @@ class TestContentValidation:
 
         srv, port = _start_server(Handler)
         try:
-            with pytest.raises(UrlPolicyError):
-                asyncio.run(fetch_file(f"http://127.0.0.1:{port}/x", _make_policy()))
+            with pytest.raises(ns.UrlPolicyError):
+                asyncio.run(ns.fetch_file(f"http://127.0.0.1:{port}/x", _make_policy()))
         finally:
             srv.shutdown()
             srv.server_close()
@@ -337,7 +333,7 @@ class TestContentValidation:
         srv, port = _start_server(Handler)
         try:
             with pytest.raises(httpx2.HTTPError):
-                asyncio.run(fetch_file(f"http://127.0.0.1:{port}/x", _make_policy()))
+                asyncio.run(ns.fetch_file(f"http://127.0.0.1:{port}/x", _make_policy()))
         finally:
             srv.shutdown()
             srv.server_close()
@@ -350,8 +346,8 @@ class TestProxyRequired:
         """proxy=None refuses before any network activity."""
         policy = _make_policy(proxy=None)
 
-        with pytest.raises(ProxyRequiredError):
-            asyncio.run(fetch_file(f"http://127.0.0.1:{pdf_server}/x.pdf", policy))
+        with pytest.raises(ns.ProxyRequiredError):
+            asyncio.run(ns.fetch_file(f"http://127.0.0.1:{pdf_server}/x.pdf", policy))
 
 
 class TestFetchFileSync:
@@ -362,14 +358,16 @@ class TestFetchFileSync:
 
         monkeypatch.setattr(ns, "is_blocked_ip", lambda ip: False)
 
-        data = fetch_file_sync(
+        data = ns.fetch_file_sync(
             f"http://127.0.0.1:{pdf_server}/paper.pdf", _make_policy()
         )
 
         assert data == PDF_BODY
-        assert is_pdf(data)
+        assert ns.is_pdf(data)
 
     def test_policy_error_propagates(self, pdf_server):
         """Policy violations propagate through the sync wrapper."""
-        with pytest.raises(UrlPolicyError):
-            fetch_file_sync(f"http://127.0.0.1:{pdf_server}/paper.pdf", _make_policy())
+        with pytest.raises(ns.UrlPolicyError):
+            ns.fetch_file_sync(
+                f"http://127.0.0.1:{pdf_server}/paper.pdf", _make_policy()
+            )

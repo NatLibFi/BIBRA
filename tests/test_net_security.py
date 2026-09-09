@@ -305,8 +305,6 @@ class TestIsPdf:
     def test_non_pdf_rejected(self, label: str, data: bytes):
         """Non-PDF content is rejected."""
         assert is_pdf(data) is False
-        """Non-PDF content is rejected."""
-        assert is_pdf(data) is False
 
     def test_magic_bytes_beyond_search_window(self):
         """%PDF beyond the 1024-byte search window is not recognized."""

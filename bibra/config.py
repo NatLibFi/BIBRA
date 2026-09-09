@@ -332,8 +332,8 @@ def _parse_list_env(name: str, default: list[str]) -> tuple[str, ...]:
     Falls back to the default when the variable is unset or blank.
     """
     raw = os.environ.get(name, "")
-    items = [item.strip() for item in raw.split(",") if item.strip()]
-    return tuple(items) if items else tuple(default)
+    items = [item.strip().lower() for item in raw.split(",") if item.strip()]
+    return tuple(items) if items else tuple(item.lower() for item in default)
 
 
 def _parse_int_env(name: str, default: int) -> int:

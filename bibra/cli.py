@@ -157,7 +157,7 @@ def serve(host: str, port: int, reload: bool):
     help="Write JSON output to file instead of stdout",
 )
 def extract_url(project_id: str, url: str, config: str | None, output: str | None):
-    """Extract publication metadata from a PDF or image file at a URL.
+    """Extract publication metadata from a PDF file at a URL."""
 
     The download is performed with the SSRF-hardened fetch layer
     (``bibra.net_security``): the URL and every redirect hop are validated

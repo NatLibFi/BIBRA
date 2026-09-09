@@ -148,29 +148,41 @@ async def extract_url(
     try:
         proxy = get_url_proxy()
         async with httpx2.AsyncClient(proxy=proxy) as client:
-            response = await client.get(url_str)
+            async with client.stream("GET", url_str) as response:
+                status_code = response.status_code
+                if status_code >= 400:
+                    raise HTTPException(
+                        status_code=status_code,
+                        detail=str(response.reason_phrase),
+                    )
 
-            status_code = response.status_code
-            if status_code >= 400:
-                raise HTTPException(
-                    status_code=status_code,
-                    detail=str(response.reason_phrase),
-                )
+                content_type = response.headers.get("content-type", "")
+                if content_type.split(";", 1)[0].strip().lower() != "application/pdf":
+                    expected = "application/pdf"
+                    detail = (
+                        f"'{url}' does not point to a PDF file. "
+                        f"Expected '{expected}', got '{content_type}'."
+                    )
+                    raise HTTPException(status_code=400, detail=detail)
 
-            content_type = response.headers.get("content-type", "")
-            if content_type.split(";", 1)[0].strip().lower() != "application/pdf":
-                expected = "application/pdf"
-                detail = (
-                    f"'{url}' does not point to a PDF file. "
-                    f"Expected '{expected}', got '{content_type}'."
-                )
-                raise HTTPException(status_code=400, detail=detail)
+                tmp_path: str | None = None
+                try:
+                    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+                        tmp_path = tmp.name
+                        async for chunk in response.aiter_bytes(chunk_size=1024 * 1024):
+                            tmp.write(chunk)
 
-            with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp:
-                async for chunk in response.aiter_bytes(chunk_size=1024 * 1024):
-                    tmp.write(chunk)
-                tmp.flush()
-                return await backend.extract([tmp.name])
+                    return await backend.extract([tmp_path])
+                finally:
+                    if tmp_path is not None:
+                        try:
+                            os.unlink(tmp_path)
+                        except OSError:
+                            logger.debug(
+                                "Failed to remove temporary file: %s",
+                                tmp_path,
+                                exc_info=True,
+                            )
     except httpx2.HTTPError as e:
         logger.exception("HTTP Error downloading %s", url_str)
         raise HTTPException(status_code=500, detail=str(e))

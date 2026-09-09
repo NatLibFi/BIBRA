@@ -304,6 +304,8 @@ class TestServe:
             mock_uvicorn_run.assert_called_once_with(
                 "bibra.main:app", host="127.0.0.1", port=9999, reload=False
             )
+
+
 # Tests for the extract-url command.
 
 

@@ -621,11 +621,7 @@ class TestGetUrlProxy:
 
     def test_returns_none_when_not_set(self, monkeypatch):
         """Test that get_url_proxy returns None when the env var is not set."""
+        from bibra.config import get_url_proxy
+
         monkeypatch.delenv("BIBRA_URL_PROXY", raising=False)
-        # Re-import to get fresh import
-        import importlib
-
-        from bibra import config as bibra_config
-
-        importlib.reload(bibra_config)
-        assert bibra_config.get_url_proxy() is None
+        assert get_url_proxy() is None

@@ -165,15 +165,28 @@ def extract_url(project_id: str, url: str, config: str | None, output: str | Non
         raise click.ClickException(str(e)) from None
 
     try:
-        with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp:
-            proxy = get_url_proxy()
-            with httpx2.stream("GET", url, proxy=proxy) as response:
-                if response.status_code >= 400:
-                    raise httpx2.HTTPError(f"HTTP {response.status_code} for {url}")
-                for chunk in response.iter_bytes(chunk_size=1024 * 1024):
-                    tmp.write(chunk)
-                tmp.flush()
-            result = asyncio.run(backend.extract([tmp.name]))
+        import os
+
+        tmp_path: str | None = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+                tmp_path = tmp.name
+                proxy = get_url_proxy()
+                with httpx2.stream("GET", url, proxy=proxy) as response:
+                    if response.status_code >= 400:
+                        raise httpx2.HTTPError(
+                            f"HTTP {response.status_code} for {url}"
+                        )
+                    for chunk in response.iter_bytes(chunk_size=1024 * 1024):
+                        tmp.write(chunk)
+
+            result = asyncio.run(backend.extract([tmp_path]))
+        finally:
+            if tmp_path is not None:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
     except Exception as e:
         raise click.ClickException(f"Extraction failed: {e}") from e
 

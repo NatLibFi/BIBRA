@@ -130,7 +130,7 @@ async def extract_url(
     url: HttpUrl = Form(...),  # noqa: B008
 ) -> PublicationMetadata:
     """
-    Extract publication metadata from a PDF or image file at a given URL for a
+    Extract publication metadata from a PDF file at a given URL for a
     specific project.
 
     The download is performed with the SSRF-hardened fetch layer

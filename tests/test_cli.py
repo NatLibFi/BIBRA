@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
-from bibra.cli import _make_list_template, cli, extract, list_projects, run
+from bibra.cli import _make_list_template, cli, extract, list_projects, serve
 from bibra.config import ConfigError
 
 
@@ -26,7 +26,7 @@ class TestCli:
         assert "BIBRA - Bibliographic metadata extraction tool" in result.output
         assert "list-projects" in result.output
         assert "extract" in result.output
-        assert "run" in result.output
+        assert "serve" in result.output
 
     def test_cli_version(self):
         """Test CLI version output."""
@@ -248,39 +248,39 @@ class TestExtract:
             assert "Invalid config syntax" in result.output
 
 
-class TestRun:
-    """Tests for the run command."""
+class TestServe:
+    """Tests for the serve command."""
 
     def setup_method(self):
         """Set up test fixtures."""
         self.runner = CliRunner()
 
-    def test_run_help(self):
-        """Test run help output."""
-        result = self.runner.invoke(run, ["--help"])
+    def test_serve_help(self):
+        """Test serve help output."""
+        result = self.runner.invoke(serve, ["--help"])
         assert result.exit_code == 0
         assert not result.exception
-        assert "Run the BIBRA API server" in result.output
+        assert "Serve the BIBRA API server" in result.output
         assert "--host" in result.output
         assert "--port" in result.output
         assert "-p" in result.output
         assert "--reload" in result.output
 
-    def test_run_defaults(self):
-        """Test that run calls uvicorn.run with default host and port."""
+    def test_serve_defaults(self):
+        """Test that serve calls uvicorn.run with default host and port."""
         with patch("bibra.cli.uvicorn.run") as mock_uvicorn_run:
-            result = self.runner.invoke(run)
+            result = self.runner.invoke(serve)
             assert result.exit_code == 0
             assert not result.exception
             mock_uvicorn_run.assert_called_once_with(
                 "bibra.main:app", host="127.0.0.1", port=8000, reload=False
             )
 
-    def test_run_with_options(self):
-        """Test that run passes host, port, and reload to uvicorn.run."""
+    def test_serve_with_options(self):
+        """Test that serve passes host, port, and reload to uvicorn.run."""
         with patch("bibra.cli.uvicorn.run") as mock_uvicorn_run:
             result = self.runner.invoke(
-                run, ["--host", "0.0.0.0", "--port", "24272", "--reload"]
+                serve, ["--host", "0.0.0.0", "--port", "24272", "--reload"]
             )
             assert result.exit_code == 0
             assert not result.exception
@@ -288,10 +288,10 @@ class TestRun:
                 "bibra.main:app", host="0.0.0.0", port=24272, reload=True
             )
 
-    def test_run_with_short_port_option(self):
-        """Test that run passes the short -p port option to uvicorn.run."""
+    def test_serve_with_short_port_option(self):
+        """Test that serve passes the short -p port option to uvicorn.run."""
         with patch("bibra.cli.uvicorn.run") as mock_uvicorn_run:
-            result = self.runner.invoke(run, ["-p", "9999"])
+            result = self.runner.invoke(serve, ["-p", "9999"])
             assert result.exit_code == 0
             assert not result.exception
             mock_uvicorn_run.assert_called_once_with(

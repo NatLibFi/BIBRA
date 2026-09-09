@@ -106,7 +106,7 @@ def extract(project_id: str, file_path: str, config: str | None, output: str | N
         click.echo(json_output)
 
 
-@cli.command("run")
+@cli.command("serve")
 @click.option(
     "--host",
     default="127.0.0.1",
@@ -127,8 +127,8 @@ def extract(project_id: str, file_path: str, config: str | None, output: str | N
     default=False,
     help="Enable auto-reloading (useful during development).",
 )
-def run(host: str, port: int, reload: bool):
-    """Run the BIBRA API server (FastAPI + Web UI) in the foreground."""
+def serve(host: str, port: int, reload: bool):
+    """Serve the BIBRA API server (FastAPI + Web UI) in the foreground."""
     # The app is passed as a string import path so that uvicorn's
     # auto-reloader can import it in a separate worker process.
     uvicorn.run("bibra.main:app", host=host, port=port, reload=reload)

@@ -66,7 +66,7 @@ See the available CLI commands:
 
 Start up the API server and Web UI (add `--reload` for auto-reloading while developing):
 
-    uv run bibra run
+    uv run bibra serve
 
 ## Testing
 

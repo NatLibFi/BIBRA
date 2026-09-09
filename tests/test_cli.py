@@ -545,6 +545,7 @@ class TestExtractUrl:
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
             patch("bibra.cli.httpx2.stream") as mock_stream,
+            patch("bibra.cli.get_url_proxy", return_value=None),
         ):
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry

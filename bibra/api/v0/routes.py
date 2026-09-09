@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
 from bibra import __version__
 from bibra.config import ConfigError, ProjectNotFoundError, ProjectRegistry
-from bibra.types import PublicationMetadata
+from bibra.types import Projects, PublicationMetadata, Version
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +30,17 @@ def get_registry(request: Request) -> ProjectRegistry:
     return registry
 
 
-@router.get("/")
+@router.get(
+    "/", response_model=Version, summary="Get version information", tags=["General"]
+)
 async def root():
-    """Return the API version information."""
+    """Return version information of BIBRA and the API."""
     return {"version": __version__, "message": "Welcome to BIBRA API v0"}
 
 
-@router.get("/projects")
+@router.get(
+    "/projects", response_model=Projects, summary="List projects", tags=["Projects"]
+)
 async def list_projects(registry: Annotated[ProjectRegistry, Depends(get_registry)]):
     """Return a list of configured projects."""
     try:
@@ -49,6 +53,8 @@ async def list_projects(registry: Annotated[ProjectRegistry, Depends(get_registr
 
 @router.post(
     "/projects/{project_id}/extract",
+    summary="Extract metadata",
+    tags=["Extraction"],
     responses={400: {"description": "Bad Request - malformed multipart data"}},
 )
 async def extract(
@@ -65,6 +71,12 @@ async def extract(
 
     Returns:
         PublicationMetadata: Extracted metadata as JSON
+
+    Example:
+        ```
+        curl -X POST "http://localhost:8000/v0/projects/my_project/extract" \
+             -F "files=@/path/to/document.pdf"
+        ```
     """
     temp_files: list[str] = []
     try:

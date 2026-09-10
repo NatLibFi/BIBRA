@@ -91,14 +91,21 @@ hardened fetch layer (`bibra/net_security.py`) that applies defense in depth:
   BIBRA.
 - **Scheme allowlist.** Only `https` by default (extend with
   `BIBRA_URL_SCHEMES`).
-- **Resolved-IP blocking (direct mode).** In `direct` mode, the resolved
-  destination IP is checked at connect time (not just the initial URL)
-  against a table of non-public ranges — loopback, RFC 1918, link-local/cloud
-  metadata (`169.254.169.254`), CGNAT, and reserved multicast/unique-local
-  ranges — for both IPv4 and IPv6. This also covers every redirect hop, which
-  defeats DNS-rebinding and redirect-based bypasses. In proxy mode this
-  check is skipped: the proxy's own egress allowlist is the authoritative
-  control, and local DNS results may not match the proxy's resolver.
+- **Resolved-IP blocking (direct mode).** In `direct` mode, the hostname
+  is resolved and every resolved address is checked against a table of
+  non-public ranges — loopback, RFC 1918, link-local/cloud metadata
+  (`169.254.169.254`), CGNAT, and reserved multicast/unique-local ranges —
+  for both IPv4 and IPv6, not just for the initial URL: the check is
+  re-applied on every redirect hop, defeating redirect-based bypasses.
+  In proxy mode this check is skipped: the proxy's own egress allowlist
+  is the authoritative control, and local DNS results may not match the
+  proxy's resolver.
+  *Known limitation:* the check resolves the hostname once and the HTTP
+  transport then resolves it again when dialing the socket, leaving a
+  small TOCTOU window that an actively rebinding DNS resolver could
+  exploit in `direct` mode. The check therefore mitigates, but does not
+  fully eliminate, DNS rebinding; the full protection is provided by
+  routing egress through a proxy.
 - **Resource limits.** A hard byte cap (`BIBRA_URL_MAX_BYTES`) and explicit
   timeouts (`BIBRA_URL_TIMEOUT`) are enforced, and redirects are bounded
   (`BIBRA_URL_MAX_REDIRECTS`).

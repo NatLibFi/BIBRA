@@ -7,6 +7,14 @@ redirect hop, and ``fetch_file``, which permits egress only through a
 configured proxy or explicit "direct" mode, checks resolved destination
 IPs at connect time, and enforces size, timeout, and content (PDF) limits.
 
+Known limitation (direct mode): the destination check resolves the
+hostname once and then the underlying transport resolves it again when
+dialing the socket. A DNS rebinding response between the two lookups
+could swap in a blocked address, so the protection mitigates but does not
+guarantee against DNS rebinding in direct mode. Proxy mode is not
+affected: the proxy's own egress allowlist is the authoritative control.
+In production, prefer configuring BIBRA_URL_PROXY over "direct".
+
 See the "Security" section of the README for the full model.
 """
 
@@ -375,9 +383,12 @@ def _build_async_transport(
     """Build an async transport that re-validates every request URL against
     the policy (each redirect hop issues a fresh request through the
     transport, so every hop is checked) and, in direct mode, additionally
-    checks the resolved destination IP at connect time to close the
-    DNS-rebinding window (in proxy mode the proxy's egress allowlist is
-    authoritative, and local DNS results may not match its resolver).
+    checks the resolved destination IP at request time, which mitigates
+    SSRF and DNS rebinding (see the known-limitation note in the module
+    docstring: the underlying transport resolves the host again when
+    dialing, so the protection is not a guarantee). In proxy mode the
+    proxy's egress allowlist is authoritative, and local DNS results may
+    not match its resolver.
     ``trust_env=False`` ignores ambient HTTP(S)_PROXY/NO_PROXY vars: the
     only egress route ever in effect is the explicit policy proxy.
     """
@@ -388,8 +399,9 @@ def _build_async_transport(
             validate_url(str(request.url), policy)
             if proxy is None:
                 # Direct egress: check the resolved destination IP
-                # (closes the DNS-rebinding window). In proxy mode the
-                # proxy's egress allowlist is the authoritative control.
+                # (mitigates SSRF/DNS rebinding; see module docstring for
+                # the residual TOCTOU window). In proxy mode the proxy's
+                # egress allowlist is the authoritative control.
                 await _check_destination(request.url.host, request.url.port)
             return await super().handle_async_request(request)
 

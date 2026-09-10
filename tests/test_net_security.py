@@ -265,6 +265,18 @@ class TestValidateUrl:
         with pytest.raises(UrlPolicyError):
             validate_url("https://2130706433/paper.pdf", policy)
 
+    def test_unparseable_numeric_hostname_rejected(self):
+        """A numeric hostname that is not a valid IPv4 literal is rejected.
+
+        4294967296 == 2**32 is just above the IPv4 address space, so
+        ipaddress.ip_address() cannot parse it; the is_ip_literal gate
+        still classifies it as an IP literal and rejects it.
+        """
+        policy = make_policy()
+
+        with pytest.raises(UrlPolicyError):
+            validate_url("https://4294967296/paper.pdf", policy)
+
     def test_error_messages_are_generic(self):
         """Rejection messages never leak the offending URL."""
         policy = make_policy()

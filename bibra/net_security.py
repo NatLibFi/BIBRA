@@ -211,18 +211,18 @@ def validate_url(url: str, policy: UrlFetchPolicy) -> None:
         logger.warning("URL without host rejected: %s", url)
         raise UrlPolicyError("URL rejected by fetch policy")
 
-    ip = parse_ip_host(host)
-    if ip is not None:
-        if is_blocked_ip(ip):
+    if _NUMERIC_HOST_RE.match(host):
+        # All-numeric hostname (decimal IP obfuscation attempt).
+        logger.warning("Numeric hostname rejected: %s", url)
+        raise UrlPolicyError("URL rejected by fetch policy")
+    if is_ip_literal(host):
+        ip = parse_ip_host(host)
+        if ip is not None and is_blocked_ip(ip):
             logger.warning("Blocked IP literal rejected: %s", url)
             raise UrlPolicyError("URL rejected by fetch policy")
         if not policy.allow_ip_hosts:
             logger.warning("IP literal host rejected: %s", url)
             raise UrlPolicyError("URL rejected by fetch policy")
-    elif _NUMERIC_HOST_RE.match(host):
-        # All-numeric hostname (decimal IP obfuscation attempt).
-        logger.warning("Numeric hostname rejected: %s", url)
-        raise UrlPolicyError("URL rejected by fetch policy")
 
 
 def is_pdf(data: bytes) -> bool:

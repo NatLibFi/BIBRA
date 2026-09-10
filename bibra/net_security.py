@@ -294,20 +294,27 @@ async def _check_destination(host: str, port: int | None) -> None:
             raise _BlockedDestinationError(f"http://{host}", str(ip))
 
 
-def _build_async_transport(proxy: str | None) -> httpx2.AsyncHTTPTransport:
-    """Build an async transport that validates each request's destination.
+def _build_async_transport(
+    policy: UrlFetchPolicy, proxy: str | None
+) -> httpx2.AsyncHTTPTransport:
+    """Build an async transport that validates each request against policy.
 
-    Every request URL's resolved IP is re-checked at connect time, which
-    closes the DNS-rebinding window and covers every redirect hop
-    (httpx issues a fresh request through the transport for each hop).
+    Every request URL is re-checked at connect time: the full static policy
+    (scheme allowlist, malformed URL handling, IP-literal rules, numeric-host
+    blocking) via ``validate_url``, plus a resolved-IP check that closes the
+    DNS-rebinding window. Because httpx issues a fresh request through the
+    transport for each redirect hop, every hop is re-validated against the
+    active policy.
 
     Args:
+        policy: The active UrlFetchPolicy applied to every request.
         proxy: Proxy URL to route through, or None for direct egress.
     """
     proxy_arg = httpx2.Proxy(proxy) if proxy else None
 
     class _SafeAsyncTransport(httpx2.AsyncHTTPTransport):
         async def handle_async_request(self, request: httpx2.Request):
+            validate_url(str(request.url), policy)
             await _check_destination(request.url.host, request.url.port)
             return await super().handle_async_request(request)
 
@@ -331,7 +338,7 @@ def _client_kwargs(policy: UrlFetchPolicy) -> dict:
         "timeout": timeout,
         "follow_redirects": True,
         "max_redirects": policy.max_redirects,
-        "transport": _build_async_transport(proxy),
+        "transport": _build_async_transport(policy, proxy),
     }
 
 
@@ -369,8 +376,9 @@ async def fetch_file(
 
     Layers of defense, in order:
       1. ``validate_url`` (static: proxy mode, scheme, host, IP literal)
-      2. httpx2 request through a wrapped transport that re-validates the
-         resolved destination IP at connect time for every redirect hop
+      2. httpx2 request through a wrapped transport that re-applies the
+         full URL policy and re-checks the resolved destination IP at
+         connect time for every request, including each redirect hop
       3. hard ``max_bytes`` cap, enforced against Content-Length and by
          counting streamed bytes
       4. explicit timeouts (``policy.timeout``)

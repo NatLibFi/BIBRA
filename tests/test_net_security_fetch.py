@@ -7,6 +7,8 @@ mitigations end-to-end:
       localhost hostname are refused without any patching)
     - redirect-hijack refusal (a reachable host 302-redirecting to the
       cloud-metadata address is refused on the hop)
+    - per-hop policy re-application (redirects to a disallowed scheme or
+      to an IP literal with allow_ip_hosts=False are refused on the hop)
     - hard size-cap enforcement (Content-Length pre-check and mid-stream)
     - content-type allowlist and magic-byte verification
     - proxy-required refusal
@@ -170,6 +172,56 @@ class TestRedirectRevalidation:
             with pytest.raises(ns.UrlPolicyError):
                 asyncio.run(
                     ns.fetch_file(f"http://127.0.0.1:{port}/start", _make_policy())
+                )
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+    def test_redirect_to_disallowed_scheme_refused_on_hop(self, monkeypatch):
+        """A 302 to a scheme outside the allowlist is refused on the hop.
+
+        Only the per-hop static policy re-check can produce this rejection:
+        the redirect target uses ftp, which is never connectable, so the
+        connect-time IP check is not what blocks it.
+        """
+        monkeypatch.setattr(ns, "is_blocked_ip", lambda ip: False)
+
+        class Redir(_RedirectHandler):
+            location = "ftp://example.invalid/x.pdf"
+
+        srv, port = _start_server(Redir)
+        try:
+            with pytest.raises(ns.UrlPolicyError):
+                asyncio.run(
+                    ns.fetch_file(
+                        f"http://127.0.0.1:{port}/start",
+                        _make_policy(schemes=("http",)),
+                    )
+                )
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+    def test_redirect_to_ip_literal_refused_when_disallowed(self, monkeypatch):
+        """A 302 to an IP literal is refused when allow_ip_hosts is False.
+
+        The initial URL uses a hostname so it passes the pre-flight check;
+        the redirect target IP is public (range-not-blocked), so only the
+        per-hop re-application of the allow_ip_hosts rule rejects it.
+        """
+        monkeypatch.setattr(ns, "is_blocked_ip", lambda ip: False)
+
+        class Redir(_RedirectHandler):
+            location = "http://93.184.216.34/x.pdf"
+
+        srv, port = _start_server(Redir)
+        try:
+            with pytest.raises(ns.UrlPolicyError):
+                asyncio.run(
+                    ns.fetch_file(
+                        f"http://localhost:{port}/start",
+                        _make_policy(allow_ip_hosts=False),
+                    )
                 )
         finally:
             srv.shutdown()

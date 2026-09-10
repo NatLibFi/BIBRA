@@ -83,6 +83,32 @@ def _start_server(handler_cls) -> tuple[socketserver.TCPServer, int]:
     return srv, srv.server_address[1]
 
 
+def _start_recording_proxy() -> tuple[socket.socket, int, list]:
+    """A socket that accepts (and closes) connections, recording them.
+
+    Acts as a dummy forward proxy for tests: any connection made to it is
+    evidence that egress was routed through it.
+    """
+    sock = socket.socket()
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind(("127.0.0.1", 0))
+    sock.listen(5)
+    port = sock.getsockname()[1]
+    connections: list = []
+
+    def _accept_loop():
+        while True:
+            try:
+                conn, addr = sock.accept()
+            except OSError:
+                return
+            connections.append(addr)
+            conn.close()
+
+    threading.Thread(target=_accept_loop, daemon=True).start()
+    return sock, port, connections
+
+
 @pytest.fixture
 def pdf_server():
     """A local server that serves a valid PDF body."""
@@ -435,32 +461,10 @@ class TestAmbientProxyEnvIgnored:
     in effect is the policy's explicit BIBRA_URL_PROXY (if any).
     """
 
-    @staticmethod
-    def _start_recording_proxy() -> tuple[socket.socket, int, list]:
-        """A socket that accepts (and closes) connections, recording them."""
-        sock = socket.socket()
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind(("127.0.0.1", 0))
-        sock.listen(5)
-        port = sock.getsockname()[1]
-        connections: list = []
-
-        def _accept_loop():
-            while True:
-                try:
-                    conn, addr = sock.accept()
-                except OSError:
-                    return
-                connections.append(addr)
-                conn.close()
-
-        threading.Thread(target=_accept_loop, daemon=True).start()
-        return sock, port, connections
-
     def test_direct_mode_ignores_ambient_proxy(self, pdf_server, monkeypatch):
         """With HTTP_PROXY/HTTPS_PROXY set, direct mode still goes direct."""
         monkeypatch.setattr(ns, "is_blocked_ip", lambda ip: False)
-        sock, port, connections = self._start_recording_proxy()
+        sock, port, connections = _start_recording_proxy()
         monkeypatch.setenv("HTTP_PROXY", f"http://127.0.0.1:{port}")
         monkeypatch.setenv("HTTPS_PROXY", f"http://127.0.0.1:{port}")
         try:
@@ -476,7 +480,7 @@ class TestAmbientProxyEnvIgnored:
     def test_explicit_proxy_still_used(self, pdf_server, monkeypatch):
         """An explicitly configured proxy is still routed through."""
         monkeypatch.setattr(ns, "is_blocked_ip", lambda ip: False)
-        sock, port, connections = self._start_recording_proxy()
+        sock, port, connections = _start_recording_proxy()
         monkeypatch.delenv("HTTP_PROXY", raising=False)
         monkeypatch.delenv("HTTPS_PROXY", raising=False)
         try:
@@ -494,6 +498,71 @@ class TestAmbientProxyEnvIgnored:
             sock.close()
 
         assert len(connections) >= 1, "explicit proxy was not used"
+
+
+class TestProxyModeDnsCheck:
+    """The connect-time resolved-IP check applies in direct mode only.
+
+    In proxy mode the proxy's own egress allowlist is the authoritative
+    control; a local getaddrinfo of the target is skipped (no false
+    positives from resolver differences, no unexpected local DNS lookup).
+    """
+
+    def test_proxy_mode_skips_local_dns_check(self, monkeypatch):
+        """In proxy mode no local getaddrinfo of the target is performed."""
+        calls = []
+
+        def _boom(*args, **kwargs):
+            calls.append(args)
+            raise socket.gaierror("must not be called in proxy mode")
+
+        monkeypatch.setattr(socket, "getaddrinfo", _boom)
+        sock, port, _ = _start_recording_proxy()
+        try:
+            # The dummy proxy closes the connection, so the fetch fails at
+            # the protocol level — but it must get there without a local
+            # DNS lookup of the target (no UrlPolicyError / ConnectError
+            # from our check, only the proxy's protocol failure).
+            with pytest.raises(httpx2.HTTPError) as exc_info:
+                asyncio.run(
+                    ns.fetch_file(
+                        "http://some-unresolvable-host.invalid/x.pdf",
+                        _make_policy(proxy=f"http://127.0.0.1:{port}"),
+                    )
+                )
+        finally:
+            sock.close()
+
+        assert calls == [], "proxy mode performed a local DNS lookup"
+        assert not isinstance(exc_info.value, ns.UrlPolicyError)
+
+    def test_direct_mode_still_runs_dns_check(self, monkeypatch):
+        """In direct mode the resolved-IP check still runs (via getaddrinfo)."""
+        calls = []
+        real = socket.getaddrinfo
+
+        def _counting(*args, **kwargs):
+            calls.append(args)
+            return real(*args, **kwargs)
+
+        monkeypatch.setattr(socket, "getaddrinfo", _counting)
+        monkeypatch.setattr(ns, "is_blocked_ip", lambda ip: False)
+
+        class Handler(_Handler):
+            def do_GET(self):
+                self._send(PDF_BODY)
+
+        srv, port = _start_server(Handler)
+        try:
+            data = asyncio.run(
+                ns.fetch_file(f"http://localhost:{port}/x.pdf", _make_policy())
+            )
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+        assert data == PDF_BODY
+        assert len(calls) >= 1, "direct mode skipped the resolved-IP check"
 
 
 class TestFetchFileSync:

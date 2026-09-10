@@ -173,20 +173,17 @@ class TestValidateUrl:
     """Tests for validate_url (static, pre-flight URL validation)."""
 
     def test_refused_when_proxy_not_configured(self):
-        """With no proxy configured, every URL is refused."""
+        """With no proxy configured, every URL is refused.
+
+        ProxyRequiredError is a UrlPolicyError but carries its own type and
+        a message that names the env var to fix.
+        """
         policy = make_policy(proxy=None)
 
-        with pytest.raises(ProxyRequiredError):
+        with pytest.raises(ProxyRequiredError) as exc_info:
             validate_url("https://example.com/paper.pdf", policy)
 
-    def test_proxy_required_is_distinguishable(self):
-        """ProxyRequiredError is a UrlPolicyError but carries its own type."""
-        policy = make_policy(proxy=None)
-
-        with pytest.raises(UrlPolicyError) as exc_info:
-            validate_url("https://example.com/paper.pdf", policy)
-
-        assert isinstance(exc_info.value, ProxyRequiredError)
+        assert isinstance(exc_info.value, UrlPolicyError)
         assert "BIBRA_URL_PROXY" in str(exc_info.value)
 
     def test_https_url_accepted(self):
@@ -355,6 +352,13 @@ class TestValidateUrlLogsRedacted:
 
     SENSITIVE_URL = "https://user:supersecrettoken@api.example.com/doc.pdf?key=abc123"
 
+    @staticmethod
+    def _assert_logs_redacted(caplog, host):
+        """No secret substrings in the logs; the host is still diagnosable."""
+        assert "supersecrettoken" not in caplog.text
+        assert "key=abc123" not in caplog.text
+        assert host in caplog.text
+
     def test_scheme_rejection_logs_redacted(self, caplog):
         """A scheme rejection never logs userinfo or query verbatim."""
         policy = make_policy()
@@ -362,9 +366,7 @@ class TestValidateUrlLogsRedacted:
         with caplog.at_level("WARNING"), pytest.raises(UrlPolicyError):
             validate_url("http://" + self.SENSITIVE_URL.split("://", 1)[1], policy)
 
-        assert "supersecrettoken" not in caplog.text
-        assert "key=abc123" not in caplog.text
-        assert "api.example.com/doc.pdf" in caplog.text
+        self._assert_logs_redacted(caplog, "api.example.com/doc.pdf")
 
     def test_blocked_ip_rejection_logs_redacted(self, caplog):
         """A blocked-IP rejection never logs userinfo or query verbatim."""
@@ -374,9 +376,7 @@ class TestValidateUrlLogsRedacted:
         with caplog.at_level("WARNING"), pytest.raises(UrlPolicyError):
             validate_url(url, policy)
 
-        assert "supersecrettoken" not in caplog.text
-        assert "key=abc123" not in caplog.text
-        assert "169.254.169.254" in caplog.text
+        self._assert_logs_redacted(caplog, "169.254.169.254")
 
     def test_proxy_required_rejection_logs_redacted(self, caplog):
         """The 503 no-proxy path never logs userinfo or query verbatim."""
@@ -385,8 +385,7 @@ class TestValidateUrlLogsRedacted:
         with caplog.at_level("WARNING"), pytest.raises(ProxyRequiredError):
             validate_url(self.SENSITIVE_URL, policy)
 
-        assert "supersecrettoken" not in caplog.text
-        assert "key=abc123" not in caplog.text
+        self._assert_logs_redacted(caplog, "api.example.com/doc.pdf")
 
 
 class TestIsPdf:

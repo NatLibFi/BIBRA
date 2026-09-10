@@ -446,6 +446,7 @@ async def fetch_file(url: str, policy: UrlFetchPolicy) -> bytes:
                 timeout=httpx2.Timeout(policy.timeout),
                 follow_redirects=True,
                 max_redirects=policy.max_redirects,
+                trust_env=False,
                 transport=_build_async_transport(policy, proxy),
             ) as client,
             client.stream("GET", url) as response,

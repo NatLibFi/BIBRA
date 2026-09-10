@@ -231,6 +231,33 @@ def parse_ip_host(host: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | 
         return None
 
 
+def redact_url(url: str) -> str:
+    """Return a log-safe representation of a user-supplied URL.
+
+    User-supplied URLs can carry credentials or access tokens in the
+    userinfo component (``user:token@host``) or in the query/fragment
+    strings, so logging the raw URL verbatim would persist secrets in
+    server logs. This helper keeps only ``scheme://host[:port]/path``,
+    which is everything the fetch policy actually inspects, and appends
+    a marker when something was redacted so that operators can tell the
+    logged URL was truncated.
+
+    URLs that carry no userinfo, query, or fragment are returned
+    unchanged (byte-identical), and input that cannot be parsed as a
+    URL is returned as-is (there is no URL structure to strip).
+    """
+    try:
+        parts = urllib.parse.urlsplit(url)
+    except ValueError:
+        return url
+    if not parts.username and not parts.query and not parts.fragment:
+        return url
+    netloc = parts.hostname or ""
+    if parts.port is not None:
+        netloc = f"{netloc}:{parts.port}"
+    return f"{parts.scheme}://{netloc}{parts.path} [userinfo/query/fragment redacted]"
+
+
 def validate_url(url: str, policy: UrlFetchPolicy) -> None:
     """Statically validate a URL against the fetch policy.
 
@@ -247,8 +274,9 @@ def validate_url(url: str, policy: UrlFetchPolicy) -> None:
             is generic (no hostnames or internal details) so it is safe
             to surface to clients.
     """
+    safe_url = redact_url(url)
     if policy.proxy_required:
-        logger.warning("URL fetch refused (no proxy configured): %s", url)
+        logger.warning("URL fetch refused (no proxy configured): %s", safe_url)
         raise ProxyRequiredError(ProxyRequiredError.MESSAGE)
 
     try:
@@ -259,7 +287,10 @@ def validate_url(url: str, policy: UrlFetchPolicy) -> None:
         # The value itself is unused, so discard it into a throwaway name.
         _ = parts.port
     except ValueError:
-        logger.warning("Malformed URL rejected: %r", url)
+        # urlsplit itself failed, or the port was not numeric: redact_url()
+        # returns the input unchanged in the former case and strips any
+        # userinfo/query in the latter.
+        logger.warning("Malformed URL rejected: %r", safe_url)
         raise UrlPolicyError("URL rejected by fetch policy") from None
 
     scheme = (parts.scheme or "").lower()
@@ -268,12 +299,12 @@ def validate_url(url: str, policy: UrlFetchPolicy) -> None:
             "URL scheme %r rejected (allowed: %s): %s",
             scheme,
             ",".join(policy.schemes),
-            url,
+            safe_url,
         )
         raise UrlPolicyError("URL rejected by fetch policy")
 
     if not host:
-        logger.warning("URL without host rejected: %s", url)
+        logger.warning("URL without host rejected: %s", safe_url)
         raise UrlPolicyError("URL rejected by fetch policy")
 
     if is_ip_literal(host):
@@ -281,13 +312,13 @@ def validate_url(url: str, policy: UrlFetchPolicy) -> None:
         if ip is None:
             # All-numeric hostname (decimal IP obfuscation attempt); always
             # rejected, even when IP literal hosts are otherwise allowed.
-            logger.warning("Numeric hostname rejected: %s", url)
+            logger.warning("Numeric hostname rejected: %s", safe_url)
             raise UrlPolicyError("URL rejected by fetch policy")
         if is_blocked_ip(ip):
-            logger.warning("Blocked IP literal rejected: %s", url)
+            logger.warning("Blocked IP literal rejected: %s", safe_url)
             raise UrlPolicyError("URL rejected by fetch policy")
         if not policy.allow_ip_hosts:
-            logger.warning("IP literal host rejected: %s", url)
+            logger.warning("IP literal host rejected: %s", safe_url)
             raise UrlPolicyError("URL rejected by fetch policy")
 
 
@@ -437,6 +468,7 @@ async def fetch_file(url: str, policy: UrlFetchPolicy) -> bytes:
         UrlPolicyError: If any other policy rule is violated.
         httpx2.HTTPError: If the network request itself fails.
     """
+    safe_url = redact_url(url)
     validate_url(url, policy)
     proxy = policy.proxy if policy.proxy not in (None, URL_FETCH_DIRECT) else None
 
@@ -452,7 +484,7 @@ async def fetch_file(url: str, policy: UrlFetchPolicy) -> bytes:
             client.stream("GET", url) as response,
         ):
             if response.status_code >= 400:
-                logger.warning("HTTP %d fetching %s", response.status_code, url)
+                logger.warning("HTTP %d fetching %s", response.status_code, safe_url)
                 raise httpx2.HTTPError(f"HTTP {response.status_code} while downloading")
             _validate_response_headers(response, policy)
 
@@ -468,7 +500,7 @@ async def fetch_file(url: str, policy: UrlFetchPolicy) -> bytes:
                     logger.debug(
                         "Non-numeric Content-Length %r from %s",
                         content_length,
-                        url,
+                        safe_url,
                     )
 
             chunks: list[bytes] = []
@@ -478,7 +510,7 @@ async def fetch_file(url: str, policy: UrlFetchPolicy) -> bytes:
                 if total > policy.max_bytes:
                     logger.warning(
                         "Download from %s exceeded %d bytes; aborting",
-                        url,
+                        safe_url,
                         policy.max_bytes,
                     )
                     raise DownloadSizeExceededError(DownloadSizeExceededError.MESSAGE)

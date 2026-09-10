@@ -17,6 +17,7 @@ from bibra.net_security import (
     is_pdf,
     load_url_fetch_policy,
     parse_ip_host,
+    redact_url,
     validate_url,
 )
 
@@ -293,6 +294,99 @@ class TestValidateUrl:
 
         assert "example.com" not in str(exc_info.value)
         assert "secret.pdf" not in str(exc_info.value)
+
+
+class TestRedactUrl:
+    """Tests for redact_url (log-safe URL representation)."""
+
+    def test_userinfo_stripped_with_marker(self):
+        """Credentials in the userinfo component are removed."""
+        url = "https://user:ghp_abc123@api.example.com/reports/q1.pdf"
+        assert redact_url(url) == (
+            "https://api.example.com/reports/q1.pdf [userinfo/query/fragment redacted]"
+        )
+        assert "ghp_abc123" not in redact_url(url)
+
+    def test_query_stripped_with_marker(self):
+        """Tokens in the query string are removed."""
+        url = "https://api.example.com/doc.pdf?api_key=sk_live_9988"
+        assert redact_url(url) == (
+            "https://api.example.com/doc.pdf [userinfo/query/fragment redacted]"
+        )
+        assert "sk_live_9988" not in redact_url(url)
+
+    def test_fragment_stripped_with_marker(self):
+        """Fragments are removed as well."""
+        url = "https://example.com/doc.pdf#access=token123"
+        assert redact_url(url) == (
+            "https://example.com/doc.pdf [userinfo/query/fragment redacted]"
+        )
+        assert "token123" not in redact_url(url)
+
+    def test_port_and_path_preserved(self):
+        """Host, port, and path survive redaction for diagnosability."""
+        url = "https://cdn.files.example.net:8080/pdfs/98765/paper.pdf?signature=HMAC"
+        assert redact_url(url) == (
+            "https://cdn.files.example.net:8080/pdfs/98765/paper.pdf"
+            " [userinfo/query/fragment redacted]"
+        )
+
+    def test_clean_url_returned_unchanged(self):
+        """A URL with no userinfo/query/fragment is byte-identical."""
+        url = "https://example.com:443/doc.pdf"
+        assert redact_url(url) == url
+
+    def test_clean_url_no_marker(self):
+        """No redaction marker is added when nothing was stripped."""
+        assert "redacted" not in redact_url("https://example.com/doc.pdf")
+
+    def test_unparseable_input_returned_unchanged(self):
+        """Input that urlsplit cannot parse is returned as-is."""
+        url = "not a url at all"
+        assert redact_url(url) == url
+
+
+class TestValidateUrlLogsRedacted:
+    """Regression tests: rejection diagnostics must not persist secrets.
+
+    URLs may carry credentials in userinfo/query strings; every log
+    record emitted on a rejection path must be free of them.
+    """
+
+    SENSITIVE_URL = "https://user:supersecrettoken@api.example.com/doc.pdf?key=abc123"
+
+    def test_scheme_rejection_logs_redacted(self, caplog):
+        """A scheme rejection never logs userinfo or query verbatim."""
+        policy = make_policy()
+
+        with caplog.at_level("WARNING"), pytest.raises(UrlPolicyError):
+            validate_url("http://" + self.SENSITIVE_URL.split("://", 1)[1], policy)
+
+        assert "supersecrettoken" not in caplog.text
+        assert "key=abc123" not in caplog.text
+        assert "api.example.com/doc.pdf" in caplog.text
+
+    def test_blocked_ip_rejection_logs_redacted(self, caplog):
+        """A blocked-IP rejection never logs userinfo or query verbatim."""
+        policy = make_policy()
+        url = "https://user:supersecrettoken@169.254.169.254/meta?key=abc123"
+
+        with caplog.at_level("WARNING"), pytest.raises(UrlPolicyError):
+            validate_url(url, policy)
+
+        assert "supersecrettoken" not in caplog.text
+        assert "key=abc123" not in caplog.text
+        assert "169.254.169.254" in caplog.text
+
+    def test_proxy_required_rejection_logs_redacted(self, caplog):
+        """The 503 no-proxy path never logs userinfo or query verbatim."""
+        policy = make_policy(proxy=None)
+
+        with caplog.at_level("WARNING"), pytest.raises(ProxyRequiredError):
+            validate_url(self.SENSITIVE_URL, policy)
+
+        assert "supersecrettoken" not in caplog.text
+        assert "key=abc123" not in caplog.text
 
 
 class TestIsPdf:

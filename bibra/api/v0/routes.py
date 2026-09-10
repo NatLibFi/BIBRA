@@ -17,6 +17,7 @@ from bibra.net_security import (
     UrlPolicyError,
     fetch_file,
     load_url_fetch_policy,
+    redact_url,
 )
 from bibra.types import Projects, PublicationMetadata, Version
 
@@ -162,18 +163,19 @@ async def extract_url(
     url_str = str(url)
     policy = load_url_fetch_policy()
 
+    safe_url = redact_url(url_str)
     try:
         data = await fetch_file(url_str, policy)
     except ProxyRequiredError as e:
-        logger.info("URL fetch refused (no proxy configured): %s", url_str)
+        logger.info("URL fetch refused (no proxy configured): %s", safe_url)
         raise HTTPException(status_code=503, detail=e.MESSAGE)
     except UrlPolicyError as e:
         # Client-facing message stays generic; details were logged by
         # the fetch layer.
-        logger.info("URL rejected by fetch policy: %s", url_str)
+        logger.info("URL rejected by fetch policy: %s", safe_url)
         raise HTTPException(status_code=400, detail=str(e))
     except httpx2.HTTPError:
-        logger.exception("HTTP Error downloading %s", url_str)
+        logger.exception("HTTP Error downloading %s", safe_url)
         raise HTTPException(status_code=502, detail="Failed to download URL")
 
     return await backend.extract_from_bytes(data)

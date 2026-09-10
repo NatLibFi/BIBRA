@@ -341,6 +341,45 @@ class TestAPIRoutes:
         assert exc_info.value.status_code == 502
         assert "internal" not in exc_info.value.detail
 
+    @pytest.mark.parametrize(
+        ("side_effect",),
+        [
+            (ProxyRequiredError(ProxyRequiredError.MESSAGE),),
+            (UrlPolicyError("URL rejected by fetch policy"),),
+            (httpx2.HTTPError("connection refused"),),
+        ],
+        ids=["proxy-required-503", "policy-error-400", "http-error-502"],
+    )
+    async def test_extract_url_error_logs_redacted_url(
+        self, monkeypatch, caplog, side_effect
+    ):
+        """Error handlers never log userinfo/query of the submitted URL.
+
+        A caller can plant credentials or tokens in the URL; every log
+        record from the endpoint's failure paths must be free of them.
+        """
+        from pydantic import HttpUrl
+
+        monkeypatch.setenv("BIBRA_URL_PROXY", "direct")
+
+        registry = ProjectRegistry()
+        url = HttpUrl(
+            "https://user:supersecrettoken@api.example.com/doc.pdf?key=abc123"
+        )
+
+        with (
+            patch(
+                "bibra.api.v0.routes.fetch_file", new=AsyncMock(side_effect=side_effect)
+            ),
+            caplog.at_level("INFO"),
+            pytest.raises(HTTPException),
+        ):
+            await extract_url(project_id="dummy", registry=registry, url=url)
+
+        assert "supersecrettoken" not in caplog.text
+        assert "key=abc123" not in caplog.text
+        assert "api.example.com/doc.pdf" in caplog.text
+
     async def test_extract_url_cleanup_temp_file_on_backend_error(self, monkeypatch):
         """The temporary file is removed even if the backend raises."""
         from pydantic import HttpUrl

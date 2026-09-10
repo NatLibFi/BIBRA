@@ -3,6 +3,7 @@
 import asyncio
 
 import click
+import httpx2
 import uvicorn
 from dotenv import load_dotenv
 
@@ -180,9 +181,11 @@ def extract_url(project_id: str, url: str, config: str | None, output: str | Non
     try:
         data = fetch_file_sync(url, policy)
     except UrlPolicyError as e:
-        raise click.ClickException(f"Extraction failed: {e}") from None
-    except Exception as e:
-        raise click.ClickException(f"Extraction failed: {e}") from e
+        # Policy rejection (blocked destination, bad scheme, size cap, ...).
+        raise click.ClickException(f"Extraction failed (policy): {e}") from None
+    except httpx2.HTTPError as e:
+        # Network/download failure (DNS, connection, timeout, HTTP status).
+        raise click.ClickException(f"Extraction failed (network): {e}") from e
 
     try:
         result = asyncio.run(backend.extract_from_bytes(data))

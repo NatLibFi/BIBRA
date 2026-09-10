@@ -467,7 +467,7 @@ class TestExtractUrl:
         assert "Invalid config syntax" in result.output
 
     def test_extract_url_download_failure_converted_to_click_exception(self):
-        """Test download failure is wrapped as 'Extraction failed:'."""
+        """Test download failure is wrapped as 'Extraction failed (network):'."""
         import httpx2 as _httpx
 
         with (
@@ -486,7 +486,7 @@ class TestExtractUrl:
             )
 
         assert result.exit_code != 0
-        assert "Extraction failed:" in result.output
+        assert "Extraction failed (network):" in result.output
 
     def test_extract_url_generic_exception_converted_to_click_exception(self):
         """Test that a generic Exception during extraction is wrapped in
@@ -612,7 +612,8 @@ class TestExtractUrl:
             )
 
         assert result.exit_code != 0
-        assert "Extraction failed: URL rejected by fetch policy" in result.output
+        assert "Extraction failed (policy):" in result.output
+        assert "URL rejected by fetch policy" in result.output
         assert "169.254.169.254" not in result.output
 
 

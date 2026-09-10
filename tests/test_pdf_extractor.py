@@ -68,82 +68,76 @@ class TestChunkScore:
     """Tests for _chunk_score function."""
 
     def test_empty_chunk(self):
-        """Empty chunk should return (None, None)."""
-        score, feats = _chunk_score("", 0)
-        assert score is None
-        assert feats is None
+        """Empty chunk should return None."""
+        assert _chunk_score("", 0) is None
 
     def test_whitespace_only_chunk(self):
-        """Whitespace-only chunk should return (None, None)."""
-        score, feats = _chunk_score("   ", 0)
-        assert score is None
-        assert feats is None
+        """Whitespace-only chunk should return None."""
+        assert _chunk_score("   ", 0) is None
 
     def test_dots_only_chunk(self):
-        """Chunk with only dots should return (None, None)."""
-        score, feats = _chunk_score(".....", 0)
-        assert score is None
-        assert feats is None
+        """Chunk with only dots should return None."""
+        assert _chunk_score(".....", 0) is None
 
     def test_non_word_chunk(self):
-        """Chunk with only non-word chars should return (None, None)."""
-        score, feats = _chunk_score("!!!", 0)
-        assert score is None
-        assert feats is None
+        """Chunk with only non-word chars should return None."""
+        assert _chunk_score("!!!", 0) is None
 
     def test_year_detection(self):
         """Chunk with a year should get +500 score and 'year' feat."""
-        score, feats = _chunk_score("Published in 2024", 0)
-        assert score is not None
-        assert "year" in feats
+        result = _chunk_score("Published in 2024", 0)
+        assert result is not None
+        assert "year" in result.feats
 
     def test_doi_detection(self):
         """Chunk with DOI should get +1000 score and 'doi' feat."""
-        score, feats = _chunk_score("DOI: 10.1234/test", 0)
-        assert score is not None
-        assert "doi" in feats
+        result = _chunk_score("DOI: 10.1234/test", 0)
+        assert result is not None
+        assert "doi" in result.feats
 
     def test_isbn_detection(self):
         """Chunk with ISBN should get +1000 score and 'isbn' feat."""
-        score, feats = _chunk_score("ISBN: 978-0-123456-78-9", 0)
-        assert score is not None
-        assert "isbn" in feats
+        result = _chunk_score("ISBN: 978-0-123456-78-9", 0)
+        assert result is not None
+        assert "isbn" in result.feats
 
     def test_issn_detection(self):
         """Chunk with ISSN should get +1000 score and 'issn' feat."""
-        score, feats = _chunk_score("ISSN: 1234-5678", 0)
-        assert score is not None
-        assert "issn" in feats
+        result = _chunk_score("ISSN: 1234-5678", 0)
+        assert result is not None
+        assert "issn" in result.feats
 
     def test_http_detection(self):
         """Chunk with URL should get +1000 score and 'http' feat."""
-        score, feats = _chunk_score("https://example.com", 0)
-        assert score is not None
-        assert "http" in feats
+        result = _chunk_score("https://example.com", 0)
+        assert result is not None
+        assert "http" in result.feats
 
     def test_headline_detection(self):
         """Chunk starting with # should get +1000 score and 'headline' feat."""
-        score, feats = _chunk_score("# Introduction", 0)
-        assert score is not None
-        assert "headline" in feats
+        result = _chunk_score("# Introduction", 0)
+        assert result is not None
+        assert "headline" in result.feats
 
     def test_high_comma_proportion(self):
         """Chunk with high comma proportion should get bonus score."""
-        score, feats = _chunk_score("a,b,c,d,e,f,g", 0)
-        assert score is not None
-        assert "commas" in feats
+        result = _chunk_score("a,b,c,d,e,f,g", 0)
+        assert result is not None
+        assert "commas" in result.feats
 
     def test_high_emph_proportion(self):
         """Chunk with high emphasis proportion should get bonus score."""
-        score, feats = _chunk_score("*a*b*c*d*", 0)
-        assert score is not None
-        assert "emph" in feats
+        result = _chunk_score("*a*b*c*d*", 0)
+        assert result is not None
+        assert "emph" in result.feats
 
     def test_page_penalty(self):
         """Later pages should get a score penalty."""
-        score0, _ = _chunk_score("Test content here", 0)
-        score5, _ = _chunk_score("Test content here", 5)
-        assert score5 < score0  # later page has lower score
+        result0 = _chunk_score("Test content here", 0)
+        result5 = _chunk_score("Test content here", 5)
+        assert result0 is not None
+        assert result5 is not None
+        assert result5.score < result0.score  # later page has lower score
 
 
 class TestSplitText:

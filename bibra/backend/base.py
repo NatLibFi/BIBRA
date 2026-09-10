@@ -1,18 +1,22 @@
 """Abstract base class for all backends."""
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 from bibra.types import PublicationMetadata
 
+T = TypeVar("T")
 
-class BaseBackend(ABC):
+
+class BaseBackend(ABC, Generic[T]):
     """Abstract base class for all backend implementations.
 
     Every backend must implement the `extract` method to process files
     and return publication metadata, and `build_config` to construct
     its configuration from a generic ProjectConfig.
     """
+
+    cfg: T
 
     @abstractmethod
     async def extract(self, file_paths: list[str]) -> PublicationMetadata:

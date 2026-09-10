@@ -7,6 +7,7 @@ token budget.
 
 import collections
 import logging
+from dataclasses import dataclass
 from typing import Any
 
 import pymupdf
@@ -41,17 +42,26 @@ def _emph_proportion(chunk: str) -> float:
     return (chunk.count("_") + chunk.count("*")) / len(chunk)
 
 
-def _chunk_score(chunk: str, page_num: int) -> tuple[int | None, set[str] | None]:
-    """Score a text chunk to determine its informativeness.
+@dataclass(frozen=True)
+class ChunkScore:
+    """Informativeness score of a text chunk.
 
-    Returns a tuple of (score, feats) or (None, None) for low-quality chunks.
+    Attributes:
+        score: Numeric informativeness score; higher means more informative.
+        feats: Set of detected feature tags (e.g. "year", "doi", "commas").
     """
+
+    score: float
+    feats: set[str]
+
+
+def _chunk_score(chunk: str, page_num: int) -> ChunkScore | None:
     if not chunk.strip() or chunk == "-----":
-        return None, None
+        return None
     if "....." in chunk or ". . . . ." in chunk or "_ _ _ _ _" in chunk:
-        return None, None
+        return None
     if regex.match(r"^\W+$", chunk):
-        return None, None
+        return None
 
     score = -len(chunk) - 1000 * int(page_num / 2)
     feats: set[str] = set()
@@ -81,7 +91,7 @@ def _chunk_score(chunk: str, page_num: int) -> tuple[int | None, set[str] | None
         score += 10000 * _emph_proportion(chunk)
         feats.add("emph")
 
-    return score, feats
+    return ChunkScore(score, feats)
 
 
 def _split_text(text: str) -> list[str]:
@@ -136,14 +146,14 @@ def extract_content(file_path: str) -> dict[str, Any]:
         page_num = page.get("metadata", {}).get("page_number", 0)
 
         for chunk in _split_text(page["text"]):
-            score, feats = _chunk_score(chunk, page_num)
-            if score is not None:
+            result = _chunk_score(chunk, page_num)
+            if result is not None:
                 all_chunks.append(
                     {
                         "text": chunk,
                         "page": page_num,
-                        "score": score,
-                        "feats": feats,
+                        "score": result.score,
+                        "feats": result.feats,
                         "index": len(all_chunks),
                         "length": _count_tokens(chunk),
                     }

@@ -14,6 +14,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from bibra.backend import BaseBackend
+from bibra.env import interpolate_dict_values, interpolate_env_vars
 
 
 class ConfigError(Exception):
@@ -96,52 +97,6 @@ class ProjectConfig:
     extra: dict[str, Any] = field(default_factory=dict)
 
 
-def _interpolate_env_vars(value: Any) -> Any:
-    """Interpolate environment variables in a string value.
-
-    Supports ${VAR_NAME} syntax. If the environment variable is not set,
-    the original placeholder is preserved.
-
-    Args:
-        value: The string value to interpolate.
-
-    Returns:
-        The interpolated string, or the input unchanged if non-string.
-    """
-    if value is None:
-        return None
-    if not isinstance(value, str):
-        return value
-
-    result = value
-    start = 0
-    while start < len(result):
-        open_pos = result.find("${", start)
-        if open_pos == -1:
-            break
-        close_pos = result.find("}", open_pos + 2)
-        if close_pos == -1:
-            break
-
-        var_name = result[open_pos + 2 : close_pos]
-        env_value = os.environ.get(var_name)
-        if env_value is not None:
-            result = result[:open_pos] + env_value + result[close_pos + 1 :]
-            start = open_pos + len(env_value)
-        else:
-            start = close_pos + 1
-
-    return result
-
-
-def _interpolate_dict_values(d: dict[str, Any]) -> dict[str, Any]:
-    """Interpolate environment variables in all string values of a dict."""
-    return {
-        key: _interpolate_env_vars(value) if isinstance(value, str) else value
-        for key, value in d.items()
-    }
-
-
 class ProjectRegistry:
     """Loads and manages project configurations from a TOML file.
 
@@ -193,7 +148,7 @@ class ProjectRegistry:
         if isinstance(raw_defaults, dict):
             for key, value in raw_defaults.items():
                 if isinstance(value, str):
-                    defaults[key] = _interpolate_env_vars(value)
+                    defaults[key] = interpolate_env_vars(value)
                 else:
                     defaults[key] = value
 
@@ -207,7 +162,7 @@ class ProjectRegistry:
             merged: dict[str, Any] = dict(defaults)
             merged.update(config)
             # Interpolate all string values in merged
-            merged = _interpolate_dict_values(merged)
+            merged = interpolate_dict_values(merged)
 
             backend_type = merged.get("backend")
             if backend_type is None:

@@ -37,6 +37,8 @@ from typing import Protocol
 
 import httpx2
 
+from bibra.env import parse_bool_env, parse_int_env, parse_list_env
+
 logger = logging.getLogger(__name__)
 
 
@@ -84,37 +86,6 @@ class UrlFetchPolicy:
         return self.proxy is None
 
 
-def _parse_list_env(name: str, default: list[str]) -> tuple[str, ...]:
-    """Parse a comma-separated env var into a tuple of stripped strings.
-
-    Falls back to the default when the variable is unset or blank.
-    """
-    raw = os.environ.get(name, "")
-    items = [item.strip().lower() for item in raw.split(",") if item.strip()]
-    return tuple(items) if items else tuple(item.lower() for item in default)
-
-
-def _parse_int_env(name: str, default: int) -> int:
-    """Parse a positive-integer env var, falling back to the default."""
-    raw = os.environ.get(name, "").strip()
-    if not raw:
-        return default
-    try:
-        value = int(raw)
-    except ValueError:
-        logger.debug("Invalid %s=%r; using default %d", name, raw, default)
-        return default
-    return value if value > 0 else default
-
-
-def _parse_bool_env(name: str, default: bool) -> bool:
-    """Parse a boolean env var (1/true/yes/on), falling back to the default."""
-    raw = os.environ.get(name, "").strip().lower()
-    if not raw:
-        return default
-    return raw in {"1", "true", "yes", "on"}
-
-
 def get_url_proxy() -> str | None:
     """Return the BIBRA_URL_PROXY environment variable value.
 
@@ -149,16 +120,16 @@ def load_url_fetch_policy(cli_fallback: bool = False) -> UrlFetchPolicy:
         proxy = URL_FETCH_DIRECT
     return UrlFetchPolicy(
         proxy=proxy,
-        schemes=_parse_list_env("BIBRA_URL_SCHEMES", DEFAULT_URL_SCHEMES),
-        content_types=_parse_list_env(
+        schemes=parse_list_env("BIBRA_URL_SCHEMES", DEFAULT_URL_SCHEMES),
+        content_types=parse_list_env(
             "BIBRA_URL_CONTENT_TYPES", DEFAULT_URL_CONTENT_TYPES
         ),
-        max_bytes=_parse_int_env("BIBRA_URL_MAX_BYTES", DEFAULT_URL_MAX_BYTES),
-        timeout=_parse_int_env("BIBRA_URL_TIMEOUT", DEFAULT_URL_TIMEOUT),
-        max_redirects=_parse_int_env(
+        max_bytes=parse_int_env("BIBRA_URL_MAX_BYTES", DEFAULT_URL_MAX_BYTES),
+        timeout=parse_int_env("BIBRA_URL_TIMEOUT", DEFAULT_URL_TIMEOUT),
+        max_redirects=parse_int_env(
             "BIBRA_URL_MAX_REDIRECTS", DEFAULT_URL_MAX_REDIRECTS
         ),
-        allow_ip_hosts=_parse_bool_env(
+        allow_ip_hosts=parse_bool_env(
             "BIBRA_URL_ALLOW_IP_HOSTS", DEFAULT_URL_ALLOW_IP_HOSTS
         ),
     )

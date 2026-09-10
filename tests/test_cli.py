@@ -321,12 +321,19 @@ def _make_backend(json_payload=None):
     mock_result = MagicMock()
     mock_result.model_dump_json.return_value = json.dumps(json_payload, indent=2)
 
+    from bibra.backend.base import BaseBackend
+
     mock_backend = MagicMock()
 
     async def _extract(*args, **kwargs):
         return mock_result
 
     mock_backend.extract.side_effect = _extract
+    # Bind the real helper so the temp-file write/cleanup runs (the CLI now
+    # calls extract_from_bytes, not extract).
+    mock_backend.extract_from_bytes = BaseBackend.extract_from_bytes.__get__(
+        mock_backend, type(mock_backend)
+    )
     return mock_backend
 
 
@@ -484,9 +491,12 @@ class TestExtractUrl:
     def test_extract_url_generic_exception_converted_to_click_exception(self):
         """Test that a generic Exception during extraction is wrapped in
         ClickException with the 'Extraction failed:' prefix."""
+        from bibra.backend.base import BaseBackend
+
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
             patch("bibra.cli.fetch_file_sync", return_value=MOCK_PDF_BYTES),
+            patch("bibra.backend.base.os.unlink"),
         ):
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
@@ -496,6 +506,9 @@ class TestExtractUrl:
                 raise RuntimeError("PDF corrupted")
 
             mock_backend.extract.side_effect = _extract
+            mock_backend.extract_from_bytes = BaseBackend.extract_from_bytes.__get__(
+                mock_backend, type(mock_backend)
+            )
             mock_registry.get_backend.return_value = mock_backend
 
             result = self.runner.invoke(

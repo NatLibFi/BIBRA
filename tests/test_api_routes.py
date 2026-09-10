@@ -345,11 +345,17 @@ class TestAPIRoutes:
         """The temporary file is removed even if the backend raises."""
         from pydantic import HttpUrl
 
+        from bibra.backend.base import BaseBackend
+
         monkeypatch.setenv("BIBRA_URL_PROXY", "direct")
 
         registry = ProjectRegistry()
         mock_backend = MagicMock()
         mock_backend.extract = AsyncMock(side_effect=RuntimeError("boom"))
+        # Bind the real helper so the temp-file write/cleanup runs.
+        mock_backend.extract_from_bytes = BaseBackend.extract_from_bytes.__get__(
+            mock_backend, type(mock_backend)
+        )
         registry.get_backend = MagicMock(return_value=mock_backend)
 
         with (
@@ -357,7 +363,7 @@ class TestAPIRoutes:
                 "bibra.api.v0.routes.fetch_file",
                 new=AsyncMock(return_value=b"%PDF-1.4 mock content"),
             ),
-            patch("bibra.api.v0.routes.os.unlink") as mock_unlink,
+            patch("bibra.backend.base.os.unlink") as mock_unlink,
             pytest.raises(RuntimeError, match="boom"),
         ):
             await extract_url(

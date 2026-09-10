@@ -176,20 +176,4 @@ async def extract_url(
         logger.exception("HTTP Error downloading %s", url_str)
         raise HTTPException(status_code=502, detail="Failed to download URL")
 
-    tmp_path: str | None = None
-    try:
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-            tmp_path = tmp.name
-            tmp.write(data)
-
-        return await backend.extract([tmp_path])
-    finally:
-        if tmp_path is not None:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                logger.debug(
-                    "Failed to remove temporary file: %s",
-                    tmp_path,
-                    exc_info=True,
-                )
+    return await backend.extract_from_bytes(data)

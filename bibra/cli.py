@@ -2,8 +2,6 @@
 
 import asyncio
 import dataclasses
-import os
-import tempfile
 
 import click
 import uvicorn
@@ -190,24 +188,10 @@ def extract_url(project_id: str, url: str, config: str | None, output: str | Non
     except Exception as e:
         raise click.ClickException(f"Extraction failed: {e}") from e
 
-    tmp_path: str | None = None
     try:
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-            tmp_path = tmp.name
-            tmp.write(data)
-
-        result = asyncio.run(backend.extract([tmp_path]))
+        result = asyncio.run(backend.extract_from_bytes(data))
     except Exception as e:
         raise click.ClickException(f"Extraction failed: {e}") from e
-    finally:
-        if tmp_path is not None:
-            try:
-                os.unlink(tmp_path)
-            except OSError as e:
-                click.echo(
-                    f"Warning: could not remove temporary file {tmp_path}: {e}",
-                    err=True,
-                )
 
     json_output = result.model_dump_json(indent=2)
 

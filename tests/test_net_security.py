@@ -8,14 +8,15 @@ import ipaddress
 
 import pytest
 
-from bibra.config import UrlFetchPolicy, load_url_fetch_policy
 from bibra.net_security import (
     ContentValidator,
     ProxyRequiredError,
+    UrlFetchPolicy,
     UrlPolicyError,
     is_blocked_ip,
     is_ip_literal,
     is_pdf,
+    load_url_fetch_policy,
     parse_ip_host,
     validate_url,
 )

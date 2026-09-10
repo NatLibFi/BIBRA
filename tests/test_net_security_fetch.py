@@ -29,7 +29,7 @@ import httpx2
 import pytest
 
 import bibra.net_security as ns
-from bibra.config import UrlFetchPolicy
+from bibra.net_security import UrlFetchPolicy
 
 PDF_BODY = b"%PDF-1.7\n% fake pdf content\n%%EOF\n"
 METADATA_IP = "169.254.169.254"

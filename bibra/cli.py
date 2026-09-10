@@ -8,13 +8,12 @@ import uvicorn
 from dotenv import load_dotenv
 
 from bibra.backend import BaseBackend
-from bibra.config import (
-    ConfigError,
-    ProjectNotFoundError,
-    ProjectRegistry,
+from bibra.config import ConfigError, ProjectNotFoundError, ProjectRegistry
+from bibra.net_security import (
+    UrlPolicyError,
+    fetch_file_sync,
     load_url_fetch_policy,
 )
-from bibra.net_security import UrlPolicyError, fetch_file_sync
 from bibra.types import PublicationMetadata
 
 

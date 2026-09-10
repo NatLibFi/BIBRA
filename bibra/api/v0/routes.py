@@ -11,13 +11,13 @@ from pydantic import HttpUrl
 
 from bibra import __version__
 from bibra.backend import BaseBackend
-from bibra.config import (
-    ConfigError,
-    ProjectNotFoundError,
-    ProjectRegistry,
+from bibra.config import ConfigError, ProjectNotFoundError, ProjectRegistry
+from bibra.net_security import (
+    ProxyRequiredError,
+    UrlPolicyError,
+    fetch_file,
     load_url_fetch_policy,
 )
-from bibra.net_security import ProxyRequiredError, UrlPolicyError, fetch_file
 from bibra.types import Projects, PublicationMetadata, Version
 
 logger = logging.getLogger(__name__)

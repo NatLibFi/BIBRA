@@ -7,14 +7,16 @@ import pytest
 from bibra.backend.config import parse_bool_or_str, parse_int_or_str
 from bibra.backend.dummy import DummyBackend
 from bibra.config import (
-    URL_FETCH_DIRECT,
     BackendConfigError,
     ConfigFileNotFoundError,
     ConfigParseError,
     ProjectConfig,
     ProjectRegistry,
-    UrlFetchPolicy,
     _interpolate_env_vars,
+)
+from bibra.net_security import (
+    URL_FETCH_DIRECT,
+    UrlFetchPolicy,
     load_url_fetch_policy,
 )
 
@@ -618,27 +620,27 @@ class TestGetUrlProxy:
     def test_returns_proxy_when_set(self, monkeypatch):
         """Test that get_url_proxy returns the proxy URL when set."""
         monkeypatch.setenv("BIBRA_URL_PROXY", "http://proxy.example.com:8080")
-        from bibra.config import get_url_proxy
+        from bibra.net_security import get_url_proxy
 
         assert get_url_proxy() == "http://proxy.example.com:8080"
 
     def test_returns_none_when_not_set(self, monkeypatch):
         """Test that get_url_proxy returns None when the env var is not set."""
-        from bibra.config import get_url_proxy
+        from bibra.net_security import get_url_proxy
 
         monkeypatch.delenv("BIBRA_URL_PROXY", raising=False)
         assert get_url_proxy() is None
 
     def test_returns_none_when_empty(self, monkeypatch):
         """Test that an empty BIBRA_URL_PROXY is normalized to None."""
-        from bibra.config import get_url_proxy
+        from bibra.net_security import get_url_proxy
 
         monkeypatch.setenv("BIBRA_URL_PROXY", "")
         assert get_url_proxy() is None
 
     def test_returns_none_when_whitespace(self, monkeypatch):
         """Test that a whitespace-only BIBRA_URL_PROXY is normalized to None."""
-        from bibra.config import get_url_proxy
+        from bibra.net_security import get_url_proxy
 
         monkeypatch.setenv("BIBRA_URL_PROXY", "   \t\n  ")
         assert get_url_proxy() is None

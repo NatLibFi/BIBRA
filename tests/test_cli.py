@@ -5,7 +5,7 @@ import json
 import subprocess
 import sys
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
@@ -368,7 +368,7 @@ class TestExtractUrl:
         """Test extract-url command with a valid URL and successful extraction."""
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.fetch_file_sync", return_value=MOCK_PDF_BYTES),
+            patch("bibra.cli.fetch_file", new=AsyncMock(return_value=MOCK_PDF_BYTES)),
         ):
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
@@ -391,7 +391,7 @@ class TestExtractUrl:
 
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.fetch_file_sync", return_value=MOCK_PDF_BYTES),
+            patch("bibra.cli.fetch_file", new=AsyncMock(return_value=MOCK_PDF_BYTES)),
         ):
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
@@ -422,7 +422,7 @@ class TestExtractUrl:
 
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.fetch_file_sync", return_value=MOCK_PDF_BYTES),
+            patch("bibra.cli.fetch_file", new=AsyncMock(return_value=MOCK_PDF_BYTES)),
         ):
             mock_registry = MagicMock()
             mock_registry_cls.return_value = mock_registry
@@ -476,8 +476,10 @@ class TestExtractUrl:
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
             patch(
-                "bibra.cli.fetch_file_sync",
-                side_effect=_httpx.HTTPError("Name or service not known"),
+                "bibra.cli.fetch_file",
+                new=AsyncMock(
+                    side_effect=_httpx.HTTPError("Name or service not known")
+                ),
             ),
         ):
             mock_registry = MagicMock()
@@ -498,7 +500,7 @@ class TestExtractUrl:
 
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
-            patch("bibra.cli.fetch_file_sync", return_value=MOCK_PDF_BYTES),
+            patch("bibra.cli.fetch_file", new=AsyncMock(return_value=MOCK_PDF_BYTES)),
             patch("bibra.backend.base.os.unlink"),
         ):
             mock_registry = MagicMock()
@@ -522,11 +524,11 @@ class TestExtractUrl:
         assert "Extraction failed: PDF corrupted" in result.output
 
     def test_extract_url_uses_configured_proxy(self):
-        """Test that the fetch policy passed to fetch_file_sync carries the proxy."""
+        """Test that the fetch policy passed to fetch_file carries the proxy."""
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
             patch(
-                "bibra.cli.fetch_file_sync", return_value=MOCK_PDF_BYTES
+                "bibra.cli.fetch_file", new=AsyncMock(return_value=MOCK_PDF_BYTES)
             ) as mock_fetch,
         ):
             mock_registry = MagicMock()
@@ -552,8 +554,8 @@ class TestExtractUrl:
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
             patch(
-                "bibra.cli.fetch_file_sync",
-                return_value=MOCK_PDF_BYTES,
+                "bibra.cli.fetch_file",
+                new=AsyncMock(return_value=MOCK_PDF_BYTES),
             ) as mock_fetch,
         ):
             mock_registry = MagicMock()
@@ -577,8 +579,8 @@ class TestExtractUrl:
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
             patch(
-                "bibra.cli.fetch_file_sync",
-                return_value=MOCK_PDF_BYTES,
+                "bibra.cli.fetch_file",
+                new=AsyncMock(return_value=MOCK_PDF_BYTES),
             ) as mock_fetch,
         ):
             mock_registry = MagicMock()
@@ -601,8 +603,10 @@ class TestExtractUrl:
         with (
             patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
             patch(
-                "bibra.cli.fetch_file_sync",
-                side_effect=UrlPolicyError("URL rejected by fetch policy"),
+                "bibra.cli.fetch_file",
+                new=AsyncMock(
+                    side_effect=UrlPolicyError("URL rejected by fetch policy")
+                ),
             ),
         ):
             mock_registry = MagicMock()

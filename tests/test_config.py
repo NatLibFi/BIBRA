@@ -568,38 +568,6 @@ class TestParseIntOrStr:
         assert "Unrecognized int value" in caplog.text
 
 
-class TestGetUrlProxy:
-    """Tests for get_url_proxy helper function."""
-
-    def test_returns_proxy_when_set(self, monkeypatch):
-        """Test that get_url_proxy returns the proxy URL when set."""
-        monkeypatch.setenv("BIBRA_URL_PROXY", "http://proxy.example.com:8080")
-        from bibra.net_security import get_url_proxy
-
-        assert get_url_proxy() == "http://proxy.example.com:8080"
-
-    def test_returns_none_when_not_set(self, monkeypatch):
-        """Test that get_url_proxy returns None when the env var is not set."""
-        from bibra.net_security import get_url_proxy
-
-        monkeypatch.delenv("BIBRA_URL_PROXY", raising=False)
-        assert get_url_proxy() is None
-
-    def test_returns_none_when_empty(self, monkeypatch):
-        """Test that an empty BIBRA_URL_PROXY is normalized to None."""
-        from bibra.net_security import get_url_proxy
-
-        monkeypatch.setenv("BIBRA_URL_PROXY", "")
-        assert get_url_proxy() is None
-
-    def test_returns_none_when_whitespace(self, monkeypatch):
-        """Test that a whitespace-only BIBRA_URL_PROXY is normalized to None."""
-        from bibra.net_security import get_url_proxy
-
-        monkeypatch.setenv("BIBRA_URL_PROXY", "   \t\n  ")
-        assert get_url_proxy() is None
-
-
 class TestLoadUrlFetchPolicy:
     """Tests for load_url_fetch_policy and UrlFetchPolicy."""
 

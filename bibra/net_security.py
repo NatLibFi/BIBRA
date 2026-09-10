@@ -1,28 +1,13 @@
-"""Network security helpers for fetching user-supplied URLs.
+"""SSRF-hardened fetching of user-supplied URLs.
 
-This module implements BIBRA's SSRF mitigation: a validation layer and a
-hardened fetch function.
+BIBRA's mitigation for the SSRF vector inherent in fetching a user-supplied
+URL: a fetch policy (``UrlFetchPolicy``, loaded from ``BIBRA_URL_*`` env
+vars), static URL validation (``validate_url``) re-applied on every
+redirect hop, and ``fetch_file``, which permits egress only through a
+configured proxy or explicit "direct" mode, checks resolved destination
+IPs at connect time, and enforces size, timeout, and content (PDF) limits.
 
-Validation components:
-    - ``UrlPolicyError``: raised when a URL or downloaded content violates
-      the fetch policy. Carries a safe, generic message suitable for
-      client-facing error responses; full details are logged server-side.
-    - ``is_blocked_ip``: range-table check that refuses private, loopback,
-      link-local (cloud metadata), CGNAT, and other non-public addresses.
-    - ``validate_url``: static validation of a URL against the policy
-      (scheme allowlist, host presence, IP-literal rejection).
-    - ``ContentValidator`` / ``is_pdf``: pluggable byte-level content
-      checks (magic bytes). Currently PDFs are the only supported type;
-      future file types add their own validators.
-
-Fetch components:
-    - ``fetch_file`` / ``fetch_file_sync``: download a user-supplied URL
-      with defense in depth: static URL validation re-applied on every
-      redirect hop, connect-time resolved-IP checking in direct mode
-      (closes DNS-rebinding; in proxy mode the proxy's egress allowlist is
-      the authoritative control), a hard size cap, explicit timeouts, and
-      content-type plus magic-byte verification. Egress is only permitted
-      through a configured proxy or in explicit "direct" mode.
+See the "Security" section of the README for the full model.
 """
 
 import asyncio
@@ -33,7 +18,6 @@ import re
 import socket
 import urllib.parse
 from dataclasses import dataclass
-from typing import Protocol
 
 import httpx2
 
@@ -86,36 +70,20 @@ class UrlFetchPolicy:
         return self.proxy is None
 
 
-def get_url_proxy() -> str | None:
-    """Return the BIBRA_URL_PROXY environment variable value.
-
-    Blank or whitespace-only values are normalized to None, so that
-    callers can safely pass the result to httpx proxy arguments.
-
-    Returns:
-        The proxy URL string, or None if not set or blank.
-    """
-    proxy = os.environ.get("BIBRA_URL_PROXY")
-    return proxy.strip() if proxy and proxy.strip() else None
-
-
 def load_url_fetch_policy(cli_fallback: bool = False) -> UrlFetchPolicy:
     """Build a UrlFetchPolicy from the BIBRA_URL_* environment variables.
 
-    Semantics of BIBRA_URL_PROXY:
-      - unset/blank: URL fetching is refused (proxy_required is True)
+    Semantics of BIBRA_URL_PROXY (blank/whitespace normalized to unset):
+      - unset: URL fetching is refused (``proxy_required`` is True), unless
+        ``cli_fallback`` is set, in which case "direct" is used instead
       - "direct": direct egress is allowed, subject to full in-app validation
       - anything else: used as the egress proxy URL
-
-    With ``cli_fallback=True`` (the CLI's intent), an unset/blank
-    BIBRA_URL_PROXY is treated as "direct" instead of refusing: the CLI
-    is a local tool and falls back to direct egress with full in-app
-    validation, while the REST API keeps refusing by default.
 
     Invalid numeric/boolean values are logged and replaced by their
     defaults, so that a misconfigured setting never crashes the app.
     """
-    proxy = get_url_proxy()
+    proxy_raw = os.environ.get("BIBRA_URL_PROXY")
+    proxy = proxy_raw.strip() if proxy_raw and proxy_raw.strip() else None
     if proxy is None and cli_fallback:
         proxy = URL_FETCH_DIRECT
     return UrlFetchPolicy(
@@ -194,14 +162,6 @@ class ProxyRequiredError(UrlPolicyError):
     """
 
     MESSAGE = "URL fetching is disabled. Configure BIBRA_URL_PROXY to enable it."
-
-
-class ContentValidator(Protocol):
-    """A byte-level check that a downloaded file is of an expected type."""
-
-    def __call__(self, data: bytes) -> bool:
-        """Return True if data matches the expected content type."""
-        raise NotImplementedError
 
 
 def _normalize_ip(
@@ -412,28 +372,14 @@ async def _check_destination(host: str, port: int | None) -> None:
 def _build_async_transport(
     policy: UrlFetchPolicy, proxy: str | None
 ) -> httpx2.AsyncHTTPTransport:
-    """Build an async transport that validates each request against policy.
-
-    Every request URL is re-checked at connect time via ``validate_url``:
-    scheme allowlist, malformed URL handling, IP-literal rules, numeric-host
-    blocking. Because httpx issues a fresh request through the transport for
-    each redirect hop, every hop is re-validated against the active policy.
-
-    In direct mode (no proxy), an additional resolved-IP check is applied
-    at connect time, which closes the DNS-rebinding window. In proxy mode
-    this check is skipped: the proxy's own egress allowlist is the
-    authoritative control, local ``getaddrinfo`` results may not match the
-    proxy's resolver, and the lookup would only add false positives.
-
-    ``trust_env`` is disabled: the only egress route ever in effect is the
-    explicit ``BIBRA_URL_PROXY`` URL (when one is configured). Ambient
-    ``HTTP_PROXY``/``HTTPS_PROXY``/``NO_PROXY`` environment variables are
-    ignored on purpose, so that egress can never be hijacked by the
-    surrounding environment.
-
-    Args:
-        policy: The active UrlFetchPolicy applied to every request.
-        proxy: Proxy URL to route through, or None for direct egress.
+    """Build an async transport that re-validates every request URL against
+    the policy (each redirect hop issues a fresh request through the
+    transport, so every hop is checked) and, in direct mode, additionally
+    checks the resolved destination IP at connect time to close the
+    DNS-rebinding window (in proxy mode the proxy's egress allowlist is
+    authoritative, and local DNS results may not match its resolver).
+    ``trust_env=False`` ignores ambient HTTP(S)_PROXY/NO_PROXY vars: the
+    only egress route ever in effect is the explicit policy proxy.
     """
     proxy_arg = httpx2.Proxy(proxy) if proxy else None
 
@@ -448,27 +394,6 @@ def _build_async_transport(
             return await super().handle_async_request(request)
 
     return _SafeAsyncTransport(proxy=proxy_arg, trust_env=False)
-
-
-def _client_kwargs(policy: UrlFetchPolicy) -> dict:
-    """Build httpx2 AsyncClient kwargs from the policy.
-
-    The ``transport`` kwarg carries the destination-validating transport;
-    no ``proxy`` kwarg is used so that the client does not also mount its
-    own proxy transport (the proxy, when configured, lives inside our
-    transport).
-    """
-    timeout = httpx2.Timeout(policy.timeout)
-    proxy: str | None = None
-    if policy.proxy is not None and policy.proxy != URL_FETCH_DIRECT:
-        proxy = policy.proxy
-
-    return {
-        "timeout": timeout,
-        "follow_redirects": True,
-        "max_redirects": policy.max_redirects,
-        "transport": _build_async_transport(policy, proxy),
-    }
 
 
 def _validate_response_headers(
@@ -486,46 +411,13 @@ def _validate_response_headers(
         raise UrlPolicyError("URL rejected by fetch policy")
 
 
-def _validate_content(
-    data: bytes, expected_types: tuple[ContentValidator, ...]
-) -> None:
-    """Verify the downloaded bytes pass at least one content validator."""
-    if not any(v(data) for v in expected_types):
-        logger.warning("Downloaded content failed magic-byte validation")
-        raise UrlPolicyError("URL rejected by fetch policy")
+async def fetch_file(url: str, policy: UrlFetchPolicy) -> bytes:
+    """Download a user-supplied PDF with SSRF protection (async).
 
-
-async def fetch_file(
-    url: str,
-    policy: UrlFetchPolicy,
-    *,
-    expected_types: tuple[ContentValidator, ...] = (is_pdf,),
-) -> bytes:
-    """Download a user-supplied URL with SSRF protection (async).
-
-    Layers of defense, in order:
-      1. ``validate_url`` (static: proxy mode, scheme, host, IP literal)
-      2. httpx2 request through a wrapped transport that re-applies the
-         full URL policy for every request, including each redirect hop,
-         and re-checks the resolved destination IP at connect time in
-         direct mode (in proxy mode the proxy's egress allowlist is the
-         authoritative control)
-      3. hard ``max_bytes`` cap, enforced against Content-Length and by
-         counting streamed bytes
-      4. explicit timeouts (``policy.timeout``)
-      5. Content-Type allowlist + at-least-one magic-byte validator
-
-    Ambient ``HTTP_PROXY``/``HTTPS_PROXY`` environment variables are
-    ignored: egress goes only through the policy's explicit proxy (if any)
-    or directly.
-
-    Args:
-        url: The URL to fetch.
-        policy: The active UrlFetchPolicy.
-        expected_types: Content validators; the body must pass at least one.
-
-    Returns:
-        The downloaded bytes.
+    Applies, in order: static URL validation (re-applied on every redirect
+    hop by the transport), connect-time resolved-IP blocking in direct
+    mode, a hard byte cap, explicit timeouts, and a Content-Type allowlist
+    plus magic-byte verification.
 
     Raises:
         ProxyRequiredError: If no proxy/direct egress is configured.
@@ -534,12 +426,16 @@ async def fetch_file(
         httpx2.HTTPError: If the network request itself fails.
     """
     validate_url(url, policy)
-
-    kwargs = _client_kwargs(policy)
+    proxy = policy.proxy if policy.proxy not in (None, URL_FETCH_DIRECT) else None
 
     try:
         async with (
-            httpx2.AsyncClient(**kwargs) as client,
+            httpx2.AsyncClient(
+                timeout=httpx2.Timeout(policy.timeout),
+                follow_redirects=True,
+                max_redirects=policy.max_redirects,
+                transport=_build_async_transport(policy, proxy),
+            ) as client,
             client.stream("GET", url) as response,
         ):
             if response.status_code >= 400:
@@ -582,23 +478,7 @@ async def fetch_file(
         logger.warning("Host resolution failed during fetch: %s", e)
         raise httpx2.ConnectError("Could not resolve host") from None
 
-    _validate_content(data, expected_types)
+    if not is_pdf(data):
+        logger.warning("Downloaded content failed magic-byte validation")
+        raise UrlPolicyError("URL rejected by fetch policy")
     return data
-
-
-def fetch_file_sync(
-    url: str,
-    policy: UrlFetchPolicy,
-    *,
-    expected_types: tuple[ContentValidator, ...] = (is_pdf,),
-) -> bytes:
-    """Synchronous wrapper around :func:`fetch_file` for the CLI.
-
-    Runs the async fetch on a fresh event loop. Safe to call from a
-    synchronous (non-loop) context such as the Click CLI.
-    """
-
-    async def _run() -> bytes:
-        return await fetch_file(url, policy, expected_types=expected_types)
-
-    return asyncio.run(_run())

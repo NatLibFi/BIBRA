@@ -563,26 +563,3 @@ class TestProxyModeDnsCheck:
 
         assert data == PDF_BODY
         assert len(calls) >= 1, "direct mode skipped the resolved-IP check"
-
-
-class TestFetchFileSync:
-    """The sync wrapper must work outside an event loop (CLI path)."""
-
-    def test_success(self, pdf_server, monkeypatch):
-        """fetch_file_sync returns the body for a valid PDF."""
-
-        monkeypatch.setattr(ns, "is_blocked_ip", lambda ip: False)
-
-        data = ns.fetch_file_sync(
-            f"http://127.0.0.1:{pdf_server}/paper.pdf", _make_policy()
-        )
-
-        assert data == PDF_BODY
-        assert ns.is_pdf(data)
-
-    def test_policy_error_propagates(self, pdf_server):
-        """Policy violations propagate through the sync wrapper."""
-        with pytest.raises(ns.UrlPolicyError):
-            ns.fetch_file_sync(
-                f"http://127.0.0.1:{pdf_server}/paper.pdf", _make_policy()
-            )

@@ -9,11 +9,7 @@ from dotenv import load_dotenv
 
 from bibra.backend import BaseBackend
 from bibra.config import ConfigError, ProjectNotFoundError, ProjectRegistry
-from bibra.net_security import (
-    UrlPolicyError,
-    fetch_file_sync,
-    load_url_fetch_policy,
-)
+from bibra.net_security import UrlPolicyError, fetch_file, load_url_fetch_policy
 from bibra.types import PublicationMetadata
 
 
@@ -180,17 +176,18 @@ def extract_url(project_id: str, url: str, config: str | None, output: str | Non
 
     policy = load_url_fetch_policy(cli_fallback=True)
 
+    async def _run() -> PublicationMetadata:
+        data = await fetch_file(url, policy)
+        return await backend.extract_from_bytes(data)
+
     try:
-        data = fetch_file_sync(url, policy)
+        result = asyncio.run(_run())
     except UrlPolicyError as e:
         # Policy rejection (blocked destination, bad scheme, size cap, ...).
         raise click.ClickException(f"Extraction failed (policy): {e}") from None
     except httpx2.HTTPError as e:
         # Network/download failure (DNS, connection, timeout, HTTP status).
         raise click.ClickException(f"Extraction failed (network): {e}") from e
-
-    try:
-        result = asyncio.run(backend.extract_from_bytes(data))
     except Exception as e:
         raise click.ClickException(f"Extraction failed: {e}") from e
 

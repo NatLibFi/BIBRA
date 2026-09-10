@@ -9,7 +9,6 @@ import ipaddress
 import pytest
 
 from bibra.net_security import (
-    ContentValidator,
     ProxyRequiredError,
     UrlFetchPolicy,
     UrlPolicyError,
@@ -337,27 +336,6 @@ class TestIsPdf:
         data = b"x" * 1010 + b"%PDF-1.7"
 
         assert is_pdf(data) is True
-
-
-class TestContentValidatorProtocol:
-    """Tests that validators plug into the ContentValidator protocol."""
-
-    def test_is_pdf_satisfies_protocol(self):
-        """is_pdf is structurally compatible with ContentValidator."""
-        validator: ContentValidator = is_pdf
-
-        assert validator(b"%PDF-1.7") is True
-
-    def test_custom_validator(self):
-        """A custom validator (e.g. for a future file type) can be passed."""
-
-        def is_png(data: bytes) -> bool:
-            return data.startswith(b"\x89PNG")
-
-        validator: ContentValidator = is_png
-
-        assert validator(b"\x89PNG\r\n\x1a\n") is True
-        assert validator(b"%PDF-1.7") is False
 
 
 class TestPolicyIntegration:

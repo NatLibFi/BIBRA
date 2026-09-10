@@ -265,6 +265,13 @@ class TestValidateUrl:
         with pytest.raises(UrlPolicyError):
             validate_url("https://2130706433/paper.pdf", policy)
 
+    def test_numeric_hostname_rejected_even_when_ip_hosts_allowed(self):
+        """Numeric hostnames stay rejected even with allow_ip_hosts=True."""
+        policy = make_policy(allow_ip_hosts=True)
+
+        with pytest.raises(UrlPolicyError):
+            validate_url("https://2130706433/paper.pdf", policy)
+
     def test_unparseable_numeric_hostname_rejected(self):
         """A numeric hostname that is not a valid IPv4 literal is rejected.
 

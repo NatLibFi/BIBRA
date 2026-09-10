@@ -1,14 +1,12 @@
 """CLI interface for BIBRA."""
 
 import asyncio
-import dataclasses
 
 import click
 import uvicorn
 from dotenv import load_dotenv
 
 from bibra.config import (
-    URL_FETCH_DIRECT,
     ConfigError,
     ProjectNotFoundError,
     ProjectRegistry,
@@ -177,9 +175,7 @@ def extract_url(project_id: str, url: str, config: str | None, output: str | Non
     except ConfigError as e:
         raise click.ClickException(str(e)) from None
 
-    policy = load_url_fetch_policy()
-    if policy.proxy is None:
-        policy = dataclasses.replace(policy, proxy=URL_FETCH_DIRECT)
+    policy = load_url_fetch_policy(cli_fallback=True)
 
     try:
         data = fetch_file_sync(url, policy)

@@ -7,6 +7,7 @@ import pytest
 from bibra.backend.config import parse_bool_or_str, parse_int_or_str
 from bibra.backend.dummy import DummyBackend
 from bibra.config import (
+    URL_FETCH_DIRECT,
     BackendConfigError,
     ConfigFileNotFoundError,
     ConfigParseError,
@@ -709,6 +710,32 @@ class TestLoadUrlFetchPolicy:
 
         assert policy.proxy is None
         assert policy.proxy_required is True
+
+    def test_cli_fallback_unset_proxy_means_direct(self, monkeypatch):
+        """cli_fallback=True: an unset proxy is treated as 'direct'."""
+        monkeypatch.delenv("BIBRA_URL_PROXY", raising=False)
+
+        policy = load_url_fetch_policy(cli_fallback=True)
+
+        assert policy.proxy == URL_FETCH_DIRECT
+        assert policy.proxy_required is False
+
+    def test_cli_fallback_explicit_proxy_unchanged(self, monkeypatch):
+        """cli_fallback=True never overrides an explicitly set proxy."""
+        monkeypatch.setenv("BIBRA_URL_PROXY", "http://proxy.example.com:8080")
+
+        policy = load_url_fetch_policy(cli_fallback=True)
+
+        assert policy.proxy == "http://proxy.example.com:8080"
+
+    def test_cli_fallback_blank_proxy_means_direct(self, monkeypatch):
+        """cli_fallback=True: a blank (whitespace) proxy is treated as
+        'direct', same as unset."""
+        monkeypatch.setenv("BIBRA_URL_PROXY", "   ")
+
+        policy = load_url_fetch_policy(cli_fallback=True)
+
+        assert policy.proxy == URL_FETCH_DIRECT
 
     def test_schemes_custom(self, monkeypatch):
         """BIBRA_URL_SCHEMES is parsed as a comma-separated list."""

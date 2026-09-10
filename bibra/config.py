@@ -383,7 +383,7 @@ def get_url_proxy() -> str | None:
     return proxy.strip() if proxy and proxy.strip() else None
 
 
-def load_url_fetch_policy() -> UrlFetchPolicy:
+def load_url_fetch_policy(cli_fallback: bool = False) -> UrlFetchPolicy:
     """Build a UrlFetchPolicy from the BIBRA_URL_* environment variables.
 
     Semantics of BIBRA_URL_PROXY:
@@ -391,11 +391,19 @@ def load_url_fetch_policy() -> UrlFetchPolicy:
       - "direct": direct egress is allowed, subject to full in-app validation
       - anything else: used as the egress proxy URL
 
+    With ``cli_fallback=True`` (the CLI's intent), an unset/blank
+    BIBRA_URL_PROXY is treated as "direct" instead of refusing: the CLI
+    is a local tool and falls back to direct egress with full in-app
+    validation, while the REST API keeps refusing by default.
+
     Invalid numeric/boolean values are logged and replaced by their
     defaults, so that a misconfigured setting never crashes the app.
     """
+    proxy = get_url_proxy()
+    if proxy is None and cli_fallback:
+        proxy = URL_FETCH_DIRECT
     return UrlFetchPolicy(
-        proxy=get_url_proxy(),
+        proxy=proxy,
         schemes=_parse_list_env("BIBRA_URL_SCHEMES", DEFAULT_URL_SCHEMES),
         content_types=_parse_list_env(
             "BIBRA_URL_CONTENT_TYPES", DEFAULT_URL_CONTENT_TYPES

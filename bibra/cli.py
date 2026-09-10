@@ -7,6 +7,7 @@ import httpx2
 import uvicorn
 from dotenv import load_dotenv
 
+from bibra.backend import BaseBackend
 from bibra.config import (
     ConfigError,
     ProjectNotFoundError,
@@ -14,6 +15,7 @@ from bibra.config import (
     load_url_fetch_policy,
 )
 from bibra.net_security import UrlPolicyError, fetch_file_sync
+from bibra.types import PublicationMetadata
 
 
 def _make_list_template(column_headings: tuple, *rows: tuple) -> str:
@@ -65,6 +67,28 @@ def list_projects(config: str | None):
         click.echo(template.format(*row))
 
 
+def _get_backend(project_id: str, config: str | None) -> BaseBackend:
+    """Look up a configured backend, raising Click errors on failure."""
+    registry = ProjectRegistry(config)
+    try:
+        return registry.get_backend(project_id)
+    except ProjectNotFoundError as e:
+        raise click.UsageError(str(e)) from None
+    except ConfigError as e:
+        raise click.ClickException(str(e)) from None
+
+
+def _emit_json(result: PublicationMetadata, output: str | None) -> None:
+    """Write the result as JSON to a file or stdout."""
+    json_output = result.model_dump_json(indent=2)
+    if output:
+        with open(output, "w", encoding="utf-8") as f:
+            f.write(json_output + "\n")
+        click.echo(f"Output written to {output}")
+    else:
+        click.echo(json_output)
+
+
 @cli.command("extract")
 @click.argument("project_id")
 @click.argument(
@@ -85,28 +109,14 @@ def list_projects(config: str | None):
 )
 def extract(project_id: str, file_path: str, config: str | None, output: str | None):
     """Extract publication metadata from a PDF or image file."""
-    registry = ProjectRegistry(config)
-
-    try:
-        backend = registry.get_backend(project_id)
-    except ProjectNotFoundError as e:
-        raise click.UsageError(str(e)) from None
-    except ConfigError as e:
-        raise click.ClickException(str(e)) from None
+    backend = _get_backend(project_id, config)
 
     try:
         result = asyncio.run(backend.extract([file_path]))
     except Exception as e:
         raise click.ClickException(f"Extraction failed: {e}") from e
 
-    json_output = result.model_dump_json(indent=2)
-
-    if output:
-        with open(output, "w", encoding="utf-8") as f:
-            f.write(json_output + "\n")
-        click.echo(f"Output written to {output}")
-    else:
-        click.echo(json_output)
+    _emit_json(result, output)
 
 
 @cli.command("serve")
@@ -167,14 +177,7 @@ def extract_url(project_id: str, url: str, config: str | None, output: str | Non
     refusing. Set BIBRA_URL_PROXY to a proxy URL to route CLI downloads
     through a proxy.
     """
-    registry = ProjectRegistry(config)
-
-    try:
-        backend = registry.get_backend(project_id)
-    except ProjectNotFoundError as e:
-        raise click.UsageError(str(e)) from None
-    except ConfigError as e:
-        raise click.ClickException(str(e)) from None
+    backend = _get_backend(project_id, config)
 
     policy = load_url_fetch_policy(cli_fallback=True)
 
@@ -192,11 +195,4 @@ def extract_url(project_id: str, url: str, config: str | None, output: str | Non
     except Exception as e:
         raise click.ClickException(f"Extraction failed: {e}") from e
 
-    json_output = result.model_dump_json(indent=2)
-
-    if output:
-        with open(output, "w", encoding="utf-8") as f:
-            f.write(json_output + "\n")
-        click.echo(f"Output written to {output}")
-    else:
-        click.echo(json_output)
+    _emit_json(result, output)

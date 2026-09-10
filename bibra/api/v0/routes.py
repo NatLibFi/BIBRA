@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from pydantic import HttpUrl
 
 from bibra import __version__
+from bibra.backend import BaseBackend
 from bibra.config import (
     ConfigError,
     ProjectNotFoundError,
@@ -36,6 +37,17 @@ def get_registry(request: Request) -> ProjectRegistry:
         registry.load()
         request.app.state.project_registry = registry
     return registry
+
+
+def _resolve_backend(registry: ProjectRegistry, project_id: str) -> "BaseBackend":
+    """Return the backend for a project, mapping config errors to HTTP status."""
+    try:
+        return registry.get_backend(project_id)
+    except ProjectNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ConfigError as e:
+        logger.exception("Configuration error")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get(
@@ -95,13 +107,7 @@ async def extract(
                     tmp.write(chunk)
 
         # Get backend for the project
-        try:
-            backend = registry.get_backend(project_id)
-        except ProjectNotFoundError as e:
-            raise HTTPException(status_code=404, detail=str(e))
-        except ConfigError as e:
-            logger.exception("Configuration error")
-            raise HTTPException(status_code=500, detail=str(e))
+        backend = _resolve_backend(registry, project_id)
         # Extract metadata using the backend
         result = await backend.extract(temp_files)
         return result
@@ -151,13 +157,7 @@ async def extract_url(
             404 if the project is unknown, 502 if the download fails,
             503 if URL fetching is disabled (no proxy/direct configured).
     """
-    try:
-        backend = registry.get_backend(project_id)
-    except ProjectNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except ConfigError as e:
-        logger.exception("Configuration error")
-        raise HTTPException(status_code=500, detail=str(e))
+    backend = _resolve_backend(registry, project_id)
 
     url_str = str(url)
     policy = load_url_fetch_policy()

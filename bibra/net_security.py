@@ -306,6 +306,12 @@ def _build_async_transport(
     transport for each redirect hop, every hop is re-validated against the
     active policy.
 
+    ``trust_env`` is disabled: the only egress route ever in effect is the
+    explicit ``BIBRA_URL_PROXY`` URL (when one is configured). Ambient
+    ``HTTP_PROXY``/``HTTPS_PROXY``/``NO_PROXY`` environment variables are
+    ignored on purpose, so that egress can never be hijacked by the
+    surrounding environment.
+
     Args:
         policy: The active UrlFetchPolicy applied to every request.
         proxy: Proxy URL to route through, or None for direct egress.
@@ -318,7 +324,7 @@ def _build_async_transport(
             await _check_destination(request.url.host, request.url.port)
             return await super().handle_async_request(request)
 
-    return _SafeAsyncTransport(proxy=proxy_arg)
+    return _SafeAsyncTransport(proxy=proxy_arg, trust_env=False)
 
 
 def _client_kwargs(policy: UrlFetchPolicy) -> dict:
@@ -383,6 +389,10 @@ async def fetch_file(
          counting streamed bytes
       4. explicit timeouts (``policy.timeout``)
       5. Content-Type allowlist + at-least-one magic-byte validator
+
+    Ambient ``HTTP_PROXY``/``HTTPS_PROXY`` environment variables are
+    ignored: egress goes only through the policy's explicit proxy (if any)
+    or directly.
 
     Args:
         url: The URL to fetch.

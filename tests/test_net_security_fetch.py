@@ -21,6 +21,7 @@ blocking use the real, unpatched check.
 
 import asyncio
 import http.server
+import socket
 import socketserver
 import threading
 
@@ -400,6 +401,74 @@ class TestProxyRequired:
 
         with pytest.raises(ns.ProxyRequiredError):
             asyncio.run(ns.fetch_file(f"http://127.0.0.1:{pdf_server}/x.pdf", policy))
+
+
+class TestAmbientProxyEnvIgnored:
+    """Ambient HTTP(S)_PROXY env vars must not hijack egress.
+
+    The transport is built with trust_env=False, so the only egress route
+    in effect is the policy's explicit BIBRA_URL_PROXY (if any).
+    """
+
+    @staticmethod
+    def _start_recording_proxy() -> tuple[socket.socket, int, list]:
+        """A socket that accepts (and closes) connections, recording them."""
+        sock = socket.socket()
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(("127.0.0.1", 0))
+        sock.listen(5)
+        port = sock.getsockname()[1]
+        connections: list = []
+
+        def _accept_loop():
+            while True:
+                try:
+                    conn, addr = sock.accept()
+                except OSError:
+                    return
+                connections.append(addr)
+                conn.close()
+
+        threading.Thread(target=_accept_loop, daemon=True).start()
+        return sock, port, connections
+
+    def test_direct_mode_ignores_ambient_proxy(self, pdf_server, monkeypatch):
+        """With HTTP_PROXY/HTTPS_PROXY set, direct mode still goes direct."""
+        monkeypatch.setattr(ns, "is_blocked_ip", lambda ip: False)
+        sock, port, connections = self._start_recording_proxy()
+        monkeypatch.setenv("HTTP_PROXY", f"http://127.0.0.1:{port}")
+        monkeypatch.setenv("HTTPS_PROXY", f"http://127.0.0.1:{port}")
+        try:
+            data = asyncio.run(
+                ns.fetch_file(f"http://127.0.0.1:{pdf_server}/x.pdf", _make_policy())
+            )
+        finally:
+            sock.close()
+
+        assert data == PDF_BODY
+        assert connections == [], "direct mode leaked egress to ambient proxy"
+
+    def test_explicit_proxy_still_used(self, pdf_server, monkeypatch):
+        """An explicitly configured proxy is still routed through."""
+        monkeypatch.setattr(ns, "is_blocked_ip", lambda ip: False)
+        sock, port, connections = self._start_recording_proxy()
+        monkeypatch.delenv("HTTP_PROXY", raising=False)
+        monkeypatch.delenv("HTTPS_PROXY", raising=False)
+        try:
+            # The recording proxy closes the connection, so the fetch fails
+            # at the protocol level — but the connection attempt itself
+            # proves the explicit proxy is in effect.
+            with pytest.raises(httpx2.HTTPError):
+                asyncio.run(
+                    ns.fetch_file(
+                        f"http://127.0.0.1:{pdf_server}/x.pdf",
+                        _make_policy(proxy=f"http://127.0.0.1:{port}"),
+                    )
+                )
+        finally:
+            sock.close()
+
+        assert len(connections) >= 1, "explicit proxy was not used"
 
 
 class TestFetchFileSync:

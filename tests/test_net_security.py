@@ -225,6 +225,14 @@ class TestValidateUrl:
         with pytest.raises(UrlPolicyError):
             validate_url("https://example.com:badport/x", policy)
 
+    def test_malformed_port_with_query_rejected_generically(self):
+        """A malformed port combined with userinfo/query yields a
+        UrlPolicyError, not a parser exception from redact_url()."""
+        policy = make_policy()
+
+        with pytest.raises(UrlPolicyError):
+            validate_url("https://user:tok@example.com:99999/x?q=1", policy)
+
     @pytest.mark.parametrize(
         ("url",),
         [
@@ -303,6 +311,31 @@ class TestRedactUrl:
             "https://api.example.com/reports/q1.pdf [userinfo/query/fragment redacted]"
         )
         assert "ghp_abc123" not in redact_url(url)
+
+    def test_password_only_userinfo_stripped_with_marker(self):
+        """A password with an empty username is redacted as well."""
+        url = "https://:ghp_pw_only@api.example.com/doc.pdf"
+        assert redact_url(url) == (
+            "https://api.example.com/doc.pdf [userinfo/query/fragment redacted]"
+        )
+        assert "ghp_pw_only" not in redact_url(url)
+
+    def test_empty_password_userinfo_stripped_with_marker(self):
+        """An empty password with a username is redacted as well."""
+        url = "https://user:@api.example.com/doc.pdf"
+        assert redact_url(url) == (
+            "https://api.example.com/doc.pdf [userinfo/query/fragment redacted]"
+        )
+        assert "user:" not in redact_url(url)
+
+    def test_malformed_port_does_not_raise(self):
+        """A port that fails to parse does not raise; the host is kept
+        (without the port) and other secrets are still stripped."""
+        url = "https://api.example.com:99999/doc.pdf?signature=HMAC"
+        assert redact_url(url) == (
+            "https://api.example.com/doc.pdf [userinfo/query/fragment redacted]"
+        )
+        assert "HMAC" not in redact_url(url)
 
     def test_query_stripped_with_marker(self):
         """Tokens in the query string are removed."""
@@ -384,6 +417,16 @@ class TestValidateUrlLogsRedacted:
 
         with caplog.at_level("WARNING"), pytest.raises(ProxyRequiredError):
             validate_url(self.SENSITIVE_URL, policy)
+
+        self._assert_logs_redacted(caplog, "api.example.com/doc.pdf")
+
+    def test_password_only_userinfo_rejection_logs_redacted(self, caplog):
+        """A password-only userinfo is never logged verbatim on rejection."""
+        policy = make_policy()
+        url = "http://:supersecrettoken@api.example.com/doc.pdf?key=abc123"
+
+        with caplog.at_level("WARNING"), pytest.raises(UrlPolicyError):
+            validate_url(url, policy)
 
         self._assert_logs_redacted(caplog, "api.example.com/doc.pdf")
 

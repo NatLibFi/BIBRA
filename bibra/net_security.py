@@ -249,16 +249,29 @@ def redact_url(url: str) -> str:
     URLs that carry no userinfo, query, or fragment are returned
     unchanged (byte-identical), and input that cannot be parsed as a
     URL is returned as-is (there is no URL structure to strip).
+
+    Never raises: a malformed port (which makes ``parts.port`` raise
+    ValueError after a successful parse) is logged without a port
+    rather than propagating, so that callers logging on rejection
+    paths cannot be crashed by user input.
     """
     try:
         parts = urllib.parse.urlsplit(url)
     except ValueError:
         return url
-    if not parts.username and not parts.query and not parts.fragment:
+    if (
+        parts.username is None
+        and parts.password is None
+        and not parts.query
+        and not parts.fragment
+    ):
         return url
     netloc = parts.hostname or ""
-    if parts.port is not None:
-        netloc = f"{netloc}:{parts.port}"
+    try:
+        if parts.port is not None:
+            netloc = f"{netloc}:{parts.port}"
+    except ValueError:
+        pass
     return f"{parts.scheme}://{netloc}{parts.path} [userinfo/query/fragment redacted]"
 
 
@@ -291,9 +304,10 @@ def validate_url(url: str, policy: UrlFetchPolicy) -> None:
         # The value itself is unused, so discard it into a throwaway name.
         _ = parts.port
     except ValueError:
-        # urlsplit itself failed, or the port was not numeric: redact_url()
-        # returns the input unchanged in the former case and strips any
-        # userinfo/query in the latter.
+        # urlsplit itself failed, or the port was not numeric:
+        # redact_url() never raises — it returns unparseable input
+        # unchanged and, for a malformed port, a redacted host without
+        # a port.
         logger.warning("Malformed URL rejected: %r", safe_url)
         raise UrlPolicyError("URL rejected by fetch policy") from None
 

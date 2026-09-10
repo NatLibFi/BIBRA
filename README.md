@@ -84,14 +84,21 @@ hardened fetch layer (`bibra/net_security.py`) that applies defense in depth:
   set to `direct` (fetches directly, still with full in-app validation).
   Set `BIBRA_URL_PROXY` to a proxy URL to route CLI downloads through a
   proxy.
+- **No ambient proxy hijacking.** The fetch layer ignores `HTTP_PROXY`,
+  `HTTPS_PROXY` and `NO_PROXY` environment variables: the only egress route
+  ever in effect is the explicit `BIBRA_URL_PROXY` (if one is configured).
+  Note that the proxy URL itself is operator-trusted and not validated by
+  BIBRA.
 - **Scheme allowlist.** Only `https` by default (extend with
   `BIBRA_URL_SCHEMES`).
-- **Resolved-IP blocking.** The resolved destination IP is checked at connect
-  time (not just the initial URL) against a table of non-public ranges —
-  loopback, RFC 1918, link-local/cloud metadata (`169.254.169.254`), CGNAT,
-  and reserved multicast/unique-local ranges — for both IPv4 and IPv6. This
-  also covers every redirect hop, which defeats DNS-rebinding and
-  redirect-based bypasses.
+- **Resolved-IP blocking (direct mode).** In `direct` mode, the resolved
+  destination IP is checked at connect time (not just the initial URL)
+  against a table of non-public ranges — loopback, RFC 1918, link-local/cloud
+  metadata (`169.254.169.254`), CGNAT, and reserved multicast/unique-local
+  ranges — for both IPv4 and IPv6. This also covers every redirect hop, which
+  defeats DNS-rebinding and redirect-based bypasses. In proxy mode this
+  check is skipped: the proxy's own egress allowlist is the authoritative
+  control, and local DNS results may not match the proxy's resolver.
 - **Resource limits.** A hard byte cap (`BIBRA_URL_MAX_BYTES`) and explicit
   timeouts (`BIBRA_URL_TIMEOUT`) are enforced, and redirects are bounded
   (`BIBRA_URL_MAX_REDIRECTS`).

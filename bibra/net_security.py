@@ -271,7 +271,7 @@ def redact_url(url: str) -> str:
         if parts.port is not None:
             netloc = f"{netloc}:{parts.port}"
     except ValueError:
-        pass
+        logger.debug("URL has a malformed port; redacting without port")
     return f"{parts.scheme}://{netloc}{parts.path} [userinfo/query/fragment redacted]"
 
 

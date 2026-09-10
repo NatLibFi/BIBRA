@@ -29,13 +29,12 @@ import httpx2
 import pytest
 
 import bibra.net_security as ns
-from bibra.net_security import UrlFetchPolicy
 
 PDF_BODY = b"%PDF-1.7\n% fake pdf content\n%%EOF\n"
 METADATA_IP = "169.254.169.254"
 
 
-def _make_policy(**overrides) -> UrlFetchPolicy:
+def _make_policy(**overrides) -> ns.UrlFetchPolicy:
     """Build a policy that allows http to localhost for these tests."""
     defaults = {
         "proxy": "direct",
@@ -47,7 +46,7 @@ def _make_policy(**overrides) -> UrlFetchPolicy:
         "allow_ip_hosts": True,
     }
     defaults.update(overrides)
-    return UrlFetchPolicy(**defaults)
+    return ns.UrlFetchPolicy(**defaults)
 
 
 class _Handler(http.server.BaseHTTPRequestHandler):

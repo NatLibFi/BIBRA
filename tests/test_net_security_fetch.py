@@ -10,6 +10,7 @@ mitigations end-to-end:
     - per-hop policy re-application (redirects to a disallowed scheme or
       to an IP literal with allow_ip_hosts=False are refused on the hop)
     - hard size-cap enforcement (Content-Length pre-check and mid-stream)
+    - total download deadline (a drip-feeding server is still aborted)
     - content-type allowlist and magic-byte verification
     - proxy-required refusal
 
@@ -24,6 +25,7 @@ import http.server
 import socket
 import socketserver
 import threading
+import time
 
 import httpx2
 import pytest
@@ -363,6 +365,53 @@ class TestSizeCap:
         )
 
         assert data == PDF_BODY
+
+
+class TestTotalDeadline:
+    """The total download deadline must bound even a drip-feeding server."""
+
+    def test_drip_feed_exceeds_total_deadline(self, monkeypatch):
+        """A server that sends a byte every 0.2s (each read well under the
+        per-read timeout) is aborted once the total deadline elapses.
+
+        Without the total deadline, this fetch would run for the full
+        ~10s of dripped data, since no single read ever times out.
+        """
+        monkeypatch.setattr(ns, "is_blocked_ip", lambda ip: False)
+
+        class Drip(_Handler):
+            def do_GET(self):
+                self.send_response(200)
+                self.send_header("Content-Type", "application/pdf")
+                self.end_headers()
+                for _ in range(50):
+                    self.wfile.write(b"%")
+                    self.wfile.flush()
+                    time.sleep(0.2)
+
+        srv, port = _start_server(Drip)
+        try:
+            start = time.monotonic()
+            with pytest.raises(httpx2.ReadTimeout) as exc_info:
+                asyncio.run(
+                    ns.fetch_file(
+                        f"http://127.0.0.1:{port}/drip.pdf",
+                        _make_policy(timeout=1.5),
+                    )
+                )
+            elapsed = time.monotonic() - start
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+        # ReadTimeout is an httpx2.HTTPError (caught by the API 502
+        # handler and the CLI's network-error branch) and NOT a
+        # UrlPolicyError.
+        assert isinstance(exc_info.value, httpx2.HTTPError)
+        assert not isinstance(exc_info.value, ns.UrlPolicyError)
+        # Aborted near the 1.5s total deadline, not after the ~10s of
+        # available data (generous upper bound keeps this flake-free).
+        assert elapsed < 5.0
 
 
 class TestContentValidation:

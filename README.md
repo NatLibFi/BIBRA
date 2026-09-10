@@ -107,8 +107,11 @@ hardened fetch layer (`bibra/net_security.py`) that applies defense in depth:
   fully eliminate, DNS rebinding; the full protection is provided by
   routing egress through a proxy.
 - **Resource limits.** A hard byte cap (`BIBRA_URL_MAX_BYTES`) and explicit
-  timeouts (`BIBRA_URL_TIMEOUT`) are enforced, and redirects are bounded
-  (`BIBRA_URL_MAX_REDIRECTS`).
+  timeouts (`BIBRA_URL_TIMEOUT`) are enforced — each connect/read/write
+  operation is bounded, and the same value is also the total deadline for
+  the complete download, so a server that drips small chunks to evade the
+  per-read timeout cannot hold a request open indefinitely. Redirects are
+  bounded (`BIBRA_URL_MAX_REDIRECTS`).
 - **Content verification.** The response `Content-Type` must be in
   `BIBRA_URL_CONTENT_TYPES` and the bytes must pass a magic-byte check before
   being handed to a backend.

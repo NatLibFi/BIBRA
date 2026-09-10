@@ -5,7 +5,8 @@ URL: a fetch policy (``UrlFetchPolicy``, loaded from ``BIBRA_URL_*`` env
 vars), static URL validation (``validate_url``) re-applied on every
 redirect hop, and ``fetch_file``, which permits egress only through a
 configured proxy or explicit "direct" mode, checks resolved destination
-IPs at connect time, and enforces size, timeout, and content (PDF) limits.
+IPs at connect time, and enforces size, per-operation timeouts plus a
+total download deadline, and content (PDF) limits.
 
 Known limitation (direct mode): the destination check resolves the
 hostname once and then the underlying transport resolves it again when
@@ -58,7 +59,10 @@ class UrlFetchPolicy:
         schemes: Allowed URL schemes (e.g. ["https"]).
         content_types: Allowed response content types (MIME, no parameters).
         max_bytes: Hard cap on total downloaded bytes.
-        timeout: Whole seconds for connect/read/write/pool timeouts.
+        timeout: Whole seconds for connect/read/write/pool timeouts, and the
+            total deadline for the complete download (a server that drips
+            small chunks to evade the per-read timeout is still aborted
+            once this total deadline elapses).
         max_redirects: Maximum number of redirect hops; every hop is
             re-validated against the policy.
         allow_ip_hosts: Whether URLs whose host is an IP literal are allowed.
@@ -459,13 +463,16 @@ async def fetch_file(url: str, policy: UrlFetchPolicy) -> bytes:
 
     Applies, in order: static URL validation (re-applied on every redirect
     hop by the transport), connect-time resolved-IP blocking in direct
-    mode, a hard byte cap, explicit timeouts, and a Content-Type allowlist
-    plus magic-byte verification.
+    mode, a hard byte cap, per-operation timeouts plus a total deadline of
+    ``policy.timeout`` seconds over the complete download (drip-feeding
+    servers that stay under the per-read timeout are still aborted), and a
+    Content-Type allowlist plus magic-byte verification.
 
     Raises:
         ProxyRequiredError: If no proxy/direct egress is configured.
         DownloadSizeExceededError: If the body exceeds ``policy.max_bytes``.
         UrlPolicyError: If any other policy rule is violated.
+        httpx2.ReadTimeout: If the total download deadline is exceeded.
         httpx2.HTTPError: If the network request itself fails.
     """
     safe_url = redact_url(url)
@@ -473,49 +480,73 @@ async def fetch_file(url: str, policy: UrlFetchPolicy) -> bytes:
     proxy = policy.proxy if policy.proxy not in (None, URL_FETCH_DIRECT) else None
 
     try:
-        async with (
-            httpx2.AsyncClient(
-                timeout=httpx2.Timeout(policy.timeout),
-                follow_redirects=True,
-                max_redirects=policy.max_redirects,
-                trust_env=False,
-                transport=_build_async_transport(policy, proxy),
-            ) as client,
-            client.stream("GET", url) as response,
-        ):
-            if response.status_code >= 400:
-                logger.warning("HTTP %d fetching %s", response.status_code, safe_url)
-                raise httpx2.HTTPError(f"HTTP {response.status_code} while downloading")
-            _validate_response_headers(response, policy)
+        # The per-operation timeout (connect/read/write/pool) does not bound
+        # the lifetime of the response: a server can send a small chunk just
+        # before every read timeout and keep the fetch alive indefinitely.
+        # asyncio.timeout() enforces a total deadline over the complete
+        # stream; it raises the builtin TimeoutError, which is translated to
+        # httpx2.ReadTimeout below so that callers (API 502 handler, CLI)
+        # keep seeing an httpx2.HTTPError.
+        async with asyncio.timeout(policy.timeout):
+            async with (
+                httpx2.AsyncClient(
+                    timeout=httpx2.Timeout(policy.timeout),
+                    follow_redirects=True,
+                    max_redirects=policy.max_redirects,
+                    trust_env=False,
+                    transport=_build_async_transport(policy, proxy),
+                ) as client,
+                client.stream("GET", url) as response,
+            ):
+                if response.status_code >= 400:
+                    logger.warning(
+                        "HTTP %d fetching %s", response.status_code, safe_url
+                    )
+                    raise httpx2.HTTPError(
+                        f"HTTP {response.status_code} while downloading"
+                    )
+                _validate_response_headers(response, policy)
 
-            # Pre-check Content-Length when present.
-            content_length = response.headers.get("content-length")
-            if content_length is not None:
-                try:
-                    if int(content_length) > policy.max_bytes:
+                # Pre-check Content-Length when present.
+                content_length = response.headers.get("content-length")
+                if content_length is not None:
+                    try:
+                        if int(content_length) > policy.max_bytes:
+                            raise DownloadSizeExceededError(
+                                DownloadSizeExceededError.MESSAGE
+                            )
+                    except ValueError:
+                        logger.debug(
+                            "Non-numeric Content-Length %r from %s",
+                            content_length,
+                            safe_url,
+                        )
+
+                chunks: list[bytes] = []
+                total = 0
+                async for chunk in response.aiter_bytes(chunk_size=_FETCH_CHUNK_SIZE):
+                    total += len(chunk)
+                    if total > policy.max_bytes:
+                        logger.warning(
+                            "Download from %s exceeded %d bytes; aborting",
+                            safe_url,
+                            policy.max_bytes,
+                        )
                         raise DownloadSizeExceededError(
                             DownloadSizeExceededError.MESSAGE
                         )
-                except ValueError:
-                    logger.debug(
-                        "Non-numeric Content-Length %r from %s",
-                        content_length,
-                        safe_url,
-                    )
-
-            chunks: list[bytes] = []
-            total = 0
-            async for chunk in response.aiter_bytes(chunk_size=_FETCH_CHUNK_SIZE):
-                total += len(chunk)
-                if total > policy.max_bytes:
-                    logger.warning(
-                        "Download from %s exceeded %d bytes; aborting",
-                        safe_url,
-                        policy.max_bytes,
-                    )
-                    raise DownloadSizeExceededError(DownloadSizeExceededError.MESSAGE)
-                chunks.append(chunk)
-            data = b"".join(chunks)
+                    chunks.append(chunk)
+                data = b"".join(chunks)
+    except TimeoutError:
+        # Total deadline exceeded (see the asyncio.timeout note above).
+        logger.warning(
+            "Download of %s exceeded the %ss total deadline",
+            safe_url,
+            policy.timeout,
+        )
+        raise httpx2.ReadTimeout(
+            "Download timed out (total deadline exceeded)"
+        ) from None
     except _BlockedDestinationError as e:
         logger.warning("Blocked destination during fetch: %s", e)
         raise UrlPolicyError("URL rejected by fetch policy") from None

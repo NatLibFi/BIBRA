@@ -83,8 +83,17 @@ def parse_int_env(name: str, default: int) -> int:
 
 
 def parse_bool_env(name: str, default: bool) -> bool:
-    """Parse a boolean env var (1/true/yes/on), falling back to the default."""
+    """Parse a boolean env var, falling back to the default on malformed values.
+
+    Recognized true values: 1/true/yes/on. Recognized false values:
+    0/false/no/off. Anything else is logged and replaced by the default.
+    """
     raw = os.environ.get(name, "").strip().lower()
     if not raw:
         return default
-    return raw in {"1", "true", "yes", "on"}
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    logger.debug("Invalid %s=%r; using default %s", name, raw, default)
+    return default

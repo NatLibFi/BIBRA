@@ -108,16 +108,40 @@ def test_parse_int_env(monkeypatch, raw: str, expected: int):
     [
         ("1", True),
         ("true", True),
+        ("TRUE", True),
         ("yes", True),
         ("on", True),
-        ("", False),
         ("0", False),
         ("false", False),
+        ("no", False),
         ("off", False),
-        ("nope", False),
     ],
 )
-def test_parse_bool_env(monkeypatch, raw: str, expected: bool):
-    """parse_bool_env accepts 1/true/yes/on, default otherwise."""
+def test_parse_bool_env_recognized(monkeypatch, raw: str, expected: bool):
+    """parse_bool_env maps recognized true/false values exactly."""
     monkeypatch.setenv("BIBRA_TEST_BOOL", raw)
     assert parse_bool_env("BIBRA_TEST_BOOL", False) is expected
+    assert parse_bool_env("BIBRA_TEST_BOOL", True) is expected
+
+
+@pytest.mark.parametrize(
+    ("raw", "default", "expected"),
+    [
+        # Unset or blank -> default
+        ("", True, True),
+        ("", False, False),
+        ("   ", True, True),
+        # Malformed values fall back to the default (not silently False)
+        ("nope", True, True),
+        ("TRUE2", True, True),
+        ("truly", False, False),
+        ("1true", True, True),
+        ("onoff", False, False),
+    ],
+)
+def test_parse_bool_env_malformed_falls_back(
+    monkeypatch, raw: str, default: bool, expected: bool
+):
+    """Unset, blank, or malformed values fall back to the default."""
+    monkeypatch.setenv("BIBRA_TEST_BOOL", raw)
+    assert parse_bool_env("BIBRA_TEST_BOOL", default) is expected

@@ -289,6 +289,32 @@ class TestAPIRoutes:
         assert exc_info.value.status_code == 400
         assert "169.254.169.254" not in exc_info.value.detail
 
+    async def test_extract_url_dns_failure_returns_502(self, monkeypatch):
+        """A hostname that does not resolve returns 502, not a 400 policy rejection."""
+        from pydantic import HttpUrl
+
+        monkeypatch.setenv("BIBRA_URL_PROXY", "direct")
+
+        registry = ProjectRegistry()
+
+        with (
+            patch(
+                "bibra.api.v0.routes.fetch_file",
+                new=AsyncMock(
+                    side_effect=httpx2.ConnectError("Could not resolve host")
+                ),
+            ),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            await extract_url(
+                project_id="dummy",
+                registry=registry,
+                url=HttpUrl("https://nonexistent-host.invalid/paper.pdf"),
+            )
+
+        assert exc_info.value.status_code == 502
+        assert exc_info.value.detail == "Failed to download URL"
+
     async def test_extract_url_http_error_returns_502(self, monkeypatch):
         """A failed download returns 502 without leaking internal details."""
         from pydantic import HttpUrl

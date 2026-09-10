@@ -256,13 +256,30 @@ class _BlockedDestinationError(Exception):
         self.ip = ip
 
 
+class _DnsResolutionError(Exception):
+    """Internal: a hostname could not be resolved locally.
+
+    Not a policy violation — the host simply does not resolve (typo,
+    offline). Translated to a connection error (502 at the API level)
+    rather than a fetch-policy rejection (400).
+    """
+
+    def __init__(self, url: str):
+        super().__init__(f"could not resolve host for {url}")
+        self.url = url
+
+
 async def _check_destination(host: str, port: int | None) -> None:
-    """Raise _BlockedDestinationError if any resolved IP is blocked.
+    """Raise _BlockedDestinationError or _DnsResolutionError on failure.
 
     Resolves the hostname on the running event loop (non-blocking) and
     checks every address a connection could hit, which enforces the
     blocked-IP policy at connect time and mitigates DNS rebinding.
     IP literals are checked directly without a DNS lookup.
+
+    Raises:
+        _BlockedDestinationError: If any resolved IP is blocked.
+        _DnsResolutionError: If the hostname does not resolve at all.
     """
     literal = parse_ip_host(host)
     if literal is not None:
@@ -282,7 +299,7 @@ async def _check_destination(host: str, port: int | None) -> None:
         )
     except socket.gaierror as e:
         logger.warning("DNS resolution failed for %s: %s", host, e)
-        raise _BlockedDestinationError(f"http://{host}", "unresolvable") from None
+        raise _DnsResolutionError(f"http://{host}") from None
     seen: set[str] = set()
     for info in infos:
         ip_str = info[4][0]
@@ -453,6 +470,9 @@ async def fetch_file(
     except _BlockedDestinationError as e:
         logger.warning("Blocked destination during fetch: %s", e)
         raise UrlPolicyError("URL rejected by fetch policy") from None
+    except _DnsResolutionError as e:
+        logger.warning("Host resolution failed during fetch: %s", e)
+        raise httpx2.ConnectError("Could not resolve host") from None
 
     _validate_content(data, expected_types)
     return data

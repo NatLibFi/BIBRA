@@ -97,6 +97,31 @@ def pdf_server():
     srv.server_close()
 
 
+class TestDnsFailure:
+    """A hostname that does not resolve is a download failure, not a
+    policy rejection (no UrlPolicyError)."""
+
+    def test_unresolvable_host_raises_connect_error(self, monkeypatch):
+        """socket.gaierror surfaces as httpx2.ConnectError (a httpx2.HTTPError)."""
+        monkeypatch.setattr(
+            socket,
+            "getaddrinfo",
+            lambda *a, **k: (_ for _ in ()).throw(socket.gaierror("name not resolved")),
+        )
+
+        # ConnectError is the specific type; it is also an httpx2.HTTPError
+        # (so the API's 502 handler catches it) and NOT a UrlPolicyError.
+        with pytest.raises(httpx2.ConnectError) as exc_info:
+            asyncio.run(
+                ns.fetch_file("http://nonexistent-host.invalid/x.pdf", _make_policy())
+            )
+
+        assert isinstance(exc_info.value, httpx2.HTTPError)
+        assert not isinstance(exc_info.value, ns.UrlPolicyError)
+        # No internal details (hostname) leak into the client-facing message.
+        assert "nonexistent-host.invalid" not in str(exc_info.value)
+
+
 class TestConnectTimeBlocking:
     """The resolved destination IP must be blocked at connect time."""
 

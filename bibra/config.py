@@ -304,7 +304,7 @@ URL_FETCH_DIRECT = "direct"
 DEFAULT_URL_SCHEMES: list[str] = ["https"]
 DEFAULT_URL_CONTENT_TYPES: list[str] = ["application/pdf"]
 DEFAULT_URL_MAX_BYTES: int = 50 * 1024 * 1024  # 50 MiB
-DEFAULT_URL_TIMEOUT: float = 30.0  # seconds
+DEFAULT_URL_TIMEOUT: int = 30  # seconds
 DEFAULT_URL_MAX_REDIRECTS: int = 5
 DEFAULT_URL_ALLOW_IP_HOSTS: bool = False
 
@@ -319,7 +319,7 @@ class UrlFetchPolicy:
         schemes: Allowed URL schemes (e.g. ["https"]).
         content_types: Allowed response content types (MIME, no parameters).
         max_bytes: Hard cap on total downloaded bytes.
-        timeout: Seconds for connect/read/write/pool timeouts.
+        timeout: Whole seconds for connect/read/write/pool timeouts.
         max_redirects: Maximum number of redirect hops; every hop is
             re-validated against the policy.
         allow_ip_hosts: Whether URLs whose host is an IP literal are allowed.
@@ -329,7 +329,7 @@ class UrlFetchPolicy:
     schemes: tuple[str, ...]
     content_types: tuple[str, ...]
     max_bytes: int
-    timeout: float
+    timeout: int
     max_redirects: int
     allow_ip_hosts: bool
 
@@ -358,19 +358,6 @@ def _parse_int_env(name: str, default: int) -> int:
         value = int(raw)
     except ValueError:
         logger.debug("Invalid %s=%r; using default %d", name, raw, default)
-        return default
-    return value if value > 0 else default
-
-
-def _parse_float_env(name: str, default: float) -> float:
-    """Parse a positive-float env var, falling back to the default."""
-    raw = os.environ.get(name, "").strip()
-    if not raw:
-        return default
-    try:
-        value = float(raw)
-    except ValueError:
-        logger.debug("Invalid %s=%r; using default %f", name, raw, default)
         return default
     return value if value > 0 else default
 
@@ -422,7 +409,7 @@ def load_url_fetch_policy(cli_fallback: bool = False) -> UrlFetchPolicy:
             "BIBRA_URL_CONTENT_TYPES", DEFAULT_URL_CONTENT_TYPES
         ),
         max_bytes=_parse_int_env("BIBRA_URL_MAX_BYTES", DEFAULT_URL_MAX_BYTES),
-        timeout=_parse_float_env("BIBRA_URL_TIMEOUT", DEFAULT_URL_TIMEOUT),
+        timeout=_parse_int_env("BIBRA_URL_TIMEOUT", DEFAULT_URL_TIMEOUT),
         max_redirects=_parse_int_env(
             "BIBRA_URL_MAX_REDIRECTS", DEFAULT_URL_MAX_REDIRECTS
         ),

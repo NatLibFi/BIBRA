@@ -672,7 +672,7 @@ class TestLoadUrlFetchPolicy:
         assert policy.schemes == ("https",)
         assert policy.content_types == ("application/pdf",)
         assert policy.max_bytes == 50 * 1024 * 1024
-        assert policy.timeout == 30.0
+        assert policy.timeout == 30
         assert policy.max_redirects == 5
         assert policy.allow_ip_hosts is False
 
@@ -786,12 +786,12 @@ class TestLoadUrlFetchPolicy:
         assert policy.max_bytes == 50 * 1024 * 1024
 
     def test_timeout_custom(self, monkeypatch):
-        """BIBRA_URL_TIMEOUT accepts a positive float."""
-        monkeypatch.setenv("BIBRA_URL_TIMEOUT", "1.5")
+        """BIBRA_URL_TIMEOUT accepts a positive integer (seconds)."""
+        monkeypatch.setenv("BIBRA_URL_TIMEOUT", "2")
 
         policy = load_url_fetch_policy()
 
-        assert policy.timeout == 1.5
+        assert policy.timeout == 2
 
     def test_timeout_invalid_falls_back_to_default(self, monkeypatch):
         """A non-numeric BIBRA_URL_TIMEOUT falls back to the default."""
@@ -799,7 +799,7 @@ class TestLoadUrlFetchPolicy:
 
         policy = load_url_fetch_policy()
 
-        assert policy.timeout == 30.0
+        assert policy.timeout == 30
 
     def test_max_redirects_custom(self, monkeypatch):
         """BIBRA_URL_MAX_REDIRECTS accepts a positive integer."""
@@ -826,4 +826,4 @@ class TestLoadUrlFetchPolicy:
         policy = load_url_fetch_policy()
 
         with pytest.raises(AttributeError):
-            policy.timeout = 1.0
+            policy.timeout = 1

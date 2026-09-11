@@ -38,6 +38,7 @@ describe('Home Page', () => {
     cy.get('#fetch-from-url').should('not.exist')
     // Check that preview is visible
     cy.get('#file-preview').should('be.visible')
+    cy.get('#url-preview').should('not.exist')
     cy.get('.btn-clear').should('have.length', 2)
   })
 
@@ -48,17 +49,20 @@ describe('Home Page', () => {
     cy.get('#dropzone').selectFile('cypress/fixtures/test-document.pdf', { action: 'drag-drop' })
     // Check that preview is visible
     cy.get('#file-preview').should('be.visible')
+    cy.get('#url-preview').should('not.exist')
   })
 
   it('fetches files from URL', () => {
-    // Check that file preview is not visible
-    cy.get('#file-preview').should('not.exist')
+    // Check that URL preview is not visible
+    cy.get('#url-preview').should('not.exist')
     // Type in pdf url
     cy.get('#url-input').type('https://pdfobject.com/pdf/sample.pdf')
     // Click button to fetch pdf
     cy.get('#button-select-url').click()
     // Check that preview is visible
-    cy.get('#file-preview').should('be.visible')
+    cy.get('#url-preview').should('be.visible')
+    // Check that URL is displayed
+    cy.get('#url-preview a').invoke('text').should('contain', 'https://pdfobject.com/pdf/sample.pdf')
   })
 
   it('shows results after submit', () => {
@@ -80,7 +84,7 @@ describe('Home Page', () => {
     cy.get('#results table').should('be.visible')
     // Check that copy buttons copy correct values
     cy.get('.btn-copy').eq(0).click()
-    cy.window().its('navigator.clipboard').invoke('readText').then((result) => {}).should('equal', 'en');
+    cy.window().its('navigator.clipboard').invoke('readText').then((result) => {}).should('equal', 'en')
   })
 
   it('hides preview and results after clear', () => {
@@ -101,6 +105,7 @@ describe('Home Page', () => {
     cy.get('#dropzone').should('be.visible')
     cy.get('#fetch-from-url').should('be.visible')
     cy.get('#file-preview').should('not.exist')
+    cy.get('#url-preview').should('not.exist')
     cy.get('.btn-clear').should('not.exist')
   })
 
@@ -112,12 +117,6 @@ describe('Home Page', () => {
     // Check that correct error message is displayed
     cy.get('.error-message').should('have.length', 1)
     cy.get('.error-message').eq(0).invoke('text').should('contain', 'This file format is not supported. Please select a PDF document.')
-    // Input faulty URL
-    cy.get('#url-input').type('https://example.com/')
-    cy.get('#button-select-url').click()
-    // Check that correct error message is displayed
-    cy.get('.error-message').should('have.length', 1)
-    cy.get('.error-message').eq(0).invoke('text').should('contain', 'Failed to fetch file from URL.')
 
     // Intercept and block all POST requests
     cy.intercept({

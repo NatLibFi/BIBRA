@@ -55,15 +55,14 @@ def parse_extra_headers(raw: str) -> dict[str, str] | None:
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError:
-        logger.warning("LLM_EXTRA_HEADERS is not valid JSON, ignoring: %r", raw)
+        logger.warning("LLM_EXTRA_HEADERS is not valid JSON; ignoring value")
         return None
     if not (
         isinstance(parsed, dict)
         and all(isinstance(k, str) and isinstance(v, str) for k, v in parsed.items())
     ):
         logger.warning(
-            "LLM_EXTRA_HEADERS must be a JSON object with string values, ignoring: %r",
-            raw,
+            "LLM_EXTRA_HEADERS must be a JSON object with string values; ignoring value"
         )
         return None
     return parsed

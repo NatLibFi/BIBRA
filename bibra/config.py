@@ -161,7 +161,7 @@ def _parse_extra_headers(extra_headers: Any, project_id: str) -> dict[str, str] 
     if extra_headers is None:
         return None
     if not isinstance(extra_headers, dict) or not all(
-        isinstance(k, str) and isinstance(v, str) for k, v in extra_headers.items()
+        isinstance(v, str) for v in extra_headers.values()
     ):
         raise BackendConfigError(
             f"Invalid extra_headers for project '{project_id}':"

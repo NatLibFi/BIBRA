@@ -68,6 +68,56 @@ Start up the API server and Web UI (add `--reload` for auto-reloading while deve
 
     uv run bibra serve
 
+## Security
+
+The `extract-url` endpoints (API and CLI) fetch a user-supplied URL, which is a
+classic Server-Side Request Forgery (SSRF) vector. BIBRA mitigates this with a
+hardened fetch layer (`bibra/net_security.py`) that applies defense in depth:
+
+- **Egress is off by default (API).** The REST API refuses URL
+  fetch/extraction unless `BIBRA_URL_PROXY` is set. A configured proxy is the
+  recommended production setup (a forward proxy with egress allowlists is the
+  strongest single control); the special value `direct` opts into direct
+  egress with full in-app validation instead.
+- **CLI fallback.** The CLI is intentionally more lenient for local one-off
+  use: when `BIBRA_URL_PROXY` is unset, `extract-url` behaves as if it were
+  set to `direct` (fetches directly, still with full in-app validation).
+  Set `BIBRA_URL_PROXY` to a proxy URL to route CLI downloads through a
+  proxy.
+- **No ambient proxy hijacking.** The fetch layer ignores `HTTP_PROXY`,
+  `HTTPS_PROXY` and `NO_PROXY` environment variables: the only egress route
+  ever in effect is the explicit `BIBRA_URL_PROXY` (if one is configured).
+  Note that the proxy URL itself is operator-trusted and not validated by
+  BIBRA.
+- **Scheme allowlist.** Only `https` by default (extend with
+  `BIBRA_URL_SCHEMES`).
+- **Resolved-IP blocking (direct mode).** In `direct` mode, the hostname
+  is resolved and every resolved address is checked against a table of
+  non-public ranges — loopback, RFC 1918, link-local/cloud metadata
+  (`169.254.169.254`), CGNAT, and reserved multicast/unique-local ranges —
+  for both IPv4 and IPv6, not just for the initial URL: the check is
+  re-applied on every redirect hop, defeating redirect-based bypasses.
+  In proxy mode this check is skipped: the proxy's own egress allowlist
+  is the authoritative control, and local DNS results may not match the
+  proxy's resolver.
+  *Known limitation:* the check resolves the hostname once and the HTTP
+  transport then resolves it again when dialing the socket, leaving a
+  small TOCTOU window that an actively rebinding DNS resolver could
+  exploit in `direct` mode. The check therefore mitigates, but does not
+  fully eliminate, DNS rebinding; the full protection is provided by
+  routing egress through a proxy.
+- **Resource limits.** A hard byte cap (`BIBRA_URL_MAX_BYTES`) and explicit
+  timeouts (`BIBRA_URL_TIMEOUT`) are enforced — each connect/read/write
+  operation is bounded, and the same value is also the total deadline for
+  the complete download, so a server that drips small chunks to evade the
+  per-read timeout cannot hold a request open indefinitely. Redirects are
+  bounded (`BIBRA_URL_MAX_REDIRECTS`).
+- **Content verification.** The response `Content-Type` must be in
+  `BIBRA_URL_CONTENT_TYPES` and the bytes must pass a magic-byte check before
+  being handed to a backend.
+
+These options (all `BIBRA_URL_*`) are documented in [.env.example](.env.example).
+
 ## Testing
 
 ### Python Tests

@@ -1,9 +1,14 @@
 """Abstract base class for all backends."""
 
+import logging
+import os
+import tempfile
 from abc import ABC, abstractmethod
 from typing import Any
 
 from bibra.types import PublicationMetadata
+
+logger = logging.getLogger(__name__)
 
 
 class BaseBackend(ABC):
@@ -24,6 +29,36 @@ class BaseBackend(ABC):
         Returns:
             PublicationMetadata: Extracted metadata.
         """
+
+    async def extract_from_bytes(self, data: bytes) -> PublicationMetadata:
+        """Extract publication metadata from in-memory PDF bytes.
+
+        Writes the bytes to a temporary ``.pdf`` file and calls
+        :meth:`extract` with it. The temporary file is removed afterwards,
+        even if extraction fails.
+
+        Args:
+            data: The PDF file contents.
+
+        Returns:
+            PublicationMetadata: Extracted metadata.
+        """
+        tmp_path: str | None = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+                tmp_path = tmp.name
+                tmp.write(data)
+            return await self.extract([tmp_path])
+        finally:
+            if tmp_path is not None:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    logger.debug(
+                        "Failed to remove temporary file: %s",
+                        tmp_path,
+                        exc_info=True,
+                    )
 
     @classmethod
     @abstractmethod

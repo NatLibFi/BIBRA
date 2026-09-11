@@ -12,7 +12,11 @@ from bibra.config import (
     ConfigParseError,
     ProjectConfig,
     ProjectRegistry,
-    _interpolate_env_vars,
+)
+from bibra.net_security import (
+    URL_FETCH_DIRECT,
+    UrlFetchPolicy,
+    load_url_fetch_policy,
 )
 
 
@@ -564,46 +568,186 @@ class TestParseIntOrStr:
         assert "Unrecognized int value" in caplog.text
 
 
-class TestInterpolateEnvVars:
-    """Tests for _interpolate_env_vars."""
+class TestLoadUrlFetchPolicy:
+    """Tests for load_url_fetch_policy and UrlFetchPolicy."""
 
-    def test_none_returns_none(self):
-        """Test that None input returns None."""
-        assert _interpolate_env_vars(None) is None
+    URL_ENV_VARS = (
+        "BIBRA_URL_PROXY",
+        "BIBRA_URL_SCHEMES",
+        "BIBRA_URL_CONTENT_TYPES",
+        "BIBRA_URL_MAX_BYTES",
+        "BIBRA_URL_TIMEOUT",
+        "BIBRA_URL_MAX_REDIRECTS",
+        "BIBRA_URL_ALLOW_IP_HOSTS",
+    )
 
-    def test_non_string_int_returns_unchanged(self):
-        """Test that non-string values (int) are returned unchanged."""
-        assert _interpolate_env_vars(42) == 42
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, monkeypatch):
+        for var in self.URL_ENV_VARS:
+            monkeypatch.delenv(var, raising=False)
 
-    def test_non_string_float_returns_unchanged(self):
-        """Test that non-string values (float) are returned unchanged."""
-        assert _interpolate_env_vars(3.14) == 3.14
+    def test_defaults_when_nothing_set(self):
+        """Default policy: proxy required, https-only, PDF only."""
+        policy = load_url_fetch_policy()
 
-    def test_non_string_bool_returns_unchanged(self):
-        """Test that non-string values (bool) are returned unchanged."""
-        assert _interpolate_env_vars(True) is True
-        assert _interpolate_env_vars(False) is False
+        assert isinstance(policy, UrlFetchPolicy)
+        assert policy.proxy is None
+        assert policy.proxy_required is True
+        assert policy.schemes == ("https",)
+        assert policy.content_types == ("application/pdf",)
+        assert policy.max_bytes == 50 * 1024 * 1024
+        assert policy.timeout == 30
+        assert policy.max_redirects == 5
+        assert policy.allow_ip_hosts is False
 
-    def test_non_string_list_returns_unchanged(self):
-        """Test that non-string values (list) are returned unchanged."""
-        assert _interpolate_env_vars([1, 2, 3]) == [1, 2, 3]
+    def test_proxy_url(self, monkeypatch):
+        """A non-sentinel BIBRA_URL_PROXY value is used as the proxy URL."""
+        monkeypatch.setenv("BIBRA_URL_PROXY", "http://proxy.example.com:8080")
 
-    def test_string_with_no_placeholders_returns_unchanged(self):
-        """Test that strings without placeholders are returned unchanged."""
-        assert _interpolate_env_vars("hello world") == "hello world"
+        policy = load_url_fetch_policy()
 
-    def test_unclosed_placeholder_returns_unchanged(self):
-        """Test that strings with ${ but no closing } are returned unchanged."""
-        assert _interpolate_env_vars("${FOO") == "${FOO"
+        assert policy.proxy == "http://proxy.example.com:8080"
+        assert policy.proxy_required is False
 
-    def test_unclosed_placeholder_mid_string_returns_unchanged(self):
-        """Test that ${ without } in the middle of a string is returned unchanged."""
-        assert _interpolate_env_vars("prefix ${BAR suffix") == "prefix ${BAR suffix"
+    def test_proxy_direct_sentinel(self, monkeypatch):
+        """The literal value 'direct' enables direct egress with validation."""
+        monkeypatch.setenv("BIBRA_URL_PROXY", "direct")
 
-    def test_unclosed_placeholder_preserved(self):
-        """Test that an unclosed ${ without } is left as-is."""
-        assert _interpolate_env_vars("${FOO") == "${FOO"
+        policy = load_url_fetch_policy()
 
-    def test_unclosed_placeholder_with_trailing_text(self):
-        """Test that an unclosed ${ followed by text is left as-is."""
-        assert _interpolate_env_vars("prefix${BAR suffix") == "prefix${BAR suffix"
+        assert policy.proxy == "direct"
+        assert policy.proxy_required is False
+
+    def test_proxy_direct_is_case_sensitive(self, monkeypatch):
+        """'Direct' is not the sentinel and is treated as a proxy URL."""
+        monkeypatch.setenv("BIBRA_URL_PROXY", "Direct")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.proxy == "Direct"
+
+    def test_proxy_blank_means_refused(self, monkeypatch):
+        """A blank BIBRA_URL_PROXY means URL fetching is refused."""
+        monkeypatch.setenv("BIBRA_URL_PROXY", "   ")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.proxy is None
+        assert policy.proxy_required is True
+
+    def test_cli_fallback_unset_proxy_means_direct(self, monkeypatch):
+        """cli_fallback=True: an unset proxy is treated as 'direct'."""
+        monkeypatch.delenv("BIBRA_URL_PROXY", raising=False)
+
+        policy = load_url_fetch_policy(cli_fallback=True)
+
+        assert policy.proxy == URL_FETCH_DIRECT
+        assert policy.proxy_required is False
+
+    def test_cli_fallback_explicit_proxy_unchanged(self, monkeypatch):
+        """cli_fallback=True never overrides an explicitly set proxy."""
+        monkeypatch.setenv("BIBRA_URL_PROXY", "http://proxy.example.com:8080")
+
+        policy = load_url_fetch_policy(cli_fallback=True)
+
+        assert policy.proxy == "http://proxy.example.com:8080"
+
+    def test_cli_fallback_blank_proxy_means_direct(self, monkeypatch):
+        """cli_fallback=True: a blank (whitespace) proxy is treated as
+        'direct', same as unset."""
+        monkeypatch.setenv("BIBRA_URL_PROXY", "   ")
+
+        policy = load_url_fetch_policy(cli_fallback=True)
+
+        assert policy.proxy == URL_FETCH_DIRECT
+
+    def test_schemes_custom(self, monkeypatch):
+        """BIBRA_URL_SCHEMES is parsed as a comma-separated list."""
+        monkeypatch.setenv("BIBRA_URL_SCHEMES", "https, http ,ftp")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.schemes == ("https", "http", "ftp")
+
+    def test_schemes_blank_falls_back_to_default(self, monkeypatch):
+        """A blank BIBRA_URL_SCHEMES falls back to the https default."""
+        monkeypatch.setenv("BIBRA_URL_SCHEMES", " , ,")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.schemes == ("https",)
+
+    def test_content_types_custom(self, monkeypatch):
+        """BIBRA_URL_CONTENT_TYPES is parsed as a comma-separated list."""
+        monkeypatch.setenv("BIBRA_URL_CONTENT_TYPES", "application/pdf, image/png")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.content_types == ("application/pdf", "image/png")
+
+    def test_max_bytes_custom(self, monkeypatch):
+        """BIBRA_URL_MAX_BYTES accepts a positive integer."""
+        monkeypatch.setenv("BIBRA_URL_MAX_BYTES", "1024")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.max_bytes == 1024
+
+    def test_max_bytes_invalid_falls_back_to_default(self, monkeypatch):
+        """A non-numeric BIBRA_URL_MAX_BYTES falls back to the default."""
+        monkeypatch.setenv("BIBRA_URL_MAX_BYTES", "huge")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.max_bytes == 50 * 1024 * 1024
+
+    def test_max_bytes_non_positive_falls_back_to_default(self, monkeypatch):
+        """A non-positive BIBRA_URL_MAX_BYTES falls back to the default."""
+        monkeypatch.setenv("BIBRA_URL_MAX_BYTES", "-5")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.max_bytes == 50 * 1024 * 1024
+
+    def test_timeout_custom(self, monkeypatch):
+        """BIBRA_URL_TIMEOUT accepts a positive integer (seconds)."""
+        monkeypatch.setenv("BIBRA_URL_TIMEOUT", "2")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.timeout == 2
+
+    def test_timeout_invalid_falls_back_to_default(self, monkeypatch):
+        """A non-numeric BIBRA_URL_TIMEOUT falls back to the default."""
+        monkeypatch.setenv("BIBRA_URL_TIMEOUT", "soon")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.timeout == 30
+
+    def test_max_redirects_custom(self, monkeypatch):
+        """BIBRA_URL_MAX_REDIRECTS accepts a positive integer."""
+        monkeypatch.setenv("BIBRA_URL_MAX_REDIRECTS", "2")
+
+        policy = load_url_fetch_policy()
+
+        assert policy.max_redirects == 2
+
+    def test_allow_ip_hosts_truthy_values(self, monkeypatch):
+        """BIBRA_URL_ALLOW_IP_HOSTS accepts common truthy spellings."""
+        for value in ("1", "true", "TRUE", "yes", "on"):
+            monkeypatch.setenv("BIBRA_URL_ALLOW_IP_HOSTS", value)
+            assert load_url_fetch_policy().allow_ip_hosts is True
+
+    def test_allow_ip_hosts_falsy_values(self, monkeypatch):
+        """BIBRA_URL_ALLOW_IP_HOSTS accepts common falsy spellings."""
+        for value in ("0", "false", "no", "off", "garbage"):
+            monkeypatch.setenv("BIBRA_URL_ALLOW_IP_HOSTS", value)
+            assert load_url_fetch_policy().allow_ip_hosts is False
+
+    def test_policy_is_frozen(self):
+        """UrlFetchPolicy instances are immutable."""
+        policy = load_url_fetch_policy()
+
+        with pytest.raises(AttributeError):
+            policy.timeout = 1

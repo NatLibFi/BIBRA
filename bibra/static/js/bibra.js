@@ -2,12 +2,12 @@ const mainApp = Vue.createApp({
   data () {
     return {
       extractPending: false,
+      errorMessageExtract: '',
       loadingResults: false,
       projects: [],
       results: {},
       selectedProject: '',
       showDraggingEffect: false,
-      showErrorMessageExtract: false,
       showErrorMessageFileType: false,
       showResults: false,
       source: null, // null | { type: 'file', blob, objectUrl, name } | { type: 'url', url }
@@ -51,11 +51,11 @@ const mainApp = Vue.createApp({
       // Reset input data
       if (this.isFileSource) URL.revokeObjectURL(this.source.objectUrl)
       this.extractPending = false
+      this.errorMessageExtract = ''
       this.loadingResults = false
       this.results = {}
       this.showResults = false
       this.showErrorMessageFileType = false
-      this.showErrorMessageExtract = false
       this.source = null
       this.url = ''
     },
@@ -121,14 +121,14 @@ const mainApp = Vue.createApp({
 
       this.source = { type: 'url', url: this.url }
     },
-    extract () {
+    async extract () {
       if (this.extractPending) return // Only call extract if a previous call is not pending
 
       this.extractPending = true
+      this.errorMessageExtract = ''
+      this.loadingResults = true
       this.results = {}
       this.showResults = false
-      this.loadingResults = true
-      this.showErrorMessageExtract = false
 
       const formData = new FormData()
       if (this.isUrlSource) {
@@ -138,34 +138,37 @@ const mainApp = Vue.createApp({
       }
       const endpoint = this.isUrlSource ? 'extract-url' : 'extract'
 
-      fetch(`/v0/projects/${this.selectedProject}/${endpoint}`, {
-        method: 'POST',
-        body: formData
-      })
-        .then(res => {
-          if (!res.ok) {
-            throw new Error(`Server responded with ${res.status}`)
-          }
-          return res.json()
-        })
-        .then(data => {
-          // Only show results if request wasn't cancelled by user
-          if (this.extractPending) {
-            this.results = data
-            this.showResults = true
-          }
-        })
-        .catch(err => {
-          console.error('Failed to extract data:', err)
+      try {
+        const res = await fetch(`/v0/projects/${this.selectedProject}/${endpoint}`, { method: 'POST', body: formData })
+        const data = await res.json()
+
+        if (!res.ok) {
+          console.error('Failed to extract data:', data.detail)
           // Only show error if request wasn't cancelled by user
           if (this.extractPending) {
-            this.showErrorMessageExtract = true
+            this.results = {}
+            this.showResults = false
+            this.errorMessageExtract = data.detail
           }
-        })
-        .finally(() => {
-          this.loadingResults = false
-          this.extractPending = false
-        })
+          return
+        }
+
+        if (this.extractPending) {
+          this.results = data
+          this.showResults = true
+        }
+      } catch (err) {
+        console.error('Failed to extract data:', err)
+        // Only show error if request wasn't cancelled by user
+        if (this.extractPending) {
+          this.results = {}
+          this.showResults = false
+          this.errorMessageExtract = 'Metadata extraction failed.'
+        }
+      } finally {
+        this.loadingResults = false
+        this.extractPending = false
+      }
     }
   },
   template: `
@@ -217,7 +220,9 @@ const mainApp = Vue.createApp({
             <div class="mb-3">
               <div v-if="isUrlSource" id="url-preview" class="p-3">
                 <p class="mb-2">
-                  Using document: <a :href="url" target="_blank">{{ url }}<i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                  Using document: <a :href="url" title="Open document in a new tab" target="_blank">
+                    {{ url }}<i class="fa-solid fa-arrow-up-right-from-square"></i>
+                  </a>
                 </p>
                 <p class="mb-0">
                   The file is downloaded and validated on the server after submission.
@@ -262,8 +267,8 @@ const mainApp = Vue.createApp({
           <h2 class="mb-3">Results</h2>
           <template v-if="!showResults">
             <template v-if="!loadingResults">
-              <div v-if="showErrorMessageExtract" class="error-message p-2" role="alert">
-                Metadata extraction failed.
+              <div v-if="errorMessageExtract" class="error-message p-2" role="alert">
+                {{ errorMessageExtract }}
               </div>
               <p v-else>Results will appear here after processing</p>
             </template>
@@ -298,7 +303,7 @@ const mainApp = Vue.createApp({
                     <td class="table-col-copy">
                       <button class="btn-copy btn btn-secondary" @click="copy(value)">
                         <i class="fa-regular fa-copy" aria-hidden="true"></i>
-                        <span class="visually-hidden">Copy</span>
+                        <span class="visually-hidden">Copy {{ key }}</span>
                       </button>
                     </td>
                   </tr>

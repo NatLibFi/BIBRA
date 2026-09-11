@@ -244,6 +244,110 @@ class TestProjectRegistry:
 
         assert projects["proj_a"].api_key == "interpolated-key"
 
+    def test_extra_headers_inline_table_from_toml(self, tmp_path: Path):
+        """Test that extra_headers inline table is parsed from TOML."""
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text(
+            "[test_project]\n"
+            'name = "Test"\n'
+            'backend = "dummy"\n'
+            'extra_headers = { X-Title = "BIBRA" }\n'
+        )
+
+        registry = ProjectRegistry(str(config_file))
+        projects = registry.load()
+
+        assert projects["test_project"].extra_headers == {"X-Title": "BIBRA"}
+        assert "extra_headers" not in projects["test_project"].extra
+
+    def test_extra_headers_subtable_from_toml(self, tmp_path: Path):
+        """Test that extra_headers sub-table (multiple headers) is parsed."""
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text(
+            "[test_project]\n"
+            'name = "Test"\n'
+            'backend = "dummy"\n\n'
+            "[test_project.extra_headers]\n"
+            'X-Title = "BIBRA"\n'
+            'HTTP-Referer = "https://example.com"\n'
+        )
+
+        registry = ProjectRegistry(str(config_file))
+        projects = registry.load()
+
+        assert projects["test_project"].extra_headers == {
+            "X-Title": "BIBRA",
+            "HTTP-Referer": "https://example.com",
+        }
+
+    def test_extra_headers_env_var_interpolation(self, tmp_path: Path, monkeypatch):
+        """Test that env vars are interpolated in extra_headers values."""
+        monkeypatch.setenv("PROXY_TOKEN", "secret-token")
+
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text(
+            "[test_project]\n"
+            'name = "Test"\n'
+            'backend = "dummy"\n'
+            'extra_headers = { X-Proxy-Token = "${PROXY_TOKEN}" }\n'
+        )
+
+        registry = ProjectRegistry(str(config_file))
+        projects = registry.load()
+
+        assert projects["test_project"].extra_headers == {
+            "X-Proxy-Token": "secret-token"
+        }
+
+    def test_extra_headers_defaults_and_override(self, tmp_path: Path):
+        """Test extra_headers merging from [defaults] with project override."""
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text(
+            "[defaults]\n"
+            'extra_headers = { X-Title = "default" }\n\n'
+            "[proj_a]\n"
+            'name = "Project A"\n'
+            'backend = "dummy"\n\n'
+            "[proj_b]\n"
+            'name = "Project B"\n'
+            'backend = "dummy"\n'
+            'extra_headers = { X-Title = "override" }\n'
+        )
+
+        registry = ProjectRegistry(str(config_file))
+        projects = registry.load()
+
+        assert projects["proj_a"].extra_headers == {"X-Title": "default"}
+        assert projects["proj_b"].extra_headers == {"X-Title": "override"}
+
+    def test_extra_headers_invalid_type_raises(self, tmp_path: Path):
+        """Test that non-table extra_headers raises BackendConfigError."""
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text(
+            "[test_project]\n"
+            'name = "Test"\n'
+            'backend = "dummy"\n'
+            'extra_headers = "not-a-table"\n'
+        )
+
+        registry = ProjectRegistry(str(config_file))
+        with pytest.raises(BackendConfigError, match="Invalid extra_headers"):
+            registry.load()
+
+    def test_extra_headers_non_string_value_raises(self, tmp_path: Path):
+        """Test that extra_headers with non-string values raises BackendConfigError."""
+        config_file = tmp_path / "projects.toml"
+        config_file.write_text(
+            "[test_project]\n"
+            'name = "Test"\n'
+            'backend = "dummy"\n'
+            "extra_headers = { X-Retry = 3 }\n"
+        )
+
+        registry = ProjectRegistry(str(config_file))
+        with pytest.raises(BackendConfigError, match="Invalid extra_headers"):
+            registry.load()
+
     def test_non_string_toml_values(self, tmp_path: Path):
         """Test that non-string TOML values are handled without crashing."""
         config_file = tmp_path / "projects.toml"
@@ -279,6 +383,7 @@ class TestProjectConfig:
         assert config.backend == "dummy"
         assert config.endpoint is None
         assert config.api_key is None
+        assert config.extra_headers is None
         assert config.extra == {}
 
     def test_full_config(self):
@@ -289,6 +394,7 @@ class TestProjectConfig:
             backend="nuextract",
             endpoint="http://example.com",
             api_key="secret",
+            extra_headers={"X-Title": "BIBRA"},
             extra={
                 "model": "nuextract3",
                 "thinking": True,
@@ -298,6 +404,7 @@ class TestProjectConfig:
         )
         assert config.endpoint == "http://example.com"
         assert config.api_key == "secret"
+        assert config.extra_headers == {"X-Title": "BIBRA"}
         assert config.extra["model"] == "nuextract3"
         assert config.extra["thinking"] is True
         assert config.extra["instructions"] == "Custom instructions"

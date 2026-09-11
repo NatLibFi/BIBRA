@@ -454,3 +454,121 @@ class TestGlobalLLMConfigEmptyStrings:
         monkeypatch.delenv("LLM_API_KEY", raising=False)
         cfg = GlobalLLMConfig(api_key="")
         assert cfg.api_key == ""
+
+
+class TestGreyLitLMBackendExtraHeaders:
+    """Tests that GreyLitLMBackend wires extra_headers into the OpenAI client."""
+
+    def test_backend_passes_extra_headers_to_client(self, monkeypatch):
+        """extra_headers should be passed to AsyncOpenAI as default_headers."""
+        from openai import AsyncOpenAI
+
+        monkeypatch.delenv("LLM_EXTRA_HEADERS", raising=False)
+        captured = {}
+        original_init = AsyncOpenAI.__init__
+
+        def spy_init(self, *args, **kwargs):
+            captured.update(kwargs)
+            original_init(self, *args, **kwargs)
+
+        monkeypatch.setattr(AsyncOpenAI, "__init__", spy_init)
+        headers = {"HTTP-Referer": "https://example.com", "X-Title": "BIBRA"}
+        GreyLitLMBackend(
+            global_cfg=GlobalLLMConfig(
+                endpoint_url="http://localhost:8080/v1/",
+                api_key="test-key",
+                extra_headers=headers,
+            )
+        )
+        assert captured["default_headers"] == headers
+
+    def test_backend_passes_none_headers_to_client(self, monkeypatch):
+        """Without extra_headers, default_headers should be None."""
+        from openai import AsyncOpenAI
+
+        monkeypatch.delenv("LLM_EXTRA_HEADERS", raising=False)
+        captured = {}
+        original_init = AsyncOpenAI.__init__
+
+        def spy_init(self, *args, **kwargs):
+            captured.update(kwargs)
+            original_init(self, *args, **kwargs)
+
+        monkeypatch.setattr(AsyncOpenAI, "__init__", spy_init)
+        GreyLitLMBackend(
+            global_cfg=GlobalLLMConfig(
+                endpoint_url="http://localhost:8080/v1/",
+                api_key="test-key",
+            )
+        )
+        assert captured["default_headers"] is None
+
+    def test_build_config_passes_extra_headers(self):
+        """build_config should forward project.extra_headers to GlobalLLMConfig."""
+        project = MagicMock()
+        project.endpoint = "http://localhost:8080/v1/"
+        project.api_key = "test-key"
+        project.extra_headers = {"X-Title": "BIBRA"}
+        project.extra = {}
+
+        kwargs = GreyLitLMBackend.build_config(project)
+        assert kwargs["global_cfg"].extra_headers == {"X-Title": "BIBRA"}
+
+
+class TestGlobalLLMConfigExtraHeaders:
+    """Tests for extra_headers handling in GlobalLLMConfig."""
+
+    def test_extra_headers_default_none_when_env_not_set(self, monkeypatch):
+        """extra_headers should default to None when env var is not set."""
+        monkeypatch.delenv("LLM_EXTRA_HEADERS", raising=False)
+        cfg = GlobalLLMConfig()
+        assert cfg.extra_headers is None
+
+    def test_extra_headers_explicit_dict(self, monkeypatch):
+        """Explicitly provided dict should be used as-is."""
+        monkeypatch.delenv("LLM_EXTRA_HEADERS", raising=False)
+        headers = {"HTTP-Referer": "https://example.com", "X-Title": "BIBRA"}
+        cfg = GlobalLLMConfig(extra_headers=headers)
+        assert cfg.extra_headers == headers
+
+    def test_extra_headers_from_env_var(self, monkeypatch):
+        """extra_headers should be parsed from LLM_EXTRA_HEADERS JSON env var."""
+        monkeypatch.setenv(
+            "LLM_EXTRA_HEADERS",
+            '{"HTTP-Referer": "https://example.com", "X-Title": "BIBRA"}',
+        )
+        cfg = GlobalLLMConfig()
+        assert cfg.extra_headers == {
+            "HTTP-Referer": "https://example.com",
+            "X-Title": "BIBRA",
+        }
+
+    def test_extra_headers_empty_env_var(self, monkeypatch):
+        """Empty LLM_EXTRA_HEADERS env var should result in None."""
+        monkeypatch.setenv("LLM_EXTRA_HEADERS", "  ")
+        cfg = GlobalLLMConfig()
+        assert cfg.extra_headers is None
+
+    def test_extra_headers_invalid_json(self, monkeypatch):
+        """Malformed JSON in env var should be ignored (None) without raising."""
+        monkeypatch.setenv("LLM_EXTRA_HEADERS", "not-json")
+        cfg = GlobalLLMConfig()
+        assert cfg.extra_headers is None
+
+    def test_extra_headers_non_object_json(self, monkeypatch):
+        """JSON that is not an object (e.g. a list) should be ignored."""
+        monkeypatch.setenv("LLM_EXTRA_HEADERS", '["X-Title", "BIBRA"]')
+        cfg = GlobalLLMConfig()
+        assert cfg.extra_headers is None
+
+    def test_extra_headers_non_string_values(self, monkeypatch):
+        """Object with non-string values should be ignored."""
+        monkeypatch.setenv("LLM_EXTRA_HEADERS", '{"X-Retry": 3}')
+        cfg = GlobalLLMConfig()
+        assert cfg.extra_headers is None
+
+    def test_extra_headers_explicit_wins_over_env(self, monkeypatch):
+        """Explicitly provided dict should take precedence over env var."""
+        monkeypatch.setenv("LLM_EXTRA_HEADERS", '{"X-Title": "from-env"}')
+        cfg = GlobalLLMConfig(extra_headers={"X-Title": "explicit"})
+        assert cfg.extra_headers == {"X-Title": "explicit"}

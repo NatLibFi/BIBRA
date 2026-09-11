@@ -140,6 +140,7 @@ class NuExtractBackend(BaseBackend):
         openai_client = AsyncOpenAI(
             base_url=self.global_cfg.endpoint_url,
             api_key=api_key,
+            default_headers=self.global_cfg.extra_headers,
         )
 
         provider = OpenAIProvider(openai_client=openai_client)
@@ -160,6 +161,7 @@ class NuExtractBackend(BaseBackend):
         global_cfg = GlobalLLMConfig(
             endpoint_url=project.endpoint,
             api_key=project.api_key,
+            extra_headers=project.extra_headers,
         )
         cfg = NuExtractConfig(**project.extra)
         return {"global_cfg": global_cfg, "cfg": cfg}

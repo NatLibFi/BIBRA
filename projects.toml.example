@@ -19,14 +19,6 @@ model = "${NUEXTRACT_MODEL}"
 thinking = true
 dpi = 200
 
-# Example: project using OpenRouter, where attribution headers are useful
-# [openrouter]
-# name = "OpenRouter project"
-# backend = "greylitlm"
-# endpoint = "https://openrouter.ai/api/v1/"
-# api_key = "${OPENROUTER_API_KEY}"
-# extra_headers = { HTTP-Referer = "https://example.com", X-Title = "BIBRA" }
-
 [dummy]
 name = "Dummy project"
 backend = "dummy"

@@ -72,7 +72,7 @@ def _get_backend_class(backend_type: str) -> type[BaseBackend] | None:
 
 # Keys recognized as global/project-level metadata.
 # All other keys are passed as-is into the backend-specific ``extra`` dict.
-_GLOBAL_KEYS = {"name", "backend", "endpoint", "api_key"}
+_GLOBAL_KEYS = {"name", "backend", "endpoint", "api_key", "extra_headers"}
 
 
 @dataclass
@@ -85,6 +85,7 @@ class ProjectConfig:
         backend: Backend type identifier (e.g. "dummy", "greylitlm", "nuextract").
         endpoint: LLM endpoint URL.
         api_key: API key for authentication.
+        extra_headers: Extra HTTP headers sent with every LLM request.
         extra: Backend-specific options passed to the backend's config schema.
     """
 
@@ -93,6 +94,7 @@ class ProjectConfig:
     backend: str
     endpoint: str | None = None
     api_key: str | None = None
+    extra_headers: dict[str, str] | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
 
@@ -140,6 +142,34 @@ def _interpolate_dict_values(d: dict[str, Any]) -> dict[str, Any]:
         key: _interpolate_env_vars(value) if isinstance(value, str) else value
         for key, value in d.items()
     }
+
+
+def _parse_extra_headers(extra_headers: Any, project_id: str) -> dict[str, str] | None:
+    """Validate and interpolate extra_headers from a merged project config.
+
+    Args:
+        extra_headers: Raw extra_headers value from the merged config.
+        project_id: Project ID, used in the error message.
+
+    Returns:
+        Interpolated headers dict, or None if extra_headers is not set.
+
+    Raises:
+        BackendConfigError: If extra_headers is not a table of string
+            key/value pairs.
+    """
+    if extra_headers is None:
+        return None
+    if not isinstance(extra_headers, dict) or not all(
+        isinstance(v, str) for v in extra_headers.values()
+    ):
+        raise BackendConfigError(
+            f"Invalid extra_headers for project '{project_id}':"
+            " must be a table of string key/value pairs"
+        )
+    # Interpolate env vars in header values (nested dicts are not
+    # covered by _interpolate_dict_values).
+    return {k: _interpolate_env_vars(v) for k, v in extra_headers.items()}
 
 
 class ProjectRegistry:
@@ -220,6 +250,10 @@ class ProjectRegistry:
                 )
 
             # Separate global fields from backend-specific extra fields
+            extra_headers = _parse_extra_headers(
+                merged.get("extra_headers"), project_id
+            )
+
             project = ProjectConfig(
                 id=project_id,
                 name=(
@@ -230,6 +264,7 @@ class ProjectRegistry:
                 backend=backend_type,
                 endpoint=merged.get("endpoint"),
                 api_key=merged.get("api_key"),
+                extra_headers=extra_headers,
                 extra={k: v for k, v in merged.items() if k not in _GLOBAL_KEYS},
             )
 

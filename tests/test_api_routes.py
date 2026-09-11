@@ -22,7 +22,12 @@ from bibra.config import (
     ProjectNotFoundError,
     ProjectRegistry,
 )
-from bibra.net_security import ProxyRequiredError, UrlPolicyError
+from bibra.net_security import (
+    DownloadSizeExceededError,
+    ProxyRequiredError,
+    UnsupportedContentTypeError,
+    UrlPolicyError,
+)
 from bibra.types import PublicationMetadata
 
 MOCK_PDF_BYTES = b"%PDF-1.4 mock content"
@@ -222,7 +227,40 @@ class TestAPIRoutes:
             )
 
         assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == "URL rejected by fetch policy"
         assert "169.254.169.254" not in exc_info.value.detail
+
+    async def test_extract_url_download_size_exceeded_returns_400(self, monkeypatch):
+        """An oversized download returns 400 with a specific size detail."""
+        with pytest.raises(HTTPException) as exc_info:
+            await _call_extract_url(
+                monkeypatch,
+                "direct",
+                DUMMY_URL,
+                side_effect=DownloadSizeExceededError(
+                    DownloadSizeExceededError.MESSAGE
+                ),
+            )
+
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == DownloadSizeExceededError.MESSAGE
+        assert exc_info.value.detail != "URL rejected by fetch policy"
+
+    async def test_extract_url_unsupported_type_returns_400(self, monkeypatch):
+        """A non-PDF download returns 400 with a specific file-type detail."""
+        with pytest.raises(HTTPException) as exc_info:
+            await _call_extract_url(
+                monkeypatch,
+                "direct",
+                DUMMY_URL,
+                side_effect=UnsupportedContentTypeError(
+                    UnsupportedContentTypeError.MESSAGE
+                ),
+            )
+
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == UnsupportedContentTypeError.MESSAGE
+        assert exc_info.value.detail != "URL rejected by fetch policy"
 
     @pytest.mark.parametrize(
         ("side_effect", "leaked_detail"),
@@ -256,9 +294,17 @@ class TestAPIRoutes:
         [
             (ProxyRequiredError(ProxyRequiredError.MESSAGE),),
             (UrlPolicyError("URL rejected by fetch policy"),),
+            (DownloadSizeExceededError(DownloadSizeExceededError.MESSAGE),),
+            (UnsupportedContentTypeError(UnsupportedContentTypeError.MESSAGE),),
             (httpx2.HTTPError("connection refused"),),
         ],
-        ids=["proxy-required-503", "policy-error-400", "http-error-502"],
+        ids=[
+            "proxy-required-503",
+            "policy-error-400",
+            "size-exceeded-400",
+            "unsupported-type-400",
+            "http-error-502",
+        ],
     )
     async def test_extract_url_error_logs_redacted_url(
         self, monkeypatch, caplog, side_effect

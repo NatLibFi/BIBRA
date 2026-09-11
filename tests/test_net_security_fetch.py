@@ -428,7 +428,7 @@ class TestContentValidation:
 
         srv, port = _start_server(Handler)
         try:
-            with pytest.raises(ns.UrlPolicyError):
+            with pytest.raises(ns.UnsupportedContentTypeError):
                 asyncio.run(ns.fetch_file(f"http://127.0.0.1:{port}/x", _make_policy()))
         finally:
             srv.shutdown()
@@ -465,7 +465,7 @@ class TestContentValidation:
 
         srv, port = _start_server(Handler)
         try:
-            with pytest.raises(ns.UrlPolicyError):
+            with pytest.raises(ns.UnsupportedContentTypeError):
                 asyncio.run(ns.fetch_file(f"http://127.0.0.1:{port}/x", _make_policy()))
         finally:
             srv.shutdown()

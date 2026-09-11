@@ -355,7 +355,19 @@ def is_pdf(data: bytes) -> bool:
 class DownloadSizeExceededError(UrlPolicyError):
     """Raised when a download exceeds the policy's ``max_bytes`` cap."""
 
-    MESSAGE = "Download rejected by fetch policy"
+    MESSAGE = "Download exceeded the maximum allowed size"
+
+
+class UnsupportedContentTypeError(UrlPolicyError):
+    """Raised when the downloaded file is not a supported type.
+
+    Covers both the Content-Type allowlist check and the content
+    (magic-byte) verification. The message is a fixed constant so it can
+    be shown to API clients without leaking details (see
+    ``UrlPolicyError``).
+    """
+
+    MESSAGE = "Downloaded file is not a supported type"
 
 
 class _BlockedDestinationError(Exception):
@@ -469,7 +481,7 @@ def _validate_response_headers(
             media_type,
             ",".join(policy.content_types),
         )
-        raise UrlPolicyError("URL rejected by fetch policy")
+        raise UnsupportedContentTypeError(UnsupportedContentTypeError.MESSAGE)
 
 
 async def fetch_file(url: str, policy: UrlFetchPolicy) -> bytes:
@@ -485,6 +497,9 @@ async def fetch_file(url: str, policy: UrlFetchPolicy) -> bytes:
     Raises:
         ProxyRequiredError: If no proxy/direct egress is configured.
         DownloadSizeExceededError: If the body exceeds ``policy.max_bytes``.
+        UnsupportedContentTypeError: If the response Content-Type is not
+            allowed or the downloaded content fails the file-type
+            verification.
         UrlPolicyError: If any other policy rule is violated.
         httpx2.ReadTimeout: If the total download deadline is exceeded.
         httpx2.HTTPError: If the network request itself fails.
@@ -570,5 +585,5 @@ async def fetch_file(url: str, policy: UrlFetchPolicy) -> bytes:
 
     if not is_pdf(data):
         logger.warning("Downloaded content failed magic-byte validation")
-        raise UrlPolicyError("URL rejected by fetch policy")
+        raise UnsupportedContentTypeError(UnsupportedContentTypeError.MESSAGE)
     return data

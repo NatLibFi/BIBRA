@@ -13,7 +13,9 @@ from bibra import __version__
 from bibra.backend import BaseBackend
 from bibra.config import ConfigError, ProjectNotFoundError, ProjectRegistry
 from bibra.net_security import (
+    DownloadSizeExceededError,
     ProxyRequiredError,
+    UnsupportedContentTypeError,
     UrlPolicyError,
     fetch_file,
     load_url_fetch_policy,
@@ -126,7 +128,14 @@ async def extract(
 @router.post(
     "/projects/{project_id}/extract-url",
     responses={
-        400: {"description": "Bad Request - URL or content violates the fetch policy"},
+        400: {
+            "description": (
+                "Bad Request - URL or content violates the fetch policy. The "
+                "detail message is specific to the rejection (oversized "
+                "download, unsupported file type, or URL rejected) but never "
+                "contains internal details."
+            )
+        },
         502: {"description": "Bad Gateway - download failed"},
         503: {"description": "Service Unavailable - URL fetching is not configured"},
     },
@@ -154,9 +163,11 @@ async def extract_url(
         PublicationMetadata: Extracted metadata as JSON
 
     Raises:
-        HTTPException: 400 if the URL or content violates the fetch policy,
-            404 if the project is unknown, 502 if the download fails,
-            503 if URL fetching is disabled (no proxy/direct configured).
+        HTTPException: 400 if the URL or content violates the fetch policy
+            (detail is specific to the rejection: oversized download,
+            unsupported file type, or generic URL rejection), 404 if the
+            project is unknown, 502 if the download fails, 503 if URL
+            fetching is disabled (no proxy/direct configured).
     """
     backend = _resolve_backend(registry, project_id)
 
@@ -169,6 +180,12 @@ async def extract_url(
     except ProxyRequiredError as e:
         logger.info("URL fetch refused (no proxy configured): %s", safe_url)
         raise HTTPException(status_code=503, detail=e.MESSAGE)
+    except DownloadSizeExceededError as e:
+        logger.info("Download rejected (size exceeded): %s", safe_url)
+        raise HTTPException(status_code=400, detail=e.MESSAGE)
+    except UnsupportedContentTypeError as e:
+        logger.info("Download rejected (unsupported type): %s", safe_url)
+        raise HTTPException(status_code=400, detail=e.MESSAGE)
     except UrlPolicyError as e:
         # Client-facing message stays generic; details were logged by
         # the fetch layer.

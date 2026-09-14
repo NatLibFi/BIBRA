@@ -429,7 +429,9 @@ async def _check_destination(host: str, port: int | None) -> None:
         raise _DnsResolutionError(f"http://{host}") from None
     seen: set[str] = set()
     for info in infos:
-        ip_str = info[4][0]
+        # getaddrinfo stubs type the sockaddr host as `str | int`
+        # (port position), so normalize explicitly to str.
+        ip_str = str(info[4][0])
         if ip_str in seen:
             continue
         seen.add(ip_str)

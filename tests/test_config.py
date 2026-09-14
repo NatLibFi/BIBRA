@@ -750,4 +750,4 @@ class TestLoadUrlFetchPolicy:
         policy = load_url_fetch_policy()
 
         with pytest.raises(AttributeError):
-            policy.timeout = 1
+            policy.timeout = 1  # type: ignore

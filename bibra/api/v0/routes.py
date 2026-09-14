@@ -5,11 +5,23 @@ import os
 import tempfile
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+import httpx2
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from pydantic import HttpUrl
 
 from bibra import __version__
+from bibra.backend import BaseBackend
 from bibra.config import ConfigError, ProjectNotFoundError, ProjectRegistry
-from bibra.types import PublicationMetadata
+from bibra.net_security import (
+    DownloadSizeExceededError,
+    ProxyRequiredError,
+    UnsupportedContentTypeError,
+    UrlPolicyError,
+    fetch_file,
+    load_url_fetch_policy,
+    redact_url,
+)
+from bibra.types import Projects, PublicationMetadata, Version
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +42,28 @@ def get_registry(request: Request) -> ProjectRegistry:
     return registry
 
 
-@router.get("/")
+def _resolve_backend(registry: ProjectRegistry, project_id: str) -> "BaseBackend":
+    """Return the backend for a project, mapping config errors to HTTP status."""
+    try:
+        return registry.get_backend(project_id)
+    except ProjectNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ConfigError as e:
+        logger.exception("Configuration error")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(
+    "/", response_model=Version, summary="Get version information", tags=["General"]
+)
 async def root():
-    """Return the API version information."""
+    """Return version information of BIBRA and the API."""
     return {"version": __version__, "message": "Welcome to BIBRA API v0"}
 
 
-@router.get("/projects")
+@router.get(
+    "/projects", response_model=Projects, summary="List projects", tags=["Projects"]
+)
 async def list_projects(registry: Annotated[ProjectRegistry, Depends(get_registry)]):
     """Return a list of configured projects."""
     try:
@@ -49,6 +76,8 @@ async def list_projects(registry: Annotated[ProjectRegistry, Depends(get_registr
 
 @router.post(
     "/projects/{project_id}/extract",
+    summary="Extract metadata from a file upload",
+    tags=["Extraction"],
     responses={400: {"description": "Bad Request - malformed multipart data"}},
 )
 async def extract(
@@ -65,6 +94,12 @@ async def extract(
 
     Returns:
         PublicationMetadata: Extracted metadata as JSON
+
+    Example:
+        ```
+        curl -X POST "http://localhost:8000/v0/projects/my_project/extract" \
+             -F "files=@/path/to/document.pdf"
+        ```
     """
     temp_files: list[str] = []
     try:
@@ -75,13 +110,7 @@ async def extract(
                     tmp.write(chunk)
 
         # Get backend for the project
-        try:
-            backend = registry.get_backend(project_id)
-        except ProjectNotFoundError as e:
-            raise HTTPException(status_code=404, detail=str(e))
-        except ConfigError as e:
-            logger.exception("Configuration error")
-            raise HTTPException(status_code=500, detail=str(e))
+        backend = _resolve_backend(registry, project_id)
         # Extract metadata using the backend
         result = await backend.extract(temp_files)
         return result
@@ -94,3 +123,77 @@ async def extract(
                 logger.debug(
                     "Failed to remove temporary file: %s", tmp_path, exc_info=True
                 )
+
+
+@router.post(
+    "/projects/{project_id}/extract-url",
+    summary="Extract metadata from a given URL",
+    tags=["Extraction"],
+    responses={
+        400: {
+            "description": (
+                "Bad Request - URL or content violates the fetch policy. The "
+                "detail message is specific to the rejection (oversized "
+                "download, unsupported file type, or URL rejected by policy)."
+            )
+        },
+        502: {"description": "Bad Gateway - download failed"},
+        503: {"description": "Service Unavailable - URL fetching is not configured"},
+    },
+)
+async def extract_url(
+    project_id: str,
+    registry: Annotated[ProjectRegistry, Depends(get_registry)],
+    url: HttpUrl = Form(...),  # noqa: B008
+) -> PublicationMetadata:
+    """
+    Extract publication metadata from a PDF file at a given URL for a
+    specific project.
+
+    The download is performed with the SSRF-hardened fetch layer
+    (``bibra.net_security``): egress is only allowed through a configured
+    proxy or in explicit direct mode, the URL and every redirect hop are
+    validated against the fetch policy, and the downloaded bytes are
+    verified before being handed to the backend.
+
+    Args:
+        project_id: The ID of the project to extract metadata for
+        url: URL pointing to a file to process
+
+    Returns:
+        PublicationMetadata: Extracted metadata as JSON
+
+    Raises:
+        HTTPException: 400 if the URL or content violates the fetch policy
+            (detail is specific to the rejection: oversized download,
+            unsupported file type, or generic URL rejection), 404 if the
+            project is unknown, 502 if the download fails, 503 if URL
+            fetching is disabled (no proxy/direct configured).
+    """
+    backend = _resolve_backend(registry, project_id)
+
+    url_str = str(url)
+    policy = load_url_fetch_policy()
+
+    safe_url = redact_url(url_str)
+    try:
+        data = await fetch_file(url_str, policy)
+    except ProxyRequiredError as e:
+        logger.info("URL fetch refused (no proxy configured): %s", safe_url)
+        raise HTTPException(status_code=503, detail=e.MESSAGE)
+    except DownloadSizeExceededError as e:
+        logger.info("Download rejected (size exceeded): %s", safe_url)
+        raise HTTPException(status_code=400, detail=e.MESSAGE)
+    except UnsupportedContentTypeError as e:
+        logger.info("Download rejected (unsupported type): %s", safe_url)
+        raise HTTPException(status_code=400, detail=e.MESSAGE)
+    except UrlPolicyError as e:
+        # Client-facing message stays generic; details were logged by
+        # the fetch layer.
+        logger.info("URL rejected by fetch policy: %s", safe_url)
+        raise HTTPException(status_code=400, detail=str(e))
+    except httpx2.HTTPError:
+        logger.exception("HTTP Error downloading %s", safe_url)
+        raise HTTPException(status_code=502, detail="Failed to download URL")
+
+    return await backend.extract_from_bytes(data)

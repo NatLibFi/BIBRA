@@ -2,22 +2,22 @@ const mainApp = Vue.createApp({
   data () {
     return {
       extractPending: false,
-      fileBlob: null,
-      fileName: '',
-      fileObjectUrl: null,
+      errorMessageExtract: '',
       loadingResults: false,
       projects: [],
       results: {},
       selectedProject: '',
       showDraggingEffect: false,
-      showErrorMessageExtract: false,
       showErrorMessageFileType: false,
-      showErrorMessageURL: false,
-      showPreview: false,
       showResults: false,
+      source: null, // null | { type: 'file', blob, objectUrl, name } | { type: 'url', url }
       url: '',
       version: ''
     }
+  },
+  computed: {
+    isUrlSource () { return this.source?.type === 'url' },
+    isFileSource () { return this.source?.type === 'file' }
   },
   mounted () {
     // Fetch BIBRA version information
@@ -49,18 +49,15 @@ const mainApp = Vue.createApp({
   methods: {
     clearInput () {
       // Reset input data
-      this.url = ''
-      this.fileBlob = null
-      URL.revokeObjectURL(this.fileObjectUrl) // Revoke assigned blob URL from uploaded file
-      this.fileObjectUrl = null
-      this.fileName = ''
-      this.results = {}
-      this.showPreview = false
-      this.showResults = false
+      if (this.isFileSource) URL.revokeObjectURL(this.source.objectUrl)
+      this.extractPending = false
+      this.errorMessageExtract = ''
       this.loadingResults = false
+      this.results = {}
+      this.showResults = false
       this.showErrorMessageFileType = false
-      this.showErrorMessageExtract = false
-      this.showErrorMessageURL = false
+      this.source = null
+      this.url = ''
     },
     copy (value) {
       if (Array.isArray(value)) {
@@ -89,97 +86,88 @@ const mainApp = Vue.createApp({
       e.stopPropagation()
       e.preventDefault()
       this.showDraggingEffect = false
-      this.showErrorMessageFileType = false
-      this.showErrorMessageURL = false
       
-      const file = e.dataTransfer.files[0]
-      if (file && file.type === 'application/pdf') {
-        this.fileBlob = file
-        this.fileObjectUrl = URL.createObjectURL(this.fileBlob)
-        this.fileName = this.fileBlob.name
-        this.showPreview = true
-      } else {
-        this.showErrorMessageFileType = true
-      }
+      this.setFile(e.dataTransfer.files[0])
     },
     handleDropzoneClick (e) {
-      this.showErrorMessageFileType = false
-      this.showErrorMessageURL = false
-
       e.preventDefault()
       // Click hidden file input to run uploadFile method
       this.$refs.file.click()
     },
-    loadFileFromUrl (e) {
-      e.preventDefault()
-      this.showErrorMessageFileType = false
-      this.showErrorMessageURL = false
-
-      // Load file from given URL
-      fetch(this.url)
-        .then(res => res.blob())
-        .then(res => {
-          if (res.type === 'application/pdf') {
-            // Store the fetched file as a blob and assign a blob URL to it
-            this.fileBlob = res
-            this.fileObjectUrl = URL.createObjectURL(this.fileBlob)
-            this.fileName = this.url.split('/').slice(-1)[0]
-            this.showPreview = true
-          } else {
-            this.showErrorMessageFileType = true
-          }
-        })
-      .catch(err => {
-        console.error('Failed to fetch file from URL:', err)
-        this.showErrorMessageURL = true
-      })
-    },
     uploadFile (e) {
+      this.setFile(e.target.files[0])
+    },
+    setFile (file) {
       this.showErrorMessageFileType = false
-      this.showErrorMessageURL = false
 
-      const file = e.target.files[0]
-      if (file && file.type === 'application/pdf') {
-        // Store the uploaded file as a blob and assign a blob URL to it
-        this.fileBlob = file
-        this.fileObjectUrl = URL.createObjectURL(this.fileBlob)
-        this.fileName = this.fileBlob.name
-        this.showPreview = true
-      } else {
+      if (!file || file.type !== 'application/pdf') {
         this.showErrorMessageFileType = true
+        return
+      }
+      if (this.isFileSource) {
+        URL.revokeObjectURL(this.source.objectUrl)
+      }
+      // Store the uploaded file as a blob and assign a blob URL to it
+      this.source = {
+        type: 'file',
+        blob: file,
+        objectUrl: URL.createObjectURL(file),
+        name: file.name
       }
     },
-    extract () {
+    setUrl (e) {
+      e.preventDefault()
+      this.showErrorMessageFileType = false
+
+      this.source = { type: 'url', url: this.url }
+    },
+    async extract () {
+      if (this.extractPending) return // Only call extract if a previous call is not pending
+
+      this.extractPending = true
+      this.errorMessageExtract = ''
+      this.loadingResults = true
       this.results = {}
       this.showResults = false
-      this.loadingResults = true
-      this.showErrorMessageExtract = false
 
-      // Only call extract if a previous call is not pending
-      if (!this.extractPending) {
-        this.extractPending = true
+      const formData = new FormData()
+      if (this.isUrlSource) {
+        formData.append('url', this.source.url)
+      } else {
+        formData.append('files', this.source.blob)
+      }
+      const endpoint = this.isUrlSource ? 'extract-url' : 'extract'
 
-        const formData = new FormData()
-        formData.append('files', this.fileBlob)
+      try {
+        const res = await fetch(`/v0/projects/${this.selectedProject}/${endpoint}`, { method: 'POST', body: formData })
+        const data = await res.json()
 
-        fetch(`/v0/projects/${this.selectedProject}/extract`, {
-          method: 'POST',
-          body: formData
-        })
-          .then(res => res.json())
-          .then(data => {
-            this.results = data
-            this.loadingResults = false
-            this.showResults = true
-            this.extractPending = false
-          })
-        .catch(err => {
-          console.error('Failed to extract data from file:', err)
+        if (!res.ok) {
+          console.error('Failed to extract data:', data.detail)
+          // Only show error if request wasn't cancelled by user
+          if (this.extractPending) {
+            this.results = {}
+            this.showResults = false
+            this.errorMessageExtract = data.detail
+          }
+          return
+        }
 
-          this.loadingResults = false
-          this.extractPending = false
-          this.showErrorMessageExtract = true
-        })
+        if (this.extractPending) {
+          this.results = data
+          this.showResults = true
+        }
+      } catch (err) {
+        console.error('Failed to extract data:', err)
+        // Only show error if request wasn't cancelled by user
+        if (this.extractPending) {
+          this.results = {}
+          this.showResults = false
+          this.errorMessageExtract = 'Metadata extraction failed.'
+        }
+      } finally {
+        this.loadingResults = false
+        this.extractPending = false
       }
     }
   },
@@ -190,7 +178,7 @@ const mainApp = Vue.createApp({
           <div class="d-flex mb-3">
             <h2 class="my-auto">Input</h2>
             <button class="btn-clear ms-auto btn btn-primary"
-              v-if="showPreview"
+              v-if="source"
               @click="clearInput()"
             >
               Clear input
@@ -198,7 +186,7 @@ const mainApp = Vue.createApp({
             </button>
           </div>
 
-          <template v-if="!showPreview">
+          <template v-if="!source">
             <div id="dropzone" class="mb-3" role="button" tabindex="0"
               :class="{ 'dragging': showDraggingEffect }"
               @click="handleDropzoneClick($event)"
@@ -218,31 +206,42 @@ const mainApp = Vue.createApp({
 
             <div id="fetch-from-url" class="mb-3">
               <label class="input-label" for="url-input">Or fetch from URL</label>
-              <form class="input-group" @submit="loadFileFromUrl($event)">
+              <form class="input-group" @submit="setUrl($event)">
                 <input id="url-input" class="form-control" type="url" placeholder="https://example.com/document.pdf" required v-model="url">
-                <input id="button-select-url" class="btn btn-primary" type="submit"  value="Fetch PDF">
+                <input id="button-select-url" class="btn btn-primary" type="submit"  value="Select URL">
               </form>
             </div>
 
-            <div class="error-message mb-3 p-2" role="alert" v-if="showErrorMessageFileType || showErrorMessageURL">
-              <span v-if="showErrorMessageFileType">This file format is not supported. Please select a PDF document.</span>
-              <span v-else>Failed to fetch file from URL.</span>
+            <div class="error-message mb-3 p-2" role="alert" v-if="showErrorMessageFileType">
+              <span>This file format is not supported. Please select a PDF document.</span>
             </div>
           </template>
           <template v-else>
-            <div id="file-preview" class="mb-3">
-              <iframe class="mb-3"
-                :src="fileObjectUrl"
-                :data-url="fileObjectUrl"
-              ></iframe>
-              <button class="btn-clear btn btn-secondary"
-                :aria-label="'Remove ' + fileName"
-                @click="clearInput()"
-              >
-                <i class="fa-solid fa-file" aria-hidden="true"></i>
-                <span>{{ fileName }}</span>
-                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-              </button>
+            <div class="mb-3">
+              <div v-if="isUrlSource" id="url-preview" class="p-3">
+                <p class="mb-2">
+                  Using document: <a :href="url" title="Open document in a new tab" target="_blank">
+                    {{ url }}<i class="fa-solid fa-arrow-up-right-from-square"></i>
+                  </a>
+                </p>
+                <p class="mb-0">
+                  The file is downloaded and validated on the server after submission.
+                </p>
+              </div>
+              <div v-else id="file-preview">
+                <iframe class="mb-3"
+                  :title="source.name"
+                  :src="source.objectUrl"
+                ></iframe>
+                <button class="btn-clear btn btn-secondary"
+                  :aria-label="'Remove ' + source.name"
+                  @click="clearInput()"
+                >
+                  <i class="fa-solid fa-file me-1" aria-hidden="true"></i>
+                  <span>{{ source.name }}</span>
+                  <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                </button>
+              </div>
             </div>
           </template>
 
@@ -258,8 +257,8 @@ const mainApp = Vue.createApp({
             
             <button class="btn-submit btn btn-primary fw-bold"
               @click="extract()"
-              :class="{ disabled: !showPreview || loadingResults }"
-              :disabled="!showPreview || loadingResults"
+              :class="{ disabled: !source || loadingResults }"
+              :disabled="!source || loadingResults"
             >Submit</button>
           </div>
         </div>
@@ -268,8 +267,8 @@ const mainApp = Vue.createApp({
           <h2 class="mb-3">Results</h2>
           <template v-if="!showResults">
             <template v-if="!loadingResults">
-              <div v-if="showErrorMessageExtract" class="error-message p-2" role="alert">
-                Metadata extraction failed.
+              <div v-if="errorMessageExtract" class="error-message p-2" role="alert">
+                {{ errorMessageExtract }}
               </div>
               <p v-else>Results will appear here after processing</p>
             </template>
@@ -304,7 +303,7 @@ const mainApp = Vue.createApp({
                     <td class="table-col-copy">
                       <button class="btn-copy btn btn-secondary" @click="copy(value)">
                         <i class="fa-regular fa-copy" aria-hidden="true"></i>
-                        <span class="visually-hidden">Copy</span>
+                        <span class="visually-hidden">Copy {{ key }}</span>
                       </button>
                     </td>
                   </tr>

@@ -3,13 +3,23 @@
 import importlib
 import importlib.metadata
 import json
-from unittest.mock import MagicMock, patch
+import subprocess
+import sys
+import time
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
 
-from bibra.cli import _make_list_template, cli, extract, list_projects
-from bibra.config import ConfigError
+from bibra.cli import (
+    _make_list_template,
+    cli,
+    extract,
+    extract_url,
+    list_projects,
+    serve,
+)
+from bibra.config import ConfigError, ProjectNotFoundError
 
 
 class TestCli:
@@ -27,6 +37,7 @@ class TestCli:
         assert "BIBRA - Bibliographic metadata extraction tool" in result.output
         assert "list-projects" in result.output
         assert "extract" in result.output
+        assert "serve" in result.output
 
     def test_cli_version(self):
         """Test CLI version output."""
@@ -248,6 +259,372 @@ class TestExtract:
             assert "Invalid config syntax" in result.output
 
 
+class TestServe:
+    """Tests for the serve command."""
+
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.runner = CliRunner()
+
+    def test_serve_help(self):
+        """Test serve help output."""
+        result = self.runner.invoke(serve, ["--help"])
+        assert result.exit_code == 0
+        assert not result.exception
+        assert "Serve the BIBRA API server" in result.output
+        assert "--host" in result.output
+        assert "--port" in result.output
+        assert "-p" in result.output
+        assert "--reload" in result.output
+
+    def test_serve_defaults(self):
+        """Test that serve calls uvicorn.run with default host and port."""
+        with patch("bibra.cli.uvicorn.run") as mock_uvicorn_run:
+            result = self.runner.invoke(serve)
+            assert result.exit_code == 0
+            assert not result.exception
+            mock_uvicorn_run.assert_called_once_with(
+                "bibra.main:app", host="127.0.0.1", port=8000, reload=False
+            )
+
+    def test_serve_with_options(self):
+        """Test that serve passes host, port, and reload to uvicorn.run."""
+        with patch("bibra.cli.uvicorn.run") as mock_uvicorn_run:
+            result = self.runner.invoke(
+                serve, ["--host", "0.0.0.0", "--port", "24272", "--reload"]
+            )
+            assert result.exit_code == 0
+            assert not result.exception
+            mock_uvicorn_run.assert_called_once_with(
+                "bibra.main:app", host="0.0.0.0", port=24272, reload=True
+            )
+
+    def test_serve_with_short_port_option(self):
+        """Test that serve passes the short -p port option to uvicorn.run."""
+        with patch("bibra.cli.uvicorn.run") as mock_uvicorn_run:
+            result = self.runner.invoke(serve, ["-p", "9999"])
+            assert result.exit_code == 0
+            assert not result.exception
+            mock_uvicorn_run.assert_called_once_with(
+                "bibra.main:app", host="127.0.0.1", port=9999, reload=False
+            )
+
+
+# Tests for the extract-url command.
+
+MOCK_PDF_BYTES = b"%PDF-1.4 dummy content"
+
+
+def _make_backend(json_payload=None):
+    """Build a mock backend whose .extract() returns an object with a
+    model_dump_json method, matching what asyncio.run(backend.extract(...))
+    is expected to produce."""
+    if json_payload is None:
+        json_payload = {"title": "Some Paper", "authors": ["A. Author"]}
+
+    mock_result = MagicMock()
+    mock_result.model_dump_json.return_value = json.dumps(json_payload, indent=2)
+
+    from bibra.backend.base import BaseBackend
+
+    mock_backend = MagicMock()
+
+    async def _extract(*args, **kwargs):
+        return mock_result
+
+    mock_backend.extract.side_effect = _extract
+    # Bind the real helper so the temp-file write/cleanup runs (the CLI now
+    # calls extract_from_bytes, not extract).
+    mock_backend.extract_from_bytes = BaseBackend.extract_from_bytes.__get__(
+        mock_backend, type(mock_backend)
+    )
+    return mock_backend
+
+
+class TestExtractUrl:
+    """Tests for the extract-url command."""
+
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.runner = CliRunner()
+
+    def test_extract_url_help(self):
+        """Test extract-url help output."""
+        result = self.runner.invoke(extract_url, ["--help"])
+        assert result.exit_code == 0
+        assert not result.exception
+        assert "Extract publication metadata" in result.output
+        assert "PROJECT_ID" in result.output
+        assert "URL" in result.output
+        assert "--output" in result.output
+        assert "-o" in result.output
+
+    def test_extract_url_missing_url(self):
+        """Test extract-url command with only a project id (missing URL)."""
+        result = self.runner.invoke(extract_url, ["test-project"])
+        assert result.exit_code != 0
+        assert result.exception
+
+    def test_extract_url_with_valid_url(self):
+        """Test extract-url command with a valid URL and successful extraction."""
+        with (
+            patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
+            patch("bibra.cli.fetch_file", new=AsyncMock(return_value=MOCK_PDF_BYTES)),
+        ):
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = _make_backend()
+
+            result = self.runner.invoke(
+                extract_url, ["dummy", "https://example.com/paper.pdf"]
+            )
+
+        assert result.exit_code == 0
+        assert not result.exception
+
+        output = result.output.strip()
+        data = json.loads(output)
+        assert "title" in data or "authors" in data
+
+    def test_extract_url_with_output_option(self, tmp_path):
+        """Test extract-url command with --output option to write JSON to file."""
+        output_file = tmp_path / "output.json"
+
+        with (
+            patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
+            patch("bibra.cli.fetch_file", new=AsyncMock(return_value=MOCK_PDF_BYTES)),
+        ):
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = _make_backend()
+
+            result = self.runner.invoke(
+                extract_url,
+                [
+                    "dummy",
+                    "https://example.com/paper.pdf",
+                    "--output",
+                    str(output_file),
+                ],
+            )
+
+        assert result.exit_code == 0
+        assert not result.exception
+        assert "Output written to" in result.output
+
+        assert output_file.exists()
+        content = output_file.read_text(encoding="utf-8")
+        data = json.loads(content.strip())
+        assert data is not None
+
+    def test_extract_url_with_short_output_option(self, tmp_path):
+        """Test extract-url command with -o short option."""
+        output_file = tmp_path / "output.json"
+
+        with (
+            patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
+            patch("bibra.cli.fetch_file", new=AsyncMock(return_value=MOCK_PDF_BYTES)),
+        ):
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = _make_backend()
+
+            result = self.runner.invoke(
+                extract_url,
+                ["dummy", "https://example.com/paper.pdf", "-o", str(output_file)],
+            )
+
+        assert result.exit_code == 0
+        assert not result.exception
+        assert "Output written to" in result.output
+
+    def test_extract_url_with_nonexistent_project(self):
+        """Test extract-url command with a project that isn't found."""
+        with patch("bibra.cli.ProjectRegistry") as mock_registry_cls:
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.side_effect = ProjectNotFoundError(
+                "Project 'nonexistent-project' not found"
+            )
+
+            result = self.runner.invoke(
+                extract_url,
+                ["nonexistent-project", "https://example.com/paper.pdf"],
+            )
+
+        assert result.exit_code != 0
+        assert result.exception
+        assert "not found" in result.output
+
+    def test_extract_url_config_error_converted_to_click_exception(self):
+        """Test ConfigError during backend resolution becomes ClickException."""
+        with patch("bibra.cli.ProjectRegistry") as mock_registry_cls:
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.side_effect = ConfigError("Invalid config syntax")
+
+            result = self.runner.invoke(
+                extract_url, ["dummy", "https://example.com/paper.pdf"]
+            )
+
+        assert result.exit_code != 0
+        assert "Invalid config syntax" in result.output
+
+    def test_extract_url_download_failure_converted_to_click_exception(self):
+        """Test download failure is wrapped as 'Extraction failed (network):'."""
+        import httpx2 as _httpx
+
+        with (
+            patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
+            patch(
+                "bibra.cli.fetch_file",
+                new=AsyncMock(
+                    side_effect=_httpx.HTTPError("Name or service not known")
+                ),
+            ),
+        ):
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = _make_backend()
+
+            result = self.runner.invoke(
+                extract_url, ["dummy", "https://bad.example.invalid/paper.pdf"]
+            )
+
+        assert result.exit_code != 0
+        assert "Extraction failed (network):" in result.output
+
+    def test_extract_url_generic_exception_converted_to_click_exception(self):
+        """Test that a generic Exception during extraction is wrapped in
+        ClickException with the 'Extraction failed:' prefix."""
+        from bibra.backend.base import BaseBackend
+
+        with (
+            patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
+            patch("bibra.cli.fetch_file", new=AsyncMock(return_value=MOCK_PDF_BYTES)),
+            patch("bibra.backend.base.os.unlink"),
+        ):
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_backend = MagicMock()
+
+            async def _extract(*args, **kwargs):
+                raise RuntimeError("PDF corrupted")
+
+            mock_backend.extract.side_effect = _extract
+            mock_backend.extract_from_bytes = BaseBackend.extract_from_bytes.__get__(
+                mock_backend, type(mock_backend)
+            )
+            mock_registry.get_backend.return_value = mock_backend
+
+            result = self.runner.invoke(
+                extract_url, ["dummy", "https://example.com/paper.pdf"]
+            )
+
+        assert result.exit_code != 0
+        assert "Extraction failed: PDF corrupted" in result.output
+
+    def test_extract_url_uses_configured_proxy(self):
+        """Test that the fetch policy passed to fetch_file carries the proxy."""
+        with (
+            patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
+            patch(
+                "bibra.cli.fetch_file", new=AsyncMock(return_value=MOCK_PDF_BYTES)
+            ) as mock_fetch,
+        ):
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = _make_backend()
+
+            result = self.runner.invoke(
+                extract_url,
+                ["dummy", "https://example.com/paper.pdf"],
+                env={"BIBRA_URL_PROXY": "http://proxy.example.com:8080"},
+            )
+
+        assert result.exit_code == 0
+        args, _ = mock_fetch.call_args
+        assert args[0] == "https://example.com/paper.pdf"
+        assert args[1].proxy == "http://proxy.example.com:8080"
+
+    def test_extract_url_falls_back_to_direct_when_proxy_not_set(self, monkeypatch):
+        """Unlike the API, the CLI is lenient: with BIBRA_URL_PROXY unset it
+        behaves as if it were "direct" (full validation still applies)."""
+        monkeypatch.delenv("BIBRA_URL_PROXY", raising=False)
+
+        with (
+            patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
+            patch(
+                "bibra.cli.fetch_file",
+                new=AsyncMock(return_value=MOCK_PDF_BYTES),
+            ) as mock_fetch,
+        ):
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = _make_backend()
+
+            result = self.runner.invoke(
+                extract_url,
+                ["dummy", "https://example.com/paper.pdf"],
+            )
+
+        assert result.exit_code == 0
+        args, _ = mock_fetch.call_args
+        assert args[0] == "https://example.com/paper.pdf"
+        assert args[1].proxy == "direct"
+
+    def test_extract_url_proxy_not_overridden_when_set(self, monkeypatch):
+        """An explicitly configured proxy URL is used as-is by the CLI."""
+        monkeypatch.setenv("BIBRA_URL_PROXY", "http://proxy.example.com:8080")
+
+        with (
+            patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
+            patch(
+                "bibra.cli.fetch_file",
+                new=AsyncMock(return_value=MOCK_PDF_BYTES),
+            ) as mock_fetch,
+        ):
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = _make_backend()
+
+            result = self.runner.invoke(
+                extract_url,
+                ["dummy", "https://example.com/paper.pdf"],
+            )
+
+        assert result.exit_code == 0
+        args, _ = mock_fetch.call_args
+        assert args[1].proxy == "http://proxy.example.com:8080"
+
+    def test_extract_url_policy_error_converted_to_click_exception(self):
+        """A URL rejected by the fetch policy becomes a ClickException."""
+        from bibra.net_security import UrlPolicyError
+
+        with (
+            patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
+            patch(
+                "bibra.cli.fetch_file",
+                new=AsyncMock(
+                    side_effect=UrlPolicyError("URL rejected by fetch policy")
+                ),
+            ),
+        ):
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = _make_backend()
+
+            result = self.runner.invoke(
+                extract_url,
+                ["dummy", "http://169.254.169.254/latest/meta-data/"],
+            )
+
+        assert result.exit_code != 0
+        assert "Extraction failed (policy):" in result.output
+        assert "URL rejected by fetch policy" in result.output
+        assert "169.254.169.254" not in result.output
+
+
 class TestMakeListTemplate:
     """Tests for the _make_list_template helper function."""
 
@@ -267,3 +644,39 @@ class TestMakeListTemplate:
         # Should use max of heading and row lengths
         expected = "{:<2}  {:<16}"
         assert template == expected
+
+
+class TestCliStartupTime:
+    """Startup time regression tests for the CLI to avoid accidentally making
+    it slow to start.
+    """
+
+    MAX_HELP_WALL_TIME_S = 0.5
+    RUNS = 3
+    HELP_CMD: tuple[str, ...] = (
+        sys.executable,
+        "-c",
+        "from bibra.cli import cli; cli()",
+        "--help",
+    )
+
+    @classmethod
+    def _run_help(cls) -> float:
+        """Run `bibra --help` in a fresh subprocess and return the wall time."""
+        start = time.perf_counter()
+        subprocess.run(cls.HELP_CMD, check=True, capture_output=True)
+        return time.perf_counter() - start
+
+    def test_cli_help_starts_fast(self):
+        """`bibra --help` must stay fast in a fresh interpreter.
+
+        The minimum of several runs is used so that a single cold-cache or
+        transiently slow measurement cannot fail the test, while a genuine
+        regression (all runs slow) always does.
+        """
+        times = [self._run_help() for _ in range(self.RUNS)]
+        elapsed = min(times)
+        assert elapsed < self.MAX_HELP_WALL_TIME_S, (
+            f"`bibra --help` took {elapsed:.2f} s (min of {times}); "
+            f"exceeds the {self.MAX_HELP_WALL_TIME_S} s budget."
+        )

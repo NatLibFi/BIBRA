@@ -6,8 +6,14 @@ from bibra.backend.base import BaseBackend
 from bibra.types import PublicationMetadata
 
 
-class DummyBackend(BaseBackend):
+class DummyBackend(BaseBackend[dict[str, Any]]):
     """Dummy backend implementation for testing."""
+
+    cfg: dict[str, Any]
+
+    def __init__(self) -> None:
+        """Initialize the dummy backend."""
+        self.cfg = {}
 
     @classmethod
     def build_config(cls, project: Any) -> dict[str, Any]:

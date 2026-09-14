@@ -98,7 +98,9 @@ class TestAPIRoutes:
     )
     def test_route_exists_with_method(self, path, methods):
         """Each documented route exists and accepts exactly the expected methods."""
-        matching = [r for r in router.routes if str(r.path) == path]
+        matching = [
+            r for r in router.routes if isinstance(r, APIRoute) and r.path == path
+        ]
         assert len(matching) == 1, f"route {path} not found"
         route = matching[0]
         assert isinstance(route, APIRoute)

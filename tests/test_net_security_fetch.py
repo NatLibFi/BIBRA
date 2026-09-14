@@ -43,7 +43,7 @@ def _make_policy(**overrides) -> ns.UrlFetchPolicy:
         "schemes": ("http",),
         "content_types": ("application/pdf",),
         "max_bytes": 1024 * 1024,
-        "timeout": 5.0,
+        "timeout": 5,
         "max_redirects": 3,
         "allow_ip_hosts": True,
     }
@@ -54,7 +54,7 @@ def _make_policy(**overrides) -> ns.UrlFetchPolicy:
 class _Handler(http.server.BaseHTTPRequestHandler):
     """Base handler; subclasses override do_GET."""
 
-    def log_message(self, *args):
+    def log_message(self, format: str, *args: object) -> None:
         pass
 
     def _send(self, body: bytes, content_type: str = "application/pdf"):

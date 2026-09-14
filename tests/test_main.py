@@ -39,14 +39,8 @@ class TestMainApp:
 class TestStartupFailure:
     """Tests for startup failure when config is invalid."""
 
-    @pytest.mark.asyncio
-    async def test_startup_fails_on_missing_config_file(self, monkeypatch):
+    def test_startup_fails_on_missing_config_file(self, monkeypatch):
         """Startup should raise ConfigFileNotFoundError for missing config."""
-        from bibra.main import startup_event
-
         monkeypatch.setenv("BIBRA_CONFIG", "nonexistent-path/projects.toml")
-        # Reset app state so that startup_event will attempt a fresh load.
-        if hasattr(app.state, "project_registry"):
-            delattr(app.state, "project_registry")
-        with pytest.raises(ConfigFileNotFoundError):
-            await startup_event()
+        with pytest.raises(ConfigFileNotFoundError), TestClient(app):
+            pass

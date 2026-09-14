@@ -33,7 +33,7 @@ def make_policy(**overrides) -> UrlFetchPolicy:
         "schemes": ("https",),
         "content_types": ("application/pdf",),
         "max_bytes": 1024,
-        "timeout": 5.0,
+        "timeout": 5,
         "max_redirects": 3,
         "allow_ip_hosts": False,
     }

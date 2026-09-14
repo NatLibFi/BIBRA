@@ -115,7 +115,7 @@ class TestGreyLitLMBackend:
             run_id="eb39170b-e7f3-4a16-bb90-350bc61053b0",
         )
 
-        expected = PublicationMetadata(**metadata)
+        expected = PublicationMetadata.model_validate(metadata)
         mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         # Create a mock agent
@@ -166,7 +166,7 @@ class TestGreyLitLMBackend:
                 MockTextPart(content="more ignored"),
             ],
         )
-        expected = PublicationMetadata(**metadata)
+        expected = PublicationMetadata.model_validate(metadata)
         mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         mock_agent = MagicMock()
@@ -183,8 +183,8 @@ class TestGreyLitLMBackend:
         """Backend should fall back to str() when response has no 'parts'."""
         mock_response = MagicMock()
         del mock_response.parts
-        mock_response.__str__ = lambda self: (
-            '{"language": "sv", "title": "Fallback Test"}'
+        mock_response.__str__ = MagicMock(
+            return_value='{"language": "sv", "title": "Fallback Test"}'
         )
 
         expected = PublicationMetadata(language="sv", title="Fallback Test")
@@ -238,7 +238,7 @@ class TestGreyLitLMBackend:
         mock_response = MockModelResponse(
             parts=[MockTextPart(content=json_string)],
         )
-        expected = PublicationMetadata(**metadata)
+        expected = PublicationMetadata.model_validate(metadata)
         mock_run_result = MockRunResult(response=mock_response, output=expected)
 
         mock_agent = MagicMock()
@@ -271,7 +271,7 @@ class TestGreyLitLMBackend:
             metadata = {"language": "en", "title": "Test PDF Title"}
             json_string = json.dumps(metadata)
             mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
-            expected = PublicationMetadata(**metadata)
+            expected = PublicationMetadata.model_validate(metadata)
             mock_run_result = MockRunResult(response=mock_response, output=expected)
 
             mock_agent = MagicMock()
@@ -295,7 +295,7 @@ class TestGreyLitLMBackend:
             metadata = {"language": "en", "title": "Fallback Title"}
             json_string = json.dumps(metadata)
             mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
-            expected = PublicationMetadata(**metadata)
+            expected = PublicationMetadata.model_validate(metadata)
             mock_run_result = MockRunResult(response=mock_response, output=expected)
 
             mock_agent = MagicMock()
@@ -328,7 +328,7 @@ class TestGreyLitLMBackend:
                 mock_response = MockModelResponse(
                     parts=[MockTextPart(content=json_string)]
                 )
-                expected = PublicationMetadata(**metadata)
+                expected = PublicationMetadata.model_validate(metadata)
                 mock_run_result = MockRunResult(response=mock_response, output=expected)
 
                 mock_agent = MagicMock()
@@ -360,7 +360,7 @@ class TestGreyLitLMBackend:
                 mock_response = MockModelResponse(
                     parts=[MockTextPart(content=json_string)]
                 )
-                expected = PublicationMetadata(**metadata)
+                expected = PublicationMetadata.model_validate(metadata)
                 mock_run_result = MockRunResult(response=mock_response, output=expected)
 
                 mock_agent = MagicMock()
@@ -383,7 +383,7 @@ class TestGreyLitLMBackend:
             metadata = {"language": "en", "title": "Empty List Title"}
             json_string = json.dumps(metadata)
             mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
-            expected = PublicationMetadata(**metadata)
+            expected = PublicationMetadata.model_validate(metadata)
             mock_run_result = MockRunResult(response=mock_response, output=expected)
 
             mock_agent = MagicMock()

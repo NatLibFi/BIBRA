@@ -66,7 +66,7 @@ def _get_backend_class(backend_type: str) -> type[BaseBackend] | None:
     """
     if backend_type not in _BACKEND_MAP:
         return None
-    import_path = _BACKEND_MAP.get(backend_type)
+    import_path = _BACKEND_MAP[backend_type]
     module_path, class_name = import_path.split(":", 1)
     return getattr(importlib.import_module(module_path), class_name)
 

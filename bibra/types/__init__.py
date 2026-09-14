@@ -1,6 +1,37 @@
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class Version(BaseModel):
+    """Response model for the root endpoint."""
+
+    version: str = Field(
+        ..., description="Current BIBRA version string", examples=["0.1.0"]
+    )
+    message: str = Field(
+        ..., description="Welcome message", examples=["Welcome to BIBRA API v0"]
+    )
+
+
+class ProjectInfo(BaseModel):
+    """Summary information for a single configured project."""
+
+    id: str = Field(..., description="Project identifier", examples=["my_project"])
+    name: str = Field(
+        ..., description="Human-readable project name", examples=["My Project"]
+    )
+    description: str = Field(
+        ...,
+        description="Short description of the project",
+        examples=["Project using dummy backend"],
+    )
+
+
+class Projects(BaseModel):
+    """Response model for the list-projects endpoint."""
+
+    projects: list[ProjectInfo] = Field(..., description="List of configured projects")
+
+
 class PublicationMetadata(BaseModel):
     """Response model for publication metadata extraction."""
 

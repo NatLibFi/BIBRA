@@ -36,7 +36,7 @@ elif os.path.isdir("node_modules"):  # ...or in the current directory
     )
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def root():
     """Return the static index.html page."""
     return FileResponse(files("bibra").joinpath("static/index.html"))

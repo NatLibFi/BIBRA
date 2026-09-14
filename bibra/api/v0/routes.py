@@ -76,7 +76,7 @@ async def list_projects(registry: Annotated[ProjectRegistry, Depends(get_registr
 
 @router.post(
     "/projects/{project_id}/extract",
-    summary="Extract metadata",
+    summary="Extract metadata from a file upload",
     tags=["Extraction"],
     responses={400: {"description": "Bad Request - malformed multipart data"}},
 )
@@ -127,13 +127,14 @@ async def extract(
 
 @router.post(
     "/projects/{project_id}/extract-url",
+    summary="Extract metadata from a given URL",
+    tags=["Extraction"],
     responses={
         400: {
             "description": (
                 "Bad Request - URL or content violates the fetch policy. The "
                 "detail message is specific to the rejection (oversized "
-                "download, unsupported file type, or URL rejected) but never "
-                "contains internal details."
+                "download, unsupported file type, or URL rejected by policy)."
             )
         },
         502: {"description": "Bad Gateway - download failed"},

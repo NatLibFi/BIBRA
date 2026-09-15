@@ -66,6 +66,7 @@ class GreyLitLMBackend(BaseBackend[GreyLitLMConfig]):
         openai_client = AsyncOpenAI(
             base_url=self.global_cfg.endpoint_url,
             api_key=api_key,
+            default_headers=self.global_cfg.extra_headers,
         )
 
         # Create the OpenAI provider with the custom client
@@ -92,6 +93,7 @@ class GreyLitLMBackend(BaseBackend[GreyLitLMConfig]):
         global_cfg = GlobalLLMConfig(
             endpoint_url=project.endpoint,
             api_key=project.api_key,
+            extra_headers=project.extra_headers,
         )
         cfg = GreyLitLMConfig(**project.extra)
         return {"global_cfg": global_cfg, "cfg": cfg}

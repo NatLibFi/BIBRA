@@ -516,3 +516,62 @@ class TestPdfPagesToBinaryContent:
             _pdf_pages_to_binary_content("/fake/path.pdf", dpi=300)
 
             mock_page.get_pixmap.assert_called_once_with(dpi=300, alpha=False)
+
+
+class TestNuExtractBackendExtraHeaders:
+    """Tests that NuExtractBackend wires extra_headers into the OpenAI client."""
+
+    def test_backend_passes_extra_headers_to_client(self, monkeypatch):
+        """extra_headers should be passed to AsyncOpenAI as default_headers."""
+        from openai import AsyncOpenAI
+
+        monkeypatch.delenv("LLM_EXTRA_HEADERS", raising=False)
+        captured = {}
+        original_init = AsyncOpenAI.__init__
+
+        def spy_init(self, *args, **kwargs):
+            captured.update(kwargs)
+            original_init(self, *args, **kwargs)
+
+        monkeypatch.setattr(AsyncOpenAI, "__init__", spy_init)
+        headers = {"X-Title": "BIBRA"}
+        NuExtractBackend(
+            global_cfg=GlobalLLMConfig(
+                endpoint_url="http://localhost:8080/v1/",
+                api_key="test-key",
+                extra_headers=headers,
+            )
+        )
+        assert captured["default_headers"] == headers
+
+    def test_backend_passes_none_headers_to_client(self, monkeypatch):
+        """Without extra_headers, default_headers should be None."""
+        from openai import AsyncOpenAI
+
+        monkeypatch.delenv("LLM_EXTRA_HEADERS", raising=False)
+        captured = {}
+        original_init = AsyncOpenAI.__init__
+
+        def spy_init(self, *args, **kwargs):
+            captured.update(kwargs)
+            original_init(self, *args, **kwargs)
+
+        monkeypatch.setattr(AsyncOpenAI, "__init__", spy_init)
+        NuExtractBackend(
+            global_cfg=GlobalLLMConfig(
+                endpoint_url="http://localhost:8080/v1/",
+                api_key="test-key",
+            )
+        )
+        assert captured["default_headers"] is None
+
+    def test_build_config_passes_extra_headers(self):
+        """build_config should forward project.extra_headers to GlobalLLMConfig."""
+        project = MagicMock()
+        project.endpoint = "http://localhost:8080/v1/"
+        project.api_key = "test-key"
+        project.extra_headers = {"X-Title": "BIBRA"}
+        project.extra = {}
+
+        kwargs = NuExtractBackend.build_config(project)
+        assert kwargs["global_cfg"].extra_headers == {"X-Title": "BIBRA"}

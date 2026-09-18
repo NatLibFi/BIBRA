@@ -14,7 +14,7 @@ For JavaScript dependencies (e.g., Cypress for E2E testing), use `npm install`.
 
 ## Code Style
 
-Python code style follows Ruff format. Max line length 88 chars. Imports on top of file unless there are special reasons (document reason with comment). Modules and classes must have docstrings.
+Python code style follows Ruff format. Max line length 88 chars. Imports on top of file unless there are special reasons (document reason with comment). Modules and classes must have docstrings. Avoid using comments with specific details. When adding new code, consider what is the proper file for it taking into account the project structure and existing code organization. Prefer using small (less than 20 lines) helper functions or class methods instead of longer ones.
 
 ## Code Quality Enforcement
 

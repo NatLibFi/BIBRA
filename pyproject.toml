@@ -1,6 +1,6 @@
 [project]
 name = "bibra"
-version = "0.2.0.dev0"
+version = "0.2.0"
 description = "Tool for bibliographic metadata extraction"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -85,7 +85,7 @@ line-length = 88
 extend-select = ["E501"]
 
 [tool.bumpversion]
-current_version = "0.2.0.dev0"
+current_version = "0.2.0"
 parse = """(?x)
     (?P<major>0|[1-9]\\d*)\\.
     (?P<minor>0|[1-9]\\d*)\\.

@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 import schemathesis
 
 from bibra.main import app
+from bibra.pages import parse_page_spec
 
 # Load schema directly from FastAPI app
 schema = schemathesis.openapi.from_asgi("/openapi.json", app)
@@ -34,6 +35,14 @@ def _prepare(case) -> bool:
     # Skip bodies missing the required field.
     if not (isinstance(case.body, dict) and case.body.get(required_field)):
         return False
+    # The schema pattern cannot express the page-count cap, so drop cases
+    # whose pages value would exceed it (they are rejected with 400).
+    pages = case.body.get("pages")
+    if isinstance(pages, str) and pages.strip() not in ("", "None"):
+        try:
+            parse_page_spec(pages)
+        except ValueError:
+            return False
     case.path = dummy_path
     return True
 

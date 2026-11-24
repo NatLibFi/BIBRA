@@ -4,6 +4,7 @@ import pytest
 
 from bibra.pages import (
     DEFAULT_PAGES,
+    MAX_PAGES,
     parse_page_spec,
     resolve_page_indices,
 )
@@ -62,6 +63,35 @@ class TestParsePageSpec:
     def test_empty_range_raises(self):
         with pytest.raises(ValueError, match="Invalid"):
             parse_page_spec("1-")
+
+    def test_range_exceeding_max_pages_raises(self):
+        with pytest.raises(ValueError, match="at most"):
+            parse_page_spec(f"1-{MAX_PAGES + 1}")
+
+    def test_reverse_range_exceeding_max_pages_raises(self):
+        with pytest.raises(ValueError, match="at most"):
+            parse_page_spec(f"{MAX_PAGES + 1}-1")
+
+    def test_huge_range_raises_without_materializing(self):
+        with pytest.raises(ValueError, match="at most"):
+            parse_page_spec("1-1000000000")
+
+    def test_max_width_range_allowed(self):
+        assert parse_page_spec(f"1-{MAX_PAGES}") == list(range(1, MAX_PAGES + 1))
+
+    def test_cumulative_pages_over_max_raises(self):
+        spec = ",".join(str(p) for p in range(1, MAX_PAGES + 2))
+        with pytest.raises(ValueError, match="at most"):
+            parse_page_spec(spec)
+
+    def test_cumulative_mixed_over_max_raises(self):
+        spec = f"1-4,5-{MAX_PAGES + 1}"
+        with pytest.raises(ValueError, match="at most"):
+            parse_page_spec(spec)
+
+    def test_max_page_count_allowed(self):
+        spec = ",".join(str(p) for p in range(1, MAX_PAGES + 1))
+        assert parse_page_spec(spec) == list(range(1, MAX_PAGES + 1))
 
 
 class TestResolvePageIndices:

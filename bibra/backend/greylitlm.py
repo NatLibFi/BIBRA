@@ -15,7 +15,7 @@ from pydantic_ai.providers.openai import OpenAIProvider
 from bibra.backend.base import BaseBackend
 from bibra.backend.config import GlobalLLMConfig
 from bibra.backend.pdf_extractor import extract_content
-from bibra.pages import DEFAULT_PAGES, parse_page_spec
+from bibra.pages import DEFAULT_PAGES, MAX_PAGES, parse_page_spec
 from bibra.types import PublicationMetadata
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,10 @@ class GreyLitLMConfig(BaseModel):
     )
     pages: PagesList = Field(
         default=DEFAULT_PAGES,
-        description="1-based page numbers to extract (negative from the end)",
+        description=(
+            "1-based page numbers to extract (negative from the end); "
+            f"at most {MAX_PAGES} pages"
+        ),
     )
 
 

@@ -12,6 +12,9 @@ import re
 # backend behavior.
 DEFAULT_PAGES: list[int] = [1, 2, 3, 4, 5, 6, -2, -1]
 
+# Maximum number of pages accepted in a single specification.
+MAX_PAGES: int = 8
+
 # A number followed by an optional range whose separator and negative
 # endpoints make the pattern ambiguous to simple splits, e.g. -2--1.
 _RANGE_RE = re.compile(r"(-?\d+)(\s*-\s*(-?\d+))")
@@ -30,6 +33,11 @@ def _parse_item(item: str) -> list[int]:
     m = _RANGE_RE.fullmatch(item)
     if m:
         start, end = int(m.group(1)), int(m.group(3))
+        if abs(start - end) + 1 > MAX_PAGES:
+            raise ValueError(
+                f"Page range {item.strip()!r} spans "
+                f"{abs(start - end) + 1} pages; at most {MAX_PAGES} allowed"
+            )
         if start == end:
             return [start]
         if start < end:
@@ -53,8 +61,8 @@ def parse_page_spec(spec: str) -> list[int]:
         List of 1-based page numbers in the order given.
 
     Raises:
-        ValueError: If the specification is empty or contains invalid
-            items.
+        ValueError: If the specification is empty, contains invalid
+            items, or expands to more than MAX_PAGES pages.
     """
     text = spec.strip()
     if not text:
@@ -63,6 +71,11 @@ def parse_page_spec(spec: str) -> list[int]:
     for raw in text.split(","):
         item = raw.strip()
         pages.extend(_parse_item(item))
+        if len(pages) > MAX_PAGES:
+            raise ValueError(
+                f"Page specification lists {len(pages)} pages; "
+                f"at most {MAX_PAGES} allowed"
+            )
     return pages
 
 

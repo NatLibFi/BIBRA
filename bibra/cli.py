@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from bibra.backend import BaseBackend
 from bibra.config import ConfigError, ProjectNotFoundError, ProjectRegistry
 from bibra.net_security import UrlPolicyError, fetch_file, load_url_fetch_policy
-from bibra.pages import parse_page_spec
+from bibra.pages import MAX_PAGES, parse_page_spec
 from bibra.types import PublicationMetadata
 
 
@@ -113,8 +113,8 @@ def _emit_json(result: PublicationMetadata, output: str | None) -> None:
     default=None,
     help=(
         "Pages to extract, 1-based and comma-separated; negative counts "
-        "from the last page; ranges allowed (e.g. 1-4,-2--1). Overrides "
-        "the project-configured pages."
+        "from the last page; ranges allowed (e.g. 1-4,-2--1); at most "
+        f"{MAX_PAGES} pages. Overrides the project-configured pages."
     ),
 )
 @click.option(
@@ -185,8 +185,8 @@ def serve(host: str, port: int, reload: bool):
     default=None,
     help=(
         "Pages to extract, 1-based and comma-separated; negative counts "
-        "from the last page; ranges allowed (e.g. 1-4,-2--1). Overrides "
-        "the project-configured pages."
+        "from the last page; ranges allowed (e.g. 1-4,-2--1); at most "
+        f"{MAX_PAGES} pages. Overrides the project-configured pages."
     ),
 )
 @click.option(

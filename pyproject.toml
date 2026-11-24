@@ -36,6 +36,7 @@ classifiers = [
 dependencies = [
     "click>=8.5.1",
     "fastapi==0.163.1",
+    "pydantic>=2.14.3",
     "pydantic-ai-slim[openai]>=2.69.0",
     "python-dotenv>=1.2.4",
     "python-multipart>=0.0.34",

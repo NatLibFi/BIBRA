@@ -227,22 +227,15 @@ class TestNuExtractBackend:
         assert result.title is None
         mock_agent.run.assert_not_called()
 
-    def test_extract_ignores_pages_when_empty_selection(self):
-        """Explicitly empty pages should not fall back to the configured pages."""
+    def test_extract_raises_on_empty_selection(self):
+        """Explicitly empty pages must raise, not fall back to configured pages."""
         mock_agent = MagicMock()
         mock_agent.run = AsyncMock()
         backend = create_backend_with_mock_agent(mock_agent)
 
-        with patch(
-            "bibra.backend.nuextract._pdf_pages_to_binary_content",
-            return_value=[],
-        ) as mock_render:
-            result = asyncio.run(backend.extract([TEST_PDF_PATH], pages=[]))
+        with pytest.raises(ValueError, match="No pages selected"):
+            asyncio.run(backend.extract([TEST_PDF_PATH], pages=[]))
 
-        mock_render.assert_called_once()
-        assert mock_render.call_args.kwargs["pages"] == []
-        assert result is not None
-        assert result.title is None
         mock_agent.run.assert_not_called()
 
     def test_extract_preserves_all_fields(self):
@@ -499,6 +492,11 @@ class TestNuExtractConfigEmptyStrings:
         """Config should reject fractional page numbers with ValidationError."""
         with pytest.raises(ValidationError):
             NuExtractConfig.model_validate({"pages": [2.9]})
+
+    def test_pages_empty_list(self):
+        """Config should reject an empty page list with ValidationError."""
+        with pytest.raises(ValidationError):
+            NuExtractConfig(pages=[])
 
 
 class TestPdfPagesToBinaryContent:

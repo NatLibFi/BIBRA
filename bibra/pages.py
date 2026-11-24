@@ -9,6 +9,7 @@ page. Page specifications may be written as a comma-separated list
 import re
 from typing import Annotated, Any
 
+from pydantic import Field
 from pydantic.functional_validators import BeforeValidator
 
 # Default pages: first six + last two, matching the previous hardcoded
@@ -106,7 +107,7 @@ def parse_pages(v: Any) -> Any:
     return v
 
 
-PagesList = Annotated[list[int], BeforeValidator(parse_pages)]
+PagesList = Annotated[list[int], BeforeValidator(parse_pages), Field(min_length=1)]
 
 
 def resolve_page_indices(pages: list[int], n_pages: int) -> list[int]:

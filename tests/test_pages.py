@@ -165,6 +165,11 @@ class TestPagesList:
     def test_int_list(self):
         assert _PagesModel(pages=[1, 2, 3, -1]).pages == [1, 2, 3, -1]
 
+    def test_empty_list_raises_validation_error(self):
+        """An empty page list is rejected by the min_length constraint."""
+        with pytest.raises(ValidationError, match="at least 1 item"):
+            _PagesModel.model_validate({"pages": []})
+
     def test_scalar_raises_validation_error(self):
         with pytest.raises(ValidationError):
             _PagesModel.model_validate({"pages": 1})

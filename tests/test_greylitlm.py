@@ -507,6 +507,11 @@ class TestGreyLitLMConfigPages:
         with pytest.raises(ValidationError):
             GreyLitLMConfig.model_validate({"pages": [2.9]})
 
+    def test_pages_empty_list(self):
+        """Config should reject an empty page list with ValidationError."""
+        with pytest.raises(ValidationError):
+            GreyLitLMConfig(pages=[])
+
 
 class TestGreyLitLMConfigEmptyStrings:
     """Tests for empty-string override behavior with is None checks."""

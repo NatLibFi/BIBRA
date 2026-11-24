@@ -35,8 +35,7 @@ class BaseBackend(ABC, Generic[T]):
                 configured default pages are used.
 
         Raises:
-            ValueError: If the effective page selection is empty
-                (i.e. the caller explicitly passed pages=[]).
+            ValueError: If the effective page selection is empty.
 
         Returns:
             PublicationMetadata: Extracted metadata.
@@ -55,6 +54,9 @@ class BaseBackend(ABC, Generic[T]):
             data: The PDF file contents.
             pages: Optional 1-based page numbers to extract; passed to
                 :meth:`extract`.
+
+        Raises:
+            ValueError: If the effective page selection is empty.
 
         Returns:
             PublicationMetadata: Extracted metadata.

@@ -188,7 +188,15 @@ class NuExtractBackend(BaseBackend[NuExtractConfig]):
 
         Returns:
             PublicationMetadata: Extracted metadata.
+
+        Raises:
+            ValueError: If the effective page selection is empty (i.e. the
+                caller explicitly passed pages=[]).
         """
+        effective_pages = pages if pages is not None else self.cfg.pages
+        if not effective_pages:
+            raise ValueError("No pages selected for extraction")
+
         # Find first PDF file
         pdf_path = None
         for path in file_paths:
@@ -204,7 +212,7 @@ class NuExtractBackend(BaseBackend[NuExtractConfig]):
             image_contents = _pdf_pages_to_binary_content(
                 pdf_path,
                 dpi=self.cfg.dpi,
-                pages=pages if pages is not None else self.cfg.pages,
+                pages=effective_pages,
             )
         except Exception:
             logger.exception("Failed to convert PDF to images: %s", pdf_path)

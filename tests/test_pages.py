@@ -185,3 +185,17 @@ class TestPagesList:
     def test_none_raises_validation_error(self):
         with pytest.raises(ValidationError):
             _PagesModel.model_validate({"pages": None})
+
+    def test_list_at_max_length_allowed(self):
+        assert _PagesModel(pages=list(range(1, MAX_PAGES + 1))).pages == list(
+            range(1, MAX_PAGES + 1)
+        )
+
+    def test_list_over_max_length_raises(self):
+        with pytest.raises(ValidationError, match="at most"):
+            _PagesModel.model_validate({"pages": list(range(1, MAX_PAGES + 2))})
+
+    def test_list_over_max_length_duplicates_raises(self):
+        """The cap counts items, not unique pages, like the string path."""
+        with pytest.raises(ValidationError, match="at most"):
+            _PagesModel.model_validate({"pages": [1] * (MAX_PAGES + 1)})

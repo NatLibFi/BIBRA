@@ -107,7 +107,11 @@ def parse_pages(v: Any) -> Any:
     return v
 
 
-PagesList = Annotated[list[int], BeforeValidator(parse_pages), Field(min_length=1)]
+PagesList = Annotated[
+    list[int],
+    BeforeValidator(parse_pages),
+    Field(min_length=1, max_length=MAX_PAGES),
+]
 
 
 def resolve_page_indices(pages: list[int], n_pages: int) -> list[int]:

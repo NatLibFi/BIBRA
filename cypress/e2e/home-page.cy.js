@@ -84,7 +84,31 @@ describe('Home Page', () => {
     cy.get('#results table').should('be.visible')
     // Check that copy buttons copy correct values
     cy.get('.btn-copy').eq(0).click()
-    cy.window().its('navigator.clipboard').invoke('readText').then((result) => {}).should('equal', 'en')
+    // [DIAGNOSTIC] Log focus state and surface the real DOMException behind the
+    // 'Cannot set property message of [object DOMException]' crash.
+    cy.window().then((win) => {
+      // eslint-disable-next-line no-console
+      console.log('[diagnostic] document.hasFocus() after copy click:', win.document.hasFocus())
+      return win.navigator.clipboard.readText().then(
+        (text) => {
+          // eslint-disable-next-line no-console
+          console.log('[diagnostic] readText resolved with:', JSON.stringify(text))
+          return text
+        },
+        (err) => {
+          // eslint-disable-next-line no-console
+          console.log(
+            '[diagnostic] readText rejected with:',
+            err && err.name,
+            '-',
+            err && err.message
+          )
+          throw new Error(
+            '[diagnostic] clipboard readText failed: ' + (err && err.name) + ': ' + (err && err.message)
+          )
+        }
+      )
+    }).should('equal', 'en')
   })
 
   it('hides preview and results after clear', () => {

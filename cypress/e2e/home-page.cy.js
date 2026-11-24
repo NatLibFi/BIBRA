@@ -1,5 +1,46 @@
 /// <reference types="cypress" />
 
+const FOCUS_RETRY_INTERVAL_MS = 250
+const FOCUS_RETRY_ATTEMPTS = 10
+
+/**
+ * Read the clipboard text, retrying while the window is not focused.
+ *
+ * navigator.clipboard.readText() requires the document to be focused.
+ * Headless CI windows intermittently lose focus, causing the call to
+ * reject with NotAllowedError. Re-focus the window and retry up to a
+ * bounded number of attempts. On final failure, throw a plain Error
+ * carrying the DOMException name and message, because
+ * DOMException.message is getter-only and Cypress' failure handler
+ * cannot rewrite it.
+ *
+ * @param {Window} win The app window.
+ * @returns {Promise<string>} The clipboard text.
+ */
+function readClipboardWithFocusRetry (win) {
+  let attempts = 0
+  return new Promise((resolve, reject) => {
+    const attempt = () => {
+      if (!win.document.hasFocus()) {
+        win.focus()
+      }
+      win.navigator.clipboard.readText().then(
+        resolve,
+        (err) => {
+          if (attempts++ < FOCUS_RETRY_ATTEMPTS) {
+            setTimeout(attempt, FOCUS_RETRY_INTERVAL_MS)
+          } else {
+            reject(
+              new Error('clipboard readText failed: ' + err.name + ': ' + err.message)
+            )
+          }
+        }
+      )
+    }
+    attempt()
+  })
+}
+
 describe('Home Page', () => {
   beforeEach(() => {
     cy.visit('/')
@@ -84,31 +125,9 @@ describe('Home Page', () => {
     cy.get('#results table').should('be.visible')
     // Check that copy buttons copy correct values
     cy.get('.btn-copy').eq(0).click()
-    // [DIAGNOSTIC] Log focus state and surface the real DOMException behind the
-    // 'Cannot set property message of [object DOMException]' crash.
-    cy.window().then((win) => {
-      // eslint-disable-next-line no-console
-      console.log('[diagnostic] document.hasFocus() after copy click:', win.document.hasFocus())
-      return win.navigator.clipboard.readText().then(
-        (text) => {
-          // eslint-disable-next-line no-console
-          console.log('[diagnostic] readText resolved with:', JSON.stringify(text))
-          return text
-        },
-        (err) => {
-          // eslint-disable-next-line no-console
-          console.log(
-            '[diagnostic] readText rejected with:',
-            err && err.name,
-            '-',
-            err && err.message
-          )
-          throw new Error(
-            '[diagnostic] clipboard readText failed: ' + (err && err.name) + ': ' + (err && err.message)
-          )
-        }
-      )
-    }).should('equal', 'en')
+    cy.window()
+      .then((win) => readClipboardWithFocusRetry(win))
+      .should('equal', 'en')
   })
 
   it('hides preview and results after clear', () => {

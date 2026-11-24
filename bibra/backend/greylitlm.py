@@ -118,7 +118,15 @@ class GreyLitLMBackend(BaseBackend[GreyLitLMConfig]):
 
         Returns:
             PublicationMetadata: Extracted metadata as JSON.
+
+        Raises:
+            ValueError: If the effective page selection is empty (i.e. the
+                caller explicitly passed pages=[]).
         """
+        effective_pages = pages if pages is not None else self.cfg.pages
+        if not effective_pages:
+            raise ValueError("No pages selected for extraction")
+
         # Process only the first PDF file
         pdf_path = None
         for path in file_paths:
@@ -132,7 +140,7 @@ class GreyLitLMBackend(BaseBackend[GreyLitLMConfig]):
 
         else:
             try:
-                content = extract_content(pdf_path, pages=pages or self.cfg.pages)
+                content = extract_content(pdf_path, pages=effective_pages)
                 content_json = json.dumps(content, ensure_ascii=False, indent=2)
                 prompt_text = f"{self._instructions}\n\n{content_json}"
 

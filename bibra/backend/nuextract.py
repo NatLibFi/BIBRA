@@ -202,7 +202,9 @@ class NuExtractBackend(BaseBackend[NuExtractConfig]):
 
         try:
             image_contents = _pdf_pages_to_binary_content(
-                pdf_path, dpi=self.cfg.dpi, pages=pages or self.cfg.pages
+                pdf_path,
+                dpi=self.cfg.dpi,
+                pages=pages if pages is not None else self.cfg.pages,
             )
         except Exception:
             logger.exception("Failed to convert PDF to images: %s", pdf_path)

@@ -34,6 +34,10 @@ class BaseBackend(ABC, Generic[T]):
                 counts from the last page). If None, the backend's
                 configured default pages are used.
 
+        Raises:
+            ValueError: If the effective page selection is empty
+                (i.e. the caller explicitly passed pages=[]).
+
         Returns:
             PublicationMetadata: Extracted metadata.
         """

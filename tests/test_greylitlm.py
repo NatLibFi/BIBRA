@@ -326,6 +326,18 @@ class TestGreyLitLMBackend:
 
             mock_extract.assert_called_once_with(TEST_PDF_PATH, pages=[1, -1])
 
+    def test_extract_raises_on_empty_pages(self):
+        """Explicitly empty pages selection should raise without calling the model."""
+        mock_agent = MagicMock()
+        backend = create_backend_with_mock_agent(mock_agent)
+
+        with patch("bibra.backend.greylitlm.extract_content") as mock_extract:
+            with pytest.raises(ValueError):
+                asyncio.run(backend.extract([TEST_PDF_PATH], pages=[]))
+
+            mock_extract.assert_not_called()
+            mock_agent.run.assert_not_called()
+
     def test_extract_handles_pdf_extraction_failure(self):
         """Backend should handle errors when extract_content fails."""
         # Mock extract_content to raise an exception

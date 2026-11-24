@@ -70,7 +70,7 @@ COAR_TYPES = [
 NUEXTRACT_TEMPLATE = {
     "language": "language-tag",
     "title": "string",
-    "alt_title": "string",
+    "alt_title": ["string"],
     "creator": ["string"],
     "year": "date",
     "publisher": ["string"],

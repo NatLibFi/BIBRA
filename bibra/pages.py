@@ -24,13 +24,6 @@ MAX_PAGES: int = 8
 # way; this keeps matching linear even on inputs of many digits, e.g.
 # -2--1 or a bare 1000000000.
 _ITEM_RE = re.compile(r"(-?\d+)(?:\s*-\s*(-?\d+))?")
-# One comma-separated item: a number or a range of numbers.
-_ITEM_PATTERN = r"-?\d+(?:\s*-\s*-?\d+)?"
-# Full page specification: comma-separated items, optional whitespace.
-PAGES_PATTERN = rf"^\s*(?:{_ITEM_PATTERN}\s*(?:,\s*{_ITEM_PATTERN}\s*)*)?$"
-# Variant for API form fields: multipart/form-data serializes an absent
-# (null) value as the literal string "None", which must also be accepted.
-PAGES_OR_NONE_PATTERN = rf"^(?:{PAGES_PATTERN[1:-1]}|None)$"
 
 
 def _parse_item(item: str) -> list[int]:

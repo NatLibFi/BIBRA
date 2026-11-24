@@ -21,14 +21,24 @@ from bibra.net_security import (
     load_url_fetch_policy,
     redact_url,
 )
-from bibra.pages import PAGES_OR_NONE_PATTERN, parse_page_spec
+from bibra.pages import parse_page_spec
 from bibra.types import Projects, PublicationMetadata, Version
 
-# The pattern is published in the OpenAPI schema as documentation of the
-# expected format; actual validation happens in _parse_pages, which maps
-# invalid values to a 400 response.
+# The description is published in the OpenAPI schema as documentation of
+# the expected format; actual validation happens in _parse_pages, which
+# maps invalid values to a 400 response.
 PagesForm = Annotated[
-    str | None, Form(json_schema_extra={"pattern": PAGES_OR_NONE_PATTERN})
+    str | None,
+    Form(
+        json_schema_extra={
+            "description": (
+                "Optional comma-separated 1-based page numbers; negative "
+                "counts from the last page; ranges allowed (e.g. "
+                "1-4,-2--1); at most 8 pages. Empty or 'None' uses the "
+                "project-configured pages."
+            )
+        }
+    ),
 ]
 
 

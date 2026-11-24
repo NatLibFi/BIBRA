@@ -274,6 +274,24 @@ class TestExtractContent:
         page_numbers = [p["page"] for p in result["pages"]]
         assert page_numbers == [last]
 
+    def test_extract_content_with_all_pages_out_of_range(self):
+        """If no requested page exists in the document, no page text is
+        returned (rather than an empty page list crashing pymupdf4llm)."""
+        if not os.path.exists(SAMPLE_PDF):
+            pytest.skip(f"Sample PDF not found: {SAMPLE_PDF}")
+        with pymupdf.open(SAMPLE_PDF) as doc:
+            n_pages = len(doc)
+        result = extract_content(SAMPLE_PDF, pages=[n_pages + 1, -n_pages - 1])
+        assert result["pages"] == []
+        assert isinstance(result["pdfinfo"], dict)
+
+    def test_extract_content_with_zero_page(self):
+        """Page 0 is out of range and yields no page text."""
+        if not os.path.exists(SAMPLE_PDF):
+            pytest.skip(f"Sample PDF not found: {SAMPLE_PDF}")
+        result = extract_content(SAMPLE_PDF, pages=[0])
+        assert result["pages"] == []
+
 
 class TestModuleConstants:
     """Tests for module-level constants."""

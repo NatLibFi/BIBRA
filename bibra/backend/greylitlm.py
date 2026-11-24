@@ -141,12 +141,15 @@ class GreyLitLMBackend(BaseBackend[GreyLitLMConfig]):
         else:
             try:
                 content = extract_content(pdf_path, pages=effective_pages)
-                content_json = json.dumps(content, ensure_ascii=False, indent=2)
-                prompt_text = f"{self._instructions}\n\n{content_json}"
-
             except Exception:
                 logger.exception("Failed to extract PDF content: %s", pdf_path)
                 prompt_text = f"{self._instructions}\n\nFailed to extract PDF content."
+            else:
+                if not content["pages"]:
+                    logger.warning("No pages could be extracted from PDF: %s", pdf_path)
+                    return PublicationMetadata()
+                content_json = json.dumps(content, ensure_ascii=False, indent=2)
+                prompt_text = f"{self._instructions}\n\n{content_json}"
 
         result = await self.agent.run(prompt_text)
         logger.debug("Agent returned: %s", result.response)

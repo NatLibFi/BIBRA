@@ -130,6 +130,11 @@ def extract_content(file_path: str, pages: list[int] | None = None) -> dict[str,
             pages if pages is not None else DEFAULT_PAGES, len(doc)
         )
 
+        if not pages_to_extract:
+            # All requested pages are out of range; return no page text
+            # rather than passing an empty list to pymupdf4llm.
+            return {"pdfinfo": pdfinfo, "pages": []}
+
         # Extract text from selected pages
         page_texts = pymupdf4llm.to_markdown(
             doc,

@@ -71,6 +71,11 @@ def async_mock(return_value):
     return inner
 
 
+def _sample_content(text: str = "Sample PDF content") -> dict:
+    """Return a dict in the shape of extract_content's real return value."""
+    return {"pdfinfo": {}, "pages": [{"page": 1, "text": text}]}
+
+
 def create_backend_with_mock_agent(mock_agent):
     """Create a GreyLitLMBackend instance with a pre-configured mock agent."""
     backend = GreyLitLMBackend.__new__(GreyLitLMBackend)
@@ -266,7 +271,7 @@ class TestGreyLitLMBackend:
         """Backend should successfully process a real PDF file."""
         # Mock the extract_content function to return sample content
         with patch("bibra.backend.greylitlm.extract_content") as mock_extract:
-            mock_extract.return_value = {"text": "Sample PDF content"}
+            mock_extract.return_value = _sample_content()
 
             # Mock the agent response
             metadata = {"language": "en", "title": "Test PDF Title"}
@@ -291,7 +296,7 @@ class TestGreyLitLMBackend:
         from bibra.pages import DEFAULT_PAGES
 
         with patch("bibra.backend.greylitlm.extract_content") as mock_extract:
-            mock_extract.return_value = {"text": "Sample PDF content"}
+            mock_extract.return_value = _sample_content()
             metadata = {"language": "en", "title": "T"}
             mock_response = MockModelResponse(
                 parts=[MockTextPart(content=json.dumps(metadata))]
@@ -310,7 +315,7 @@ class TestGreyLitLMBackend:
     def test_extract_with_explicit_pages(self):
         """Explicit pages should override the configured pages."""
         with patch("bibra.backend.greylitlm.extract_content") as mock_extract:
-            mock_extract.return_value = {"text": "Sample PDF content"}
+            mock_extract.return_value = _sample_content()
             metadata = {"language": "en", "title": "T"}
             mock_response = MockModelResponse(
                 parts=[MockTextPart(content=json.dumps(metadata))]
@@ -337,6 +342,19 @@ class TestGreyLitLMBackend:
 
             mock_extract.assert_not_called()
             mock_agent.run.assert_not_called()
+
+    def test_extract_skips_model_when_no_pages_extracted(self):
+        """When all requested pages are out of range, no LLM call is made."""
+        mock_agent = MagicMock()
+        backend = create_backend_with_mock_agent(mock_agent)
+
+        with patch("bibra.backend.greylitlm.extract_content") as mock_extract:
+            mock_extract.return_value = {"pdfinfo": {}, "pages": []}
+
+            result = asyncio.run(backend.extract([TEST_PDF_PATH], pages=[99]))
+
+        assert result == PublicationMetadata()
+        mock_agent.run.assert_not_called()
 
     def test_extract_handles_pdf_extraction_failure(self):
         """Backend should handle errors when extract_content fails."""
@@ -374,7 +392,7 @@ class TestGreyLitLMBackend:
 
         try:
             with patch("bibra.backend.greylitlm.extract_content") as mock_extract:
-                mock_extract.return_value = {"text": "First PDF content"}
+                mock_extract.return_value = _sample_content(text="First PDF content")
 
                 metadata = {"language": "en", "title": "First PDF Title"}
                 json_string = json.dumps(metadata)

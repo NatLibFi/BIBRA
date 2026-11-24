@@ -18,10 +18,11 @@ DEFAULT_PAGES: list[int] = [1, 2, 3, 4, 5, 6, -2, -1]
 # Maximum number of pages accepted in a single specification.
 MAX_PAGES: int = 8
 
-# A number followed by an optional range whose separator and negative
-# endpoints make the pattern ambiguous to simple splits, e.g. -2--1.
-_RANGE_RE = re.compile(r"(-?\d+)(\s*-\s*(-?\d+))")
-_NUMBER_RE = re.compile(r"-?\d+")
+# A number with an optional range. The range group is anchored on the
+# literal dash, so the digit runs can never be split in more than one
+# way; this keeps matching linear even on inputs of many digits, e.g.
+# -2--1 or a bare 1000000000.
+_ITEM_RE = re.compile(r"(-?\d+)(?:\s*-\s*(-?\d+))?")
 # One comma-separated item: a number or a range of numbers.
 _ITEM_PATTERN = r"-?\d+(?:\s*-\s*-?\d+)?"
 # Full page specification: comma-separated items, optional whitespace.
@@ -33,22 +34,23 @@ PAGES_OR_NONE_PATTERN = rf"^(?:{PAGES_PATTERN[1:-1]}|None)$"
 
 def _parse_item(item: str) -> list[int]:
     """Expand one comma-separated item into 1-based page numbers."""
-    m = _RANGE_RE.fullmatch(item)
-    if m:
-        start, end = int(m.group(1)), int(m.group(3))
-        if abs(start - end) + 1 > MAX_PAGES:
-            raise ValueError(
-                f"Page range {item.strip()!r} spans "
-                f"{abs(start - end) + 1} pages; at most {MAX_PAGES} allowed"
-            )
-        if start == end:
-            return [start]
-        if start < end:
-            return list(range(start, end + 1))
-        return list(range(start, end - 1, -1))
-    if _NUMBER_RE.fullmatch(item):
-        return [int(item)]
-    raise ValueError(f"Invalid page specification item: {item!r}")
+    m = _ITEM_RE.fullmatch(item)
+    if not m:
+        raise ValueError(f"Invalid page specification item: {item!r}")
+    start = int(m.group(1))
+    if m.group(2) is None:
+        return [start]
+    end = int(m.group(2))
+    if abs(start - end) + 1 > MAX_PAGES:
+        raise ValueError(
+            f"Page range {item.strip()!r} spans "
+            f"{abs(start - end) + 1} pages; at most {MAX_PAGES} allowed"
+        )
+    if start == end:
+        return [start]
+    if start < end:
+        return list(range(start, end + 1))
+    return list(range(start, end - 1, -1))
 
 
 def parse_page_spec(spec: str) -> list[int]:

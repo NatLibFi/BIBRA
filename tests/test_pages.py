@@ -84,6 +84,16 @@ class TestParsePageSpec:
         with pytest.raises(ValueError, match="at most"):
             parse_page_spec("1-1000000000")
 
+    def test_long_digit_run_is_fast(self):
+        """A long run of digits must not cause quadratic regex backtracking."""
+        item = "9" * 4000
+        assert parse_page_spec(item) == [int(item)]
+
+    def test_long_digit_run_range_is_fast(self):
+        item = "1-" + "9" * 4000
+        with pytest.raises(ValueError, match="at most"):
+            parse_page_spec(item)
+
     def test_max_width_range_allowed(self):
         assert parse_page_spec(f"1-{MAX_PAGES}") == list(range(1, MAX_PAGES + 1))
 

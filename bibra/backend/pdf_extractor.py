@@ -15,7 +15,7 @@ import pymupdf4llm
 import regex
 import tiktoken
 
-from bibra.pages import DEFAULT_PAGES, resolve_page_indices
+from bibra.pages import resolve_page_indices
 
 logger = logging.getLogger(__name__)
 
@@ -104,13 +104,13 @@ def _count_tokens(text: str) -> int:
     return len(TOKEN_ENCODING.encode(text))
 
 
-def extract_content(file_path: str, pages: list[int] | None = None) -> dict[str, Any]:
+def extract_content(file_path: str, pages: list[int]) -> dict[str, Any]:
     """Extract and return PDF metadata and selected text chunks from a PDF file.
 
     Args:
         file_path: Path to the PDF file.
-        pages: Optional 1-based page numbers to extract (negative counts
-            from the last page). Defaults to first six + last two pages.
+        pages: 1-based page numbers to extract (negative counts
+            from the last page).
 
     Returns:
         A dict with keys:
@@ -126,9 +126,7 @@ def extract_content(file_path: str, pages: list[int] | None = None) -> dict[str,
             if key not in PDF_METADATA_SKIP and doc.metadata.get(key):
                 pdfinfo[key] = doc.metadata.get(key)
 
-        pages_to_extract = resolve_page_indices(
-            pages if pages is not None else DEFAULT_PAGES, len(doc)
-        )
+        pages_to_extract = resolve_page_indices(pages, len(doc))
 
         if not pages_to_extract:
             # All requested pages are out of range; return no page text

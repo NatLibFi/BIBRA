@@ -16,6 +16,7 @@ from bibra.backend.nuextract import (
     NuExtractBackend,
     NuExtractConfig,
 )
+from bibra.pages import DEFAULT_PAGES
 from bibra.types import PublicationMetadata
 
 TEST_PDF_PATH = os.path.join(
@@ -521,7 +522,9 @@ class TestPdfPagesToBinaryContent:
             )
             mock_open.return_value = mock_doc
 
-            contents = _pdf_pages_to_binary_content("/fake/path.pdf")
+            contents = _pdf_pages_to_binary_content(
+                "/fake/path.pdf", pages=DEFAULT_PAGES
+            )
 
             assert len(contents) == 1
             assert contents[0].media_type == "image/png"
@@ -539,7 +542,9 @@ class TestPdfPagesToBinaryContent:
             mock_doc.__len__ = MagicMock(return_value=0)
             mock_open.return_value = mock_doc
 
-            contents = _pdf_pages_to_binary_content("/fake/path.pdf")
+            contents = _pdf_pages_to_binary_content(
+                "/fake/path.pdf", pages=DEFAULT_PAGES
+            )
 
             assert contents == []
 
@@ -562,7 +567,7 @@ class TestPdfPagesToBinaryContent:
             )
             mock_open.return_value = mock_doc
 
-            _pdf_pages_to_binary_content("/fake/path.pdf", dpi=300)
+            _pdf_pages_to_binary_content("/fake/path.pdf", dpi=300, pages=DEFAULT_PAGES)
 
             mock_page.get_pixmap.assert_called_once_with(dpi=300, alpha=False)
 

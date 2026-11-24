@@ -41,6 +41,29 @@ class BaseBackend(ABC, Generic[T]):
             PublicationMetadata: Extracted metadata.
         """
 
+    def _effective_pages(self, pages: list[int] | None) -> list[int]:
+        """Resolve the page selection to use for extraction.
+
+        Args:
+            pages: Explicit 1-based page numbers (negative counts from
+                the last page). If None, the backend's configured default
+                pages are used.
+
+        Returns:
+            The non-empty page list to use for extraction.
+
+        Raises:
+            ValueError: If the resolved page selection is empty.
+        """
+        if pages is None:
+            if isinstance(self.cfg, dict):
+                pages = self.cfg.get("pages") or []
+            else:
+                pages = getattr(self.cfg, "pages", [])
+        if not pages:
+            raise ValueError("No pages selected for extraction")
+        return pages
+
     async def extract_from_bytes(
         self, data: bytes, pages: list[int] | None = None
     ) -> PublicationMetadata:

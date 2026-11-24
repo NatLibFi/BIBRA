@@ -188,14 +188,8 @@ class NuExtractBackend(BaseBackend[NuExtractConfig]):
 
         Returns:
             PublicationMetadata: Extracted metadata.
-
-        Raises:
-            ValueError: If the effective page selection is empty (i.e. the
-                caller explicitly passed pages=[]).
         """
-        effective_pages = pages if pages is not None else self.cfg.pages
-        if not effective_pages:
-            raise ValueError("No pages selected for extraction")
+        effective_pages = self._effective_pages(pages)
 
         # Find first PDF file
         pdf_path = None

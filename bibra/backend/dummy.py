@@ -24,15 +24,8 @@ class DummyBackend(BaseBackend[dict[str, Any]]):
     async def extract(
         self, file_paths: list[str], pages: list[int] | None = None
     ) -> PublicationMetadata:
-        """Extract publication metadata from files.
-
-        Raises:
-            ValueError: If the effective page selection is empty
-                (i.e. the caller explicitly passed pages=[]).
-        """
-        effective_pages = pages if pages is not None else self.cfg["pages"]
-        if not effective_pages:
-            raise ValueError("No pages selected for extraction")
+        """Extract publication metadata from files."""
+        self._effective_pages(pages)
 
         return PublicationMetadata(
             language="en",

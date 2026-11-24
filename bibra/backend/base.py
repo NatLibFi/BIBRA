@@ -23,17 +23,24 @@ class BaseBackend(ABC, Generic[T]):
     cfg: T
 
     @abstractmethod
-    async def extract(self, file_paths: list[str]) -> PublicationMetadata:
+    async def extract(
+        self, file_paths: list[str], pages: list[int] | None = None
+    ) -> PublicationMetadata:
         """Extract publication metadata from files.
 
         Args:
             file_paths: List of file paths to process.
+            pages: Optional 1-based page numbers to extract (negative
+                counts from the last page). If None, the backend's
+                configured default pages are used.
 
         Returns:
             PublicationMetadata: Extracted metadata.
         """
 
-    async def extract_from_bytes(self, data: bytes) -> PublicationMetadata:
+    async def extract_from_bytes(
+        self, data: bytes, pages: list[int] | None = None
+    ) -> PublicationMetadata:
         """Extract publication metadata from in-memory PDF bytes.
 
         Writes the bytes to a temporary ``.pdf`` file and calls
@@ -42,6 +49,8 @@ class BaseBackend(ABC, Generic[T]):
 
         Args:
             data: The PDF file contents.
+            pages: Optional 1-based page numbers to extract; passed to
+                :meth:`extract`.
 
         Returns:
             PublicationMetadata: Extracted metadata.
@@ -51,7 +60,7 @@ class BaseBackend(ABC, Generic[T]):
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
                 tmp_path = tmp.name
                 tmp.write(data)
-            return await self.extract([tmp_path])
+            return await self.extract([tmp_path], pages=pages)
         finally:
             if tmp_path is not None:
                 try:

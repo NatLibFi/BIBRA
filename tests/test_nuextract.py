@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 from pydantic_ai import UnexpectedModelBehavior
 
 from bibra.backend.config import GlobalLLMConfig
@@ -449,6 +450,28 @@ class TestNuExtractConfigEmptyStrings:
         cfg = NuExtractConfig()
         assert cfg.dpi == 170
 
+    def test_pages_default(self):
+        """Config should default pages to first six + last two."""
+        from bibra.pages import DEFAULT_PAGES
+
+        cfg = NuExtractConfig()
+        assert cfg.pages == DEFAULT_PAGES
+
+    def test_pages_list(self):
+        """Config should accept an explicit list of pages."""
+        cfg = NuExtractConfig(pages=[1, 2, 3, -1])
+        assert cfg.pages == [1, 2, 3, -1]
+
+    def test_pages_spec_string(self):
+        """Config should accept a page specification string."""
+        cfg = NuExtractConfig(pages="1-4,-2--1")
+        assert cfg.pages == [1, 2, 3, 4, -2, -1]
+
+    def test_pages_invalid_string(self):
+        """Config should reject an invalid page specification string."""
+        with pytest.raises(ValidationError):
+            NuExtractConfig(pages="1,a")
+
 
 class TestPdfPagesToBinaryContent:
     """Tests for the _pdf_pages_to_binary_content helper function."""
@@ -516,6 +539,58 @@ class TestPdfPagesToBinaryContent:
             _pdf_pages_to_binary_content("/fake/path.pdf", dpi=300)
 
             mock_page.get_pixmap.assert_called_once_with(dpi=300, alpha=False)
+
+    def test_uses_custom_pages(self):
+        """Should render only the requested pages."""
+        from bibra.backend.nuextract import _pdf_pages_to_binary_content
+
+        with patch("pymupdf.open") as mock_open:
+            mock_doc = MagicMock()
+            mock_page = MagicMock()
+            mock_pix = MagicMock()
+            mock_pix.tobytes.return_value = b"fake_png_data"
+            mock_page.get_pixmap.return_value = mock_pix
+            mock_doc.__enter__ = MagicMock(return_value=mock_doc)
+            mock_doc.__exit__ = MagicMock(return_value=None)
+            mock_doc.__len__ = MagicMock(return_value=10)
+            mock_doc.__getitem__ = MagicMock(
+                side_effect=lambda idx: mock_page if idx == 4 else None
+            )
+            mock_open.return_value = mock_doc
+
+            contents = _pdf_pages_to_binary_content("/fake/path.pdf", pages=[5])
+
+            assert len(contents) == 1
+            mock_page.get_pixmap.assert_called_once_with(dpi=170, alpha=False)
+
+    def test_custom_pages_deduplicated_and_sorted(self):
+        """Requested pages should be deduplicated and sorted."""
+        from bibra.backend.nuextract import _pdf_pages_to_binary_content
+
+        with patch("pymupdf.open") as mock_open:
+            mock_doc = MagicMock()
+            mock_page = MagicMock()
+            mock_pix = MagicMock()
+            mock_pix.tobytes.return_value = b"fake_png_data"
+            mock_page.get_pixmap.return_value = mock_pix
+            mock_doc.__enter__ = MagicMock(return_value=mock_doc)
+            mock_doc.__exit__ = MagicMock(return_value=None)
+            mock_doc.__len__ = MagicMock(return_value=10)
+            get_items: dict[int, MagicMock] = {}
+
+            def _get_item(idx: int) -> MagicMock:
+                get_items[idx] = mock_page
+                return mock_page
+
+            mock_doc.__getitem__ = MagicMock(side_effect=_get_item)
+            mock_open.return_value = mock_doc
+
+            contents = _pdf_pages_to_binary_content(
+                "/fake/path.pdf", pages=[-1, 1, -10]
+            )
+
+            assert len(contents) == 2
+            assert set(get_items) == {0, 9}
 
 
 class TestNuExtractBackendExtraHeaders:

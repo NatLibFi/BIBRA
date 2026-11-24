@@ -15,10 +15,10 @@ import pymupdf4llm
 import regex
 import tiktoken
 
+from bibra.pages import DEFAULT_PAGES, resolve_page_indices
+
 logger = logging.getLogger(__name__)
 
-# Pages to analyze: first six pages + last two pages
-PAGES: list[int] = [0, 1, 2, 3, 4, 5, -2, -1]
 # Limit on how many tokens per document to include (approximately)
 TOKEN_BUDGET: int = 1536
 # Which OpenAI LLM tokenizer to use for counting approx tokens
@@ -104,11 +104,13 @@ def _count_tokens(text: str) -> int:
     return len(TOKEN_ENCODING.encode(text))
 
 
-def extract_content(file_path: str) -> dict[str, Any]:
+def extract_content(file_path: str, pages: list[int] | None = None) -> dict[str, Any]:
     """Extract and return PDF metadata and selected text chunks from a PDF file.
 
     Args:
         file_path: Path to the PDF file.
+        pages: Optional 1-based page numbers to extract (negative counts
+            from the last page). Defaults to first six + last two pages.
 
     Returns:
         A dict with keys:
@@ -124,10 +126,9 @@ def extract_content(file_path: str) -> dict[str, Any]:
             if key not in PDF_METADATA_SKIP and doc.metadata.get(key):
                 pdfinfo[key] = doc.metadata.get(key)
 
-        # Extract valid pages, remove duplicates, and sort numerically
-        all_pages = list(range(len(doc)))
-        valid_indices = [idx for idx in PAGES if -len(doc) <= idx < len(doc)]
-        pages_to_extract = sorted({all_pages[idx] for idx in valid_indices})
+        pages_to_extract = resolve_page_indices(
+            pages if pages is not None else DEFAULT_PAGES, len(doc)
+        )
 
         # Extract text from selected pages
         page_texts = pymupdf4llm.to_markdown(

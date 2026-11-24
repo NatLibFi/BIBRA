@@ -15,6 +15,11 @@ from pydantic_ai.providers.openai import OpenAIProvider
 
 from bibra.backend.base import BaseBackend
 from bibra.backend.config import GlobalLLMConfig, parse_bool_or_str, parse_int_or_str
+from bibra.pages import (
+    DEFAULT_PAGES,
+    parse_page_spec,
+    resolve_page_indices,
+)
 from bibra.types import PublicationMetadata
 
 logger = logging.getLogger(__name__)
@@ -22,6 +27,16 @@ logger = logging.getLogger(__name__)
 
 BoolStr = Annotated[bool, BeforeValidator(parse_bool_or_str)]
 IntStr = Annotated[int, BeforeValidator(parse_int_or_str)]
+
+
+def _parse_pages(v: Any) -> list[int]:
+    """Coerce a pages setting (list or spec string) to 1-based page numbers."""
+    if isinstance(v, str):
+        return parse_page_spec(v)
+    return [int(p) for p in v]
+
+
+PagesList = Annotated[list[int], BeforeValidator(_parse_pages)]
 
 
 class NuExtractConfig(BaseModel):
@@ -33,6 +48,10 @@ class NuExtractConfig(BaseModel):
     thinking: BoolStr = Field(default=False, description="Enable thinking mode")
     instructions: str = Field(default="", description="Custom instructions")
     dpi: IntStr = Field(default=170, ge=1, description="DPI for PDF rendering")
+    pages: PagesList = Field(
+        default=DEFAULT_PAGES,
+        description="1-based page numbers to extract (negative from the end)",
+    )
 
 
 COAR_TYPES = [
@@ -83,17 +102,16 @@ NUEXTRACT_TEMPLATE = {
 }
 
 
-# Pages to render: first six pages + last two pages
-PAGES = [0, 1, 2, 3, 4, 5, -2, -1]
-
-
-def _pdf_pages_to_binary_content(pdf_path: str, dpi: int = 170) -> list[BinaryContent]:
-    """Render a subset of pages from a PDF (first 6 + last 2) as BinaryContent
-    for pydantic_ai.
+def _pdf_pages_to_binary_content(
+    pdf_path: str, dpi: int = 170, pages: list[int] | None = None
+) -> list[BinaryContent]:
+    """Render selected pages from a PDF as BinaryContent for pydantic_ai.
 
     Args:
         pdf_path: Path to the PDF file.
         dpi: Resolution for page rendering.
+        pages: Optional 1-based page numbers to render (negative counts
+            from the last page). Defaults to first six + last two pages.
 
     Returns:
         List of BinaryContent objects with PNG data.
@@ -101,12 +119,8 @@ def _pdf_pages_to_binary_content(pdf_path: str, dpi: int = 170) -> list[BinaryCo
     contents: list[BinaryContent] = []
 
     with pymupdf.open(pdf_path) as doc:
-        valid_indices = sorted(
-            {
-                idx if idx >= 0 else len(doc) + idx
-                for idx in PAGES
-                if -len(doc) <= idx < len(doc)
-            }
+        valid_indices = resolve_page_indices(
+            pages if pages is not None else DEFAULT_PAGES, len(doc)
         )
 
         for page_idx in valid_indices:
@@ -168,11 +182,15 @@ class NuExtractBackend(BaseBackend[NuExtractConfig]):
         cfg = NuExtractConfig(**project.extra)
         return {"global_cfg": global_cfg, "cfg": cfg}
 
-    async def extract(self, file_paths: list[str]) -> PublicationMetadata:
+    async def extract(
+        self, file_paths: list[str], pages: list[int] | None = None
+    ) -> PublicationMetadata:
         """Extract publication metadata from a PDF file using vision.
 
         Args:
             file_paths: List of file paths. Only the first PDF is used.
+            pages: Optional 1-based page numbers to render; overrides the
+                configured pages.
 
         Returns:
             PublicationMetadata: Extracted metadata.
@@ -189,7 +207,9 @@ class NuExtractBackend(BaseBackend[NuExtractConfig]):
             return PublicationMetadata()
 
         try:
-            image_contents = _pdf_pages_to_binary_content(pdf_path, dpi=self.cfg.dpi)
+            image_contents = _pdf_pages_to_binary_content(
+                pdf_path, dpi=self.cfg.dpi, pages=pages or self.cfg.pages
+            )
         except Exception:
             logger.exception("Failed to convert PDF to images: %s", pdf_path)
             return PublicationMetadata()

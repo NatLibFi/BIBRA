@@ -20,7 +20,9 @@ class DummyBackend(BaseBackend[dict[str, Any]]):
         """Build constructor kwargs from a ProjectConfig."""
         return {}
 
-    async def extract(self, file_paths: list[str]) -> PublicationMetadata:
+    async def extract(
+        self, file_paths: list[str], pages: list[int] | None = None
+    ) -> PublicationMetadata:
         """Extract publication metadata from files."""
         return PublicationMetadata(
             language="en",

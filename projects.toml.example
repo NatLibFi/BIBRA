@@ -3,6 +3,9 @@
 api_key = "${LLM_API_KEY}"
 endpoint = "${LLM_ENDPOINT_URL}"
 #extra_headers = { MyHeader = "${MY_ENV}" }
+# Pages to extract (1-based; negative counts from the last page).
+# Default: first six + last two pages.
+#pages = [1, 2, 3, 4, -2, -1]
 
 [greylitlm]
 name = "GreyLitLM project"
@@ -15,6 +18,8 @@ backend = "nuextract"
 model = "${NUEXTRACT_MODEL}"
 thinking = true
 dpi = 200
+# Extract only the first four and the last two pages
+#pages = [1, 2, 3, 4, -2, -1]
 
 [dummy]
 name = "Dummy project"

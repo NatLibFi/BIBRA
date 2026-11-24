@@ -3,10 +3,11 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field
+from pydantic.functional_validators import BeforeValidator
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
@@ -14,9 +15,20 @@ from pydantic_ai.providers.openai import OpenAIProvider
 from bibra.backend.base import BaseBackend
 from bibra.backend.config import GlobalLLMConfig
 from bibra.backend.pdf_extractor import extract_content
+from bibra.pages import DEFAULT_PAGES, parse_page_spec
 from bibra.types import PublicationMetadata
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_pages(v: Any) -> list[int]:
+    """Coerce a pages setting (list or spec string) to 1-based page numbers."""
+    if isinstance(v, str):
+        return parse_page_spec(v)
+    return [int(p) for p in v]
+
+
+PagesList = Annotated[list[int], BeforeValidator(_parse_pages)]
 
 
 class GreyLitLMConfig(BaseModel):
@@ -35,6 +47,10 @@ class GreyLitLMConfig(BaseModel):
     instructions: str = Field(
         default="Extract metadata from this document. Return as JSON.",
         description="User instructions for extraction",
+    )
+    pages: PagesList = Field(
+        default=DEFAULT_PAGES,
+        description="1-based page numbers to extract (negative from the end)",
     )
 
 
@@ -98,11 +114,15 @@ class GreyLitLMBackend(BaseBackend[GreyLitLMConfig]):
         cfg = GreyLitLMConfig(**project.extra)
         return {"global_cfg": global_cfg, "cfg": cfg}
 
-    async def extract(self, file_paths: list[str]) -> PublicationMetadata:
+    async def extract(
+        self, file_paths: list[str], pages: list[int] | None = None
+    ) -> PublicationMetadata:
         """Extract publication metadata from files.
 
         Args:
             file_paths: List of file paths to process. Only the first PDF is used.
+            pages: Optional 1-based page numbers to extract; overrides the
+                configured pages.
 
         Returns:
             PublicationMetadata: Extracted metadata as JSON.
@@ -120,7 +140,7 @@ class GreyLitLMBackend(BaseBackend[GreyLitLMConfig]):
 
         else:
             try:
-                content = extract_content(pdf_path)
+                content = extract_content(pdf_path, pages=pages or self.cfg.pages)
                 content_json = json.dumps(content, ensure_ascii=False, indent=2)
                 prompt_text = f"{self._instructions}\n\n{content_json}"
 

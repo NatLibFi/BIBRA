@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 from pydantic_ai import UnexpectedModelBehavior
 
 from bibra.backend.config import GlobalLLMConfig
@@ -285,6 +286,46 @@ class TestGreyLitLMBackend:
             assert result.title == "Test PDF Title"
             mock_extract.assert_called_once()
 
+    def test_extract_defaults_to_configured_pages(self):
+        """Without explicit pages, the configured pages should be used."""
+        from bibra.pages import DEFAULT_PAGES
+
+        with patch("bibra.backend.greylitlm.extract_content") as mock_extract:
+            mock_extract.return_value = {"text": "Sample PDF content"}
+            metadata = {"language": "en", "title": "T"}
+            mock_response = MockModelResponse(
+                parts=[MockTextPart(content=json.dumps(metadata))]
+            )
+            expected = PublicationMetadata.model_validate(metadata)
+            mock_agent = MagicMock()
+            mock_agent.run = async_mock(
+                MockRunResult(response=mock_response, output=expected)
+            )
+            backend = create_backend_with_mock_agent(mock_agent)
+
+            asyncio.run(backend.extract([TEST_PDF_PATH]))
+
+            mock_extract.assert_called_once_with(TEST_PDF_PATH, pages=DEFAULT_PAGES)
+
+    def test_extract_with_explicit_pages(self):
+        """Explicit pages should override the configured pages."""
+        with patch("bibra.backend.greylitlm.extract_content") as mock_extract:
+            mock_extract.return_value = {"text": "Sample PDF content"}
+            metadata = {"language": "en", "title": "T"}
+            mock_response = MockModelResponse(
+                parts=[MockTextPart(content=json.dumps(metadata))]
+            )
+            expected = PublicationMetadata.model_validate(metadata)
+            mock_agent = MagicMock()
+            mock_agent.run = async_mock(
+                MockRunResult(response=mock_response, output=expected)
+            )
+            backend = create_backend_with_mock_agent(mock_agent)
+
+            asyncio.run(backend.extract([TEST_PDF_PATH], pages=[1, -1]))
+
+            mock_extract.assert_called_once_with(TEST_PDF_PATH, pages=[1, -1])
+
     def test_extract_handles_pdf_extraction_failure(self):
         """Backend should handle errors when extract_content fails."""
         # Mock extract_content to raise an exception
@@ -417,6 +458,32 @@ class TestGreyLitLMConfigEnvVars:
         assert (
             cfg.instructions == "Extract metadata from this document. Return as JSON."
         )
+
+
+class TestGreyLitLMConfigPages:
+    """Tests for GreyLitLMConfig pages handling."""
+
+    def test_pages_default(self):
+        """Config should default pages to first six + last two."""
+        from bibra.pages import DEFAULT_PAGES
+
+        cfg = GreyLitLMConfig()
+        assert cfg.pages == DEFAULT_PAGES
+
+    def test_pages_list(self):
+        """Config should accept an explicit list of pages."""
+        cfg = GreyLitLMConfig(pages=[1, 2, 3, -1])
+        assert cfg.pages == [1, 2, 3, -1]
+
+    def test_pages_spec_string(self):
+        """Config should accept a page specification string."""
+        cfg = GreyLitLMConfig(pages="1-4,-2--1")
+        assert cfg.pages == [1, 2, 3, 4, -2, -1]
+
+    def test_pages_invalid_string(self):
+        """Config should reject an invalid page specification string."""
+        with pytest.raises(ValidationError):
+            GreyLitLMConfig(pages="1,a")
 
 
 class TestGreyLitLMConfigEmptyStrings:

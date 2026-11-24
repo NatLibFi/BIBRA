@@ -6,7 +6,6 @@ import pymupdf
 import pytest
 
 from bibra.backend.pdf_extractor import (
-    PAGES,
     PDF_METADATA_SKIP,
     TOKEN_BUDGET,
     TOKEN_MODEL,
@@ -17,6 +16,7 @@ from bibra.backend.pdf_extractor import (
     _split_text,
     extract_content,
 )
+from bibra.pages import DEFAULT_PAGES
 
 FIXTURE_DIR = os.path.join(os.path.dirname(__file__), "..", "cypress", "fixtures")
 SAMPLE_PDF = os.path.join(FIXTURE_DIR, "test-document.pdf")
@@ -255,17 +255,35 @@ class TestExtractContent:
         with pytest.raises(pymupdf.FileNotFoundError):
             extract_content("/nonexistent/file.pdf")
 
+    def test_extract_content_with_explicit_pages(self):
+        """Explicit pages should limit the extracted page numbers."""
+        if not os.path.exists(SAMPLE_PDF):
+            pytest.skip(f"Sample PDF not found: {SAMPLE_PDF}")
+        result = extract_content(SAMPLE_PDF, pages=[1])
+        page_numbers = [p["page"] for p in result["pages"]]
+        assert page_numbers == [1]
+
+    def test_extract_content_with_last_page(self):
+        """Negative page numbers should count from the last page."""
+        if not os.path.exists(SAMPLE_PDF):
+            pytest.skip(f"Sample PDF not found: {SAMPLE_PDF}")
+        default_result = extract_content(SAMPLE_PDF)
+        all_numbers = [p["page"] for p in default_result["pages"]]
+        last = max(all_numbers)
+        result = extract_content(SAMPLE_PDF, pages=[-1])
+        page_numbers = [p["page"] for p in result["pages"]]
+        assert page_numbers == [last]
+
 
 class TestModuleConstants:
     """Tests for module-level constants."""
 
     def test_pages_contains_expected_values(self):
-        """PAGES should contain first 6 and last 2 page indices."""
-        assert 0 in PAGES
-        assert 1 in PAGES
-        assert 5 in PAGES
-        assert -2 in PAGES
-        assert -1 in PAGES
+        """DEFAULT_PAGES should contain first 6 and last 2 pages."""
+        assert 1 in DEFAULT_PAGES
+        assert 6 in DEFAULT_PAGES
+        assert -2 in DEFAULT_PAGES
+        assert -1 in DEFAULT_PAGES
 
     def test_token_budget_positive(self):
         """TOKEN_BUDGET should be positive."""

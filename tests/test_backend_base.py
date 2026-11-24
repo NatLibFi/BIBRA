@@ -22,7 +22,9 @@ class _ConcreteBackend(BaseBackend):
         self._holder = holder
         self._expected = expected
 
-    async def extract(self, file_paths: list[str]) -> PublicationMetadata:
+    async def extract(
+        self, file_paths: list[str], pages: list[int] | None = None
+    ) -> PublicationMetadata:
         self._holder.extend(file_paths)
         # Verify the temp file held exactly the bytes the helper wrote.
         # (to_thread keeps the async method free of blocking I/O.)
@@ -59,7 +61,9 @@ def test_temp_file_removed_even_on_error():
     """The temp file is removed even when extract() raises."""
 
     class FailingBackend(_ConcreteBackend):
-        async def extract(self, file_paths: list[str]) -> PublicationMetadata:
+        async def extract(
+            self, file_paths: list[str], pages: list[int] | None = None
+        ) -> PublicationMetadata:
             self._holder.extend(file_paths)
             raise RuntimeError("boom")
 
@@ -72,3 +76,37 @@ def test_temp_file_removed_even_on_error():
     assert len(holder) == 1
     # The real unlink runs (no patch): the file is gone from disk.
     assert not os.path.exists(holder[0])
+
+
+def test_pages_passed_to_extract():
+    """Pages given to extract_from_bytes reach extract unchanged."""
+    holder: list[str] = []
+    backend = RecordingPagesBackend(holder)
+
+    asyncio.run(backend.extract_from_bytes(b"%PDF-1.4 test", pages=[1, -1]))
+
+    assert backend.pages == [1, -1]
+
+
+def test_pages_default_none():
+    """extract_from_bytes without pages passes None to extract."""
+    holder: list[str] = []
+    backend = RecordingPagesBackend(holder)
+
+    asyncio.run(backend.extract_from_bytes(b"%PDF-1.4 test"))
+
+    assert backend.pages is None
+
+
+class RecordingPagesBackend(_ConcreteBackend):
+    """Concrete backend that records the pages it is given."""
+
+    def __init__(self, holder: list[str]):
+        super().__init__(holder)
+        self.pages: list[int] | None = None
+
+    async def extract(
+        self, file_paths: list[str], pages: list[int] | None = None
+    ) -> PublicationMetadata:
+        self.pages = pages
+        return await super().extract(file_paths, pages=pages)

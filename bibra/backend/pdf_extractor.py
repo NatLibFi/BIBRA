@@ -173,9 +173,9 @@ def extract_content(file_path: str, pages: list[int] | None = None) -> dict[str,
         if chunk["index"] in selected_indices:
             page_content[chunk["page"]].append(chunk["text"])
 
-    pages: list[dict[str, Any]] = []
+    page_results: list[dict[str, Any]] = []
     for pageno in sorted(page_content.keys()):
         text = "\n".join(page_content[pageno])
-        pages.append({"page": pageno, "text": text})
+        page_results.append({"page": pageno, "text": text})
 
-    return {"pdfinfo": pdfinfo, "pages": pages}
+    return {"pdfinfo": pdfinfo, "pages": page_results}

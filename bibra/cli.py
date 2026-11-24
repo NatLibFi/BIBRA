@@ -13,6 +13,12 @@ from bibra.net_security import UrlPolicyError, fetch_file, load_url_fetch_policy
 from bibra.pages import MAX_PAGES, parse_page_spec
 from bibra.types import PublicationMetadata
 
+PAGES_HELP = (
+    "Pages to extract, 1-based and comma-separated; negative counts "
+    "from the last page; ranges allowed (e.g. 1-4,-2--1); at most "
+    f"{MAX_PAGES} pages. Overrides the project-configured pages."
+)
+
 
 def _pages_option(
     pages: str | None,
@@ -108,15 +114,7 @@ def _emit_json(result: PublicationMetadata, output: str | None) -> None:
     default=None,
     help="Path to the project configuration file (overrides BIBRA_CONFIG).",
 )
-@click.option(
-    "--pages",
-    default=None,
-    help=(
-        "Pages to extract, 1-based and comma-separated; negative counts "
-        "from the last page; ranges allowed (e.g. 1-4,-2--1); at most "
-        f"{MAX_PAGES} pages. Overrides the project-configured pages."
-    ),
-)
+@click.option("--pages", default=None, help=PAGES_HELP)
 @click.option(
     "--output",
     "-o",
@@ -180,15 +178,7 @@ def serve(host: str, port: int, reload: bool):
     default=None,
     help="Path to the project configuration file (overrides BIBRA_CONFIG).",
 )
-@click.option(
-    "--pages",
-    default=None,
-    help=(
-        "Pages to extract, 1-based and comma-separated; negative counts "
-        "from the last page; ranges allowed (e.g. 1-4,-2--1); at most "
-        f"{MAX_PAGES} pages. Overrides the project-configured pages."
-    ),
-)
+@click.option("--pages", default=None, help=PAGES_HELP)
 @click.option(
     "--output",
     "-o",

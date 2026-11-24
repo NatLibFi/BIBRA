@@ -464,8 +464,6 @@ class TestNuExtractConfigEmptyStrings:
 
     def test_pages_default(self):
         """Config should default pages to first six + last two."""
-        from bibra.pages import DEFAULT_PAGES
-
         cfg = NuExtractConfig()
         assert cfg.pages == DEFAULT_PAGES
 

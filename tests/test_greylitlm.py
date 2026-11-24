@@ -13,6 +13,7 @@ from pydantic_ai import UnexpectedModelBehavior
 
 from bibra.backend.config import GlobalLLMConfig
 from bibra.backend.greylitlm import GreyLitLMBackend, GreyLitLMConfig
+from bibra.pages import DEFAULT_PAGES
 from bibra.types import PublicationMetadata
 
 TEST_PDF_PATH = os.path.join(
@@ -293,8 +294,6 @@ class TestGreyLitLMBackend:
 
     def test_extract_defaults_to_configured_pages(self):
         """Without explicit pages, the configured pages should be used."""
-        from bibra.pages import DEFAULT_PAGES
-
         with patch("bibra.backend.greylitlm.extract_content") as mock_extract:
             mock_extract.return_value = _sample_content()
             metadata = {"language": "en", "title": "T"}
@@ -495,8 +494,6 @@ class TestGreyLitLMConfigPages:
 
     def test_pages_default(self):
         """Config should default pages to first six + last two."""
-        from bibra.pages import DEFAULT_PAGES
-
         cfg = GreyLitLMConfig()
         assert cfg.pages == DEFAULT_PAGES
 

@@ -5,6 +5,7 @@ import asyncio
 import pytest
 
 from bibra.backend.dummy import DummyBackend
+from bibra.pages import DEFAULT_PAGES
 
 
 class TestDummyBackendPages:
@@ -30,6 +31,4 @@ class TestDummyBackendPages:
 
     def test_default_pages_configured(self):
         """The dummy backend's configured pages default to DEFAULT_PAGES."""
-        from bibra.pages import DEFAULT_PAGES
-
         assert DummyBackend().cfg["pages"] == DEFAULT_PAGES

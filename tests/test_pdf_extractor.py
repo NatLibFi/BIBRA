@@ -267,9 +267,8 @@ class TestExtractContent:
         """Negative page numbers should count from the last page."""
         if not os.path.exists(SAMPLE_PDF):
             pytest.skip(f"Sample PDF not found: {SAMPLE_PDF}")
-        default_result = extract_content(SAMPLE_PDF, pages=DEFAULT_PAGES)
-        all_numbers = [p["page"] for p in default_result["pages"]]
-        last = max(all_numbers)
+        with pymupdf.open(SAMPLE_PDF) as doc:
+            last = len(doc)
         result = extract_content(SAMPLE_PDF, pages=[-1])
         page_numbers = [p["page"] for p in result["pages"]]
         assert page_numbers == [last]

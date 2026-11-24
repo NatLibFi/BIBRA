@@ -7,6 +7,9 @@ page. Page specifications may be written as a comma-separated list
 """
 
 import re
+from typing import Annotated, Any
+
+from pydantic.functional_validators import BeforeValidator
 
 # Default pages: first six + last two, matching the previous hardcoded
 # backend behavior.
@@ -77,6 +80,31 @@ def parse_page_spec(spec: str) -> list[int]:
                 f"at most {MAX_PAGES} allowed"
             )
     return pages
+
+
+def parse_pages(v: Any) -> Any:
+    """Coerce a pages setting (list or spec string) to 1-based page numbers.
+
+    Use as a ``BeforeValidator`` for a ``list[int]`` field. Specification
+    strings are parsed here; all other values are passed through unchanged
+    so that Pydantic's ``list[int]`` validation reports proper
+    ``ValidationError`` for invalid types or non-integer items.
+
+    Args:
+        v: Raw pages value from configuration.
+
+    Returns:
+        Parsed page list for string input, or the original value otherwise.
+
+    Raises:
+        ValueError: If the string specification is invalid.
+    """
+    if isinstance(v, str):
+        return parse_page_spec(v)
+    return v
+
+
+PagesList = Annotated[list[int], BeforeValidator(parse_pages)]
 
 
 def resolve_page_indices(pages: list[int], n_pages: int) -> list[int]:

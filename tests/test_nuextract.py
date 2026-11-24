@@ -472,6 +472,16 @@ class TestNuExtractConfigEmptyStrings:
         with pytest.raises(ValidationError):
             NuExtractConfig(pages="1,a")
 
+    def test_pages_scalar_int(self):
+        """Config should reject a scalar page value with ValidationError."""
+        with pytest.raises(ValidationError):
+            NuExtractConfig.model_validate({"pages": 1})
+
+    def test_pages_fractional_item(self):
+        """Config should reject fractional page numbers with ValidationError."""
+        with pytest.raises(ValidationError):
+            NuExtractConfig.model_validate({"pages": [2.9]})
+
 
 class TestPdfPagesToBinaryContent:
     """Tests for the _pdf_pages_to_binary_content helper function."""

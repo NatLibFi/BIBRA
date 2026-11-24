@@ -1,13 +1,21 @@
 """Tests for the page selection helpers."""
 
 import pytest
+from pydantic import BaseModel, ValidationError
 
 from bibra.pages import (
     DEFAULT_PAGES,
     MAX_PAGES,
+    PagesList,
     parse_page_spec,
     resolve_page_indices,
 )
+
+
+class _PagesModel(BaseModel):
+    """Probe model for PagesList validation."""
+
+    pages: PagesList
 
 
 class TestParsePageSpec:
@@ -136,3 +144,29 @@ class TestResolvePageIndices:
 
     def test_default_pages(self):
         assert DEFAULT_PAGES == [1, 2, 3, 4, 5, 6, -2, -1]
+
+
+class TestPagesList:
+    """Tests for the PagesList annotated type."""
+
+    def test_spec_string(self):
+        assert _PagesModel(pages="1-4,-2--1").pages == [1, 2, 3, 4, -2, -1]
+
+    def test_int_list(self):
+        assert _PagesModel(pages=[1, 2, 3, -1]).pages == [1, 2, 3, -1]
+
+    def test_scalar_raises_validation_error(self):
+        with pytest.raises(ValidationError):
+            _PagesModel.model_validate({"pages": 1})
+
+    def test_fractional_item_raises_validation_error(self):
+        with pytest.raises(ValidationError):
+            _PagesModel.model_validate({"pages": [2.9]})
+
+    def test_invalid_spec_string_raises_validation_error(self):
+        with pytest.raises(ValidationError):
+            _PagesModel.model_validate({"pages": "1,a"})
+
+    def test_none_raises_validation_error(self):
+        with pytest.raises(ValidationError):
+            _PagesModel.model_validate({"pages": None})

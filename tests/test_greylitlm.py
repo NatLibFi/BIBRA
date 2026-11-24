@@ -485,6 +485,16 @@ class TestGreyLitLMConfigPages:
         with pytest.raises(ValidationError):
             GreyLitLMConfig(pages="1,a")
 
+    def test_pages_scalar_int(self):
+        """Config should reject a scalar page value with ValidationError."""
+        with pytest.raises(ValidationError):
+            GreyLitLMConfig.model_validate({"pages": 1})
+
+    def test_pages_fractional_item(self):
+        """Config should reject fractional page numbers with ValidationError."""
+        with pytest.raises(ValidationError):
+            GreyLitLMConfig.model_validate({"pages": [2.9]})
+
 
 class TestGreyLitLMConfigEmptyStrings:
     """Tests for empty-string override behavior with is None checks."""

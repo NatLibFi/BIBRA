@@ -18,7 +18,7 @@ from bibra.backend.config import GlobalLLMConfig, parse_bool_or_str, parse_int_o
 from bibra.pages import (
     DEFAULT_PAGES,
     MAX_PAGES,
-    parse_page_spec,
+    PagesList,
     resolve_page_indices,
 )
 from bibra.types import PublicationMetadata
@@ -28,16 +28,6 @@ logger = logging.getLogger(__name__)
 
 BoolStr = Annotated[bool, BeforeValidator(parse_bool_or_str)]
 IntStr = Annotated[int, BeforeValidator(parse_int_or_str)]
-
-
-def _parse_pages(v: Any) -> list[int]:
-    """Coerce a pages setting (list or spec string) to 1-based page numbers."""
-    if isinstance(v, str):
-        return parse_page_spec(v)
-    return [int(p) for p in v]
-
-
-PagesList = Annotated[list[int], BeforeValidator(_parse_pages)]
 
 
 class NuExtractConfig(BaseModel):

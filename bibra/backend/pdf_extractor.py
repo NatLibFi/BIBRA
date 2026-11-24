@@ -116,6 +116,8 @@ def extract_content(file_path: str, pages: list[int]) -> dict[str, Any]:
         A dict with keys:
             - "pdfinfo": dict of extracted metadata fields
             - "pages": list of dicts with "page" (int) and "text" (str) keys
+            - "pages_requested": number of requested pages that existed in
+                the document (0 means the selection was empty)
     """
     pdfinfo: dict[str, Any] = {}
     page_content: dict[int, list[str]] = collections.defaultdict(list)
@@ -131,7 +133,7 @@ def extract_content(file_path: str, pages: list[int]) -> dict[str, Any]:
         if not pages_to_extract:
             # All requested pages are out of range; return no page text
             # rather than passing an empty list to pymupdf4llm.
-            return {"pdfinfo": pdfinfo, "pages": []}
+            return {"pdfinfo": pdfinfo, "pages": [], "pages_requested": 0}
 
         # Extract text from selected pages
         page_texts = pymupdf4llm.to_markdown(
@@ -181,4 +183,8 @@ def extract_content(file_path: str, pages: list[int]) -> dict[str, Any]:
         text = "\n".join(page_content[pageno])
         page_results.append({"page": pageno, "text": text})
 
-    return {"pdfinfo": pdfinfo, "pages": page_results}
+    return {
+        "pdfinfo": pdfinfo,
+        "pages": page_results,
+        "pages_requested": len(pages_to_extract),
+    }

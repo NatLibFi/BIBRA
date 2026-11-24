@@ -188,6 +188,7 @@ class TestExtractContent:
             pytest.skip(f"Sample PDF not found: {SAMPLE_PDF}")
         result = extract_content(SAMPLE_PDF, pages=DEFAULT_PAGES)
         assert isinstance(result, dict)
+        assert "pages_requested" in result
 
     def test_extract_content_has_pdfinfo(self):
         """Result should contain pdfinfo key."""
@@ -282,6 +283,7 @@ class TestExtractContent:
             n_pages = len(doc)
         result = extract_content(SAMPLE_PDF, pages=[n_pages + 1, -n_pages - 1])
         assert result["pages"] == []
+        assert result["pages_requested"] == 0
         assert isinstance(result["pdfinfo"], dict)
 
     def test_extract_content_with_zero_page(self):
@@ -290,6 +292,14 @@ class TestExtractContent:
             pytest.skip(f"Sample PDF not found: {SAMPLE_PDF}")
         result = extract_content(SAMPLE_PDF, pages=[0])
         assert result["pages"] == []
+        assert result["pages_requested"] == 0
+
+    def test_extract_content_pages_requested_counts_resolved_pages(self):
+        """pages_requested should count the pages that exist in the document."""
+        if not os.path.exists(SAMPLE_PDF):
+            pytest.skip(f"Sample PDF not found: {SAMPLE_PDF}")
+        result = extract_content(SAMPLE_PDF, pages=[1, 2])
+        assert result["pages_requested"] == 2
 
 
 class TestModuleConstants:

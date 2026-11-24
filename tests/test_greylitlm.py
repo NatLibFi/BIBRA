@@ -74,7 +74,11 @@ def async_mock(return_value):
 
 def _sample_content(text: str = "Sample PDF content") -> dict:
     """Return a dict in the shape of extract_content's real return value."""
-    return {"pdfinfo": {}, "pages": [{"page": 1, "text": text}]}
+    return {
+        "pdfinfo": {},
+        "pages": [{"page": 1, "text": text}],
+        "pages_requested": 1,
+    }
 
 
 def create_backend_with_mock_agent(mock_agent):
@@ -348,12 +352,48 @@ class TestGreyLitLMBackend:
         backend = create_backend_with_mock_agent(mock_agent)
 
         with patch("bibra.backend.greylitlm.extract_content") as mock_extract:
-            mock_extract.return_value = {"pdfinfo": {}, "pages": []}
+            mock_extract.return_value = {
+                "pdfinfo": {},
+                "pages": [],
+                "pages_requested": 0,
+            }
 
             result = asyncio.run(backend.extract([TEST_PDF_PATH], pages=[99]))
 
         assert result == PublicationMetadata()
         mock_agent.run.assert_not_called()
+
+    def test_extract_keeps_metadata_only_call_when_pages_have_no_text(self):
+        """When pages exist but yield no text, the LLM is still called and
+        receives the pdfinfo metadata in the prompt."""
+        metadata = {"language": "fi", "title": "Scanned Document"}
+        json_string = json.dumps(metadata)
+        mock_response = MockModelResponse(parts=[MockTextPart(content=json_string)])
+        expected = PublicationMetadata.model_validate(metadata)
+        mock_run_result = MockRunResult(response=mock_response, output=expected)
+        calls: list[str] = []
+
+        async def fake_run(prompt_text, **kwargs):
+            calls.append(prompt_text)
+            return mock_run_result
+
+        mock_agent = MagicMock()
+        mock_agent.run = fake_run
+        backend = create_backend_with_mock_agent(mock_agent)
+
+        with patch("bibra.backend.greylitlm.extract_content") as mock_extract:
+            mock_extract.return_value = {
+                "pdfinfo": {"title": "Scanned Document"},
+                "pages": [],
+                "pages_requested": 1,
+            }
+
+            result = asyncio.run(backend.extract([TEST_PDF_PATH]))
+
+        assert result == expected
+        assert len(calls) == 1
+        assert '"pdfinfo"' in calls[0]
+        assert "Scanned Document" in calls[0]
 
     def test_extract_handles_pdf_extraction_failure(self):
         """Backend should handle errors when extract_content fails."""

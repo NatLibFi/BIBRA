@@ -158,6 +158,17 @@ class TestAPIRoutes:
         assert exc_info.value.status_code == 400
         assert "Invalid pages" in exc_info.value.detail
 
+    def test_extract_invalid_pages_returns_400_over_http(self, client):
+        """Invalid pages over HTTP must reach the parser's 400, not 422."""
+        response = client.post(
+            "/v0/projects/dummy/extract",
+            files={"files": ("empty.pdf", b"", "application/pdf")},
+            data={"pages": "1,a"},
+        )
+
+        assert response.status_code == 400
+        assert "Invalid pages" in response.json()["detail"]
+
     async def test_extract_url_returns_example_metadata(self, monkeypatch):
         """The /projects/{project_id}/extract-url endpoint should return example
         publication metadata."""

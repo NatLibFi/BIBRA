@@ -24,9 +24,12 @@ from bibra.net_security import (
 from bibra.pages import PAGES_OR_NONE_PATTERN, parse_page_spec
 from bibra.types import Projects, PublicationMetadata, Version
 
-# The form field is constrained to a valid page specification so the
-# OpenAPI schema rejects garbage before it reaches the handler.
-PagesForm = Annotated[str | None, Form(pattern=PAGES_OR_NONE_PATTERN)]
+# The pattern is published in the OpenAPI schema as documentation of the
+# expected format; actual validation happens in _parse_pages, which maps
+# invalid values to a 400 response.
+PagesForm = Annotated[
+    str | None, Form(json_schema_extra={"pattern": PAGES_OR_NONE_PATTERN})
+]
 
 
 def _parse_pages(pages: str | None) -> list[int] | None:

@@ -52,4 +52,13 @@ def test_api(case):
         ):
             case.call_and_validate()
         return
+    if case.path == "/v0/projects/dummy/extract":
+        # Multipart `files` parts: FastAPI/Starlette cannot reject parts whose
+        # raw content violates the schema type (e.g. boolean payloads) before
+        # handing them to the endpoint, so negative-data rejection (ST201)
+        # is not enforceable for this endpoint's file uploads.
+        case.call_and_validate(
+            excluded_checks=[schemathesis.checks.negative_data_rejection]
+        )
+        return
     case.call_and_validate()

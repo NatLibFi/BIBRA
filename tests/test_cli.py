@@ -335,6 +335,23 @@ class TestExtract:
         assert result.exit_code != 0
         assert "Invalid page specification item" in result.output
 
+    def test_extract_with_page_zero_is_usage_error(self, tmp_path):
+        """--pages 0 is rejected with a usage error before any backend runs."""
+        test_file = tmp_path / "test.pdf"
+        test_file.write_bytes(b"dummy pdf content")
+
+        with patch("bibra.cli.ProjectRegistry") as mock_registry_cls:
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = _make_backend()
+
+            result = self.runner.invoke(
+                extract, ["dummy", str(test_file), "--pages", "0"]
+            )
+
+        assert result.exit_code != 0
+        assert "Page 0" in result.output
+
 
 class TestServe:
     """Tests for the serve command."""

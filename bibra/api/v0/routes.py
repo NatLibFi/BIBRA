@@ -34,8 +34,8 @@ PagesForm = Annotated[
             "description": (
                 "Optional comma-separated 1-based page numbers; negative "
                 "counts from the last page; ranges allowed (e.g. "
-                "1-4,-2--1); at most 8 pages. Empty or 'None' uses the "
-                "project-configured pages."
+                "1-4,-2--1); at most 8 pages. Page 0 is not allowed. "
+                "Empty or 'None' uses the project-configured pages."
             )
         }
     ),

@@ -169,6 +169,18 @@ class TestAPIRoutes:
         assert response.status_code == 400
         assert "Invalid pages" in response.json()["detail"]
 
+    async def test_extract_page_zero_returns_400(self):
+        """Page 0 is rejected with a 400, not an empty successful result."""
+        registry = MagicMock(spec=ProjectRegistry)
+        registry.get_backend.return_value = MagicMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            await extract(project_id="dummy", files=[], registry=registry, pages="0")
+
+        assert exc_info.value.status_code == 400
+        assert "Invalid pages" in exc_info.value.detail
+        assert "Page 0" in exc_info.value.detail
+
     async def test_extract_url_returns_example_metadata(self, monkeypatch):
         """The /projects/{project_id}/extract-url endpoint should return example
         publication metadata."""
@@ -209,6 +221,17 @@ class TestAPIRoutes:
 
         assert exc_info.value.status_code == 400
         assert "Invalid pages" in exc_info.value.detail
+
+    async def test_extract_url_page_zero_returns_400(self):
+        """Page 0 is rejected with a 400 on the URL endpoint too."""
+        with pytest.raises(HTTPException) as exc_info:
+            await extract_url(
+                project_id="dummy", registry=MagicMock(), url=DUMMY_URL, pages="0"
+            )
+
+        assert exc_info.value.status_code == 400
+        assert "Invalid pages" in exc_info.value.detail
+        assert "Page 0" in exc_info.value.detail
 
     def test_get_registry_returns_existing_registry(self):
         """get_registry should return the registry already on app.state."""

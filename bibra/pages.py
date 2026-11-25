@@ -2,15 +2,16 @@
 
 User-facing page numbers are 1-based (as in print dialogs): positive
 values count from the first page, negative values count from the last
-page. Page specifications may be written as a comma-separated list
-(e.g. ``1,2,3,-1``) or with ``-`` ranges (e.g. ``1-4,-2--1``).
+page. Page 0 is not a valid page number and is rejected. Specifications
+may be written as a comma-separated list (e.g. ``1,2,3,-1``) or with
+``-`` ranges (e.g. ``1-4,-2--1``).
 """
 
 import re
 from typing import Annotated, Any
 
 from pydantic import Field
-from pydantic.functional_validators import BeforeValidator
+from pydantic.functional_validators import AfterValidator, BeforeValidator
 
 # Default pages: first six + last two, matching the previous hardcoded
 # backend behavior.
@@ -32,9 +33,13 @@ def _parse_item(item: str) -> list[int]:
     if not m:
         raise ValueError(f"Invalid page specification item: {item!r}")
     start = int(m.group(1))
-    if m.group(2) is None:
-        return [start]
-    end = int(m.group(2))
+    end = int(m.group(2)) if m.group(2) is not None else start
+    if min(start, end) <= 0 <= max(start, end):
+        raise ValueError(
+            f"Page 0 is not a valid page number in {item.strip()!r}; "
+            "pages are 1-based (positive from the start, negative "
+            "from the end)"
+        )
     if abs(start - end) + 1 > MAX_PAGES:
         raise ValueError(
             f"Page range {item.strip()!r} spans "
@@ -61,7 +66,8 @@ def parse_page_spec(spec: str) -> list[int]:
 
     Raises:
         ValueError: If the specification is empty, contains invalid
-            items, or expands to more than MAX_PAGES pages.
+            items, includes page 0, or expands to more than MAX_PAGES
+            pages.
     """
     text = spec.strip()
     if not text:
@@ -100,9 +106,17 @@ def parse_pages(v: Any) -> Any:
     return v
 
 
+def _no_zero_pages(v: Any) -> Any:
+    """Reject page 0 in explicit list input, mirroring parse_page_spec."""
+    if isinstance(v, list) and 0 in v:
+        raise ValueError("Page 0 is not a valid page number in the list")
+    return v
+
+
 PagesList = Annotated[
     list[int],
     BeforeValidator(parse_pages),
+    AfterValidator(_no_zero_pages),
     Field(min_length=1, max_length=MAX_PAGES),
 ]
 

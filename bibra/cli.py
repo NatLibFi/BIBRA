@@ -16,7 +16,8 @@ from bibra.types import PublicationMetadata
 PAGES_HELP = (
     "Pages to extract, 1-based and comma-separated; negative counts "
     "from the last page; ranges allowed (e.g. 1-4,-2--1); at most "
-    f"{MAX_PAGES} pages. Overrides the project-configured pages."
+    f"{MAX_PAGES} pages. Page 0 is not allowed. Overrides the "
+    "project-configured pages."
 )
 
 

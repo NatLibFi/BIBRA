@@ -61,9 +61,26 @@ class TestParsePageSpec:
         with pytest.raises(ValueError, match="Invalid"):
             parse_page_spec("1,a")
 
-    def test_zero_page_allowed(self):
-        """Zero is syntactically valid; resolution treats it as out of range."""
-        assert parse_page_spec("0") == [0]
+    def test_zero_page_raises(self):
+        """Page 0 is never a valid page and is rejected at parse time."""
+        with pytest.raises(ValueError, match="Page 0"):
+            parse_page_spec("0")
+
+    def test_zero_in_forward_range_raises(self):
+        with pytest.raises(ValueError, match="Page 0"):
+            parse_page_spec("0-3")
+
+    def test_zero_in_reverse_range_raises(self):
+        with pytest.raises(ValueError, match="Page 0"):
+            parse_page_spec("1-0")
+
+    def test_zero_in_negative_range_raises(self):
+        with pytest.raises(ValueError, match="Page 0"):
+            parse_page_spec("2--2")
+
+    def test_zero_with_other_pages_raises(self):
+        with pytest.raises(ValueError, match="Page 0"):
+            parse_page_spec("1,0,2")
 
     def test_range_with_spaces(self):
         assert parse_page_spec("1 - 3") == [1, 2, 3]
@@ -199,3 +216,12 @@ class TestPagesList:
         """The cap counts items, not unique pages, like the string path."""
         with pytest.raises(ValidationError, match="at most"):
             _PagesModel.model_validate({"pages": [1] * (MAX_PAGES + 1)})
+
+    def test_spec_string_with_zero_raises_validation_error(self):
+        with pytest.raises(ValidationError, match="Page 0"):
+            _PagesModel.model_validate({"pages": "0"})
+
+    def test_list_with_zero_raises_validation_error(self):
+        """Explicit lists (config) are checked for 0, not just strings."""
+        with pytest.raises(ValidationError, match="Page 0"):
+            _PagesModel.model_validate({"pages": [1, 0, 2]})

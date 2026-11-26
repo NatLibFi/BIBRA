@@ -12,6 +12,7 @@ from pydantic import HttpUrl
 from bibra import __version__
 from bibra.backend import BaseBackend
 from bibra.config import ConfigError, ProjectNotFoundError, ProjectRegistry
+from bibra.marc import to_marc
 from bibra.net_security import (
     DownloadSizeExceededError,
     ProxyRequiredError,
@@ -21,7 +22,7 @@ from bibra.net_security import (
     load_url_fetch_policy,
     redact_url,
 )
-from bibra.types import Projects, PublicationMetadata, Version
+from bibra.types import MarcRecord, Projects, PublicationMetadata, Version
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,32 @@ def _resolve_backend(registry: ProjectRegistry, project_id: str) -> "BaseBackend
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post(
+    "/convert",
+    response_model=MarcRecord,
+    summary="Convert previously extracted metadata to a MARC21 record",
+    tags=["Extraction"],
+    responses={400: {"description": "Bad Request - malformed JSON body"}},
+)
+async def convert(metadata: PublicationMetadata) -> MarcRecord:
+    """Convert previously extracted publication metadata to a MARC21 record.
+
+    Args:
+        metadata: Publication metadata as returned by an extraction endpoint.
+
+    Returns:
+        MarcRecord: The metadata as a MARC21 record.
+
+    Example:
+        ```
+        curl -X POST "http://localhost:8000/v0/convert" \
+             -H "Content-Type: application/json" \
+             -d '{"title": "Example"}'
+        ```
+    """
+    return to_marc(metadata)
+
+
 @router.get(
     "/", response_model=Version, summary="Get version information", tags=["General"]
 )
@@ -76,6 +103,7 @@ async def list_projects(registry: Annotated[ProjectRegistry, Depends(get_registr
 
 @router.post(
     "/projects/{project_id}/extract",
+    response_model=PublicationMetadata,
     summary="Extract metadata from a file upload",
     tags=["Extraction"],
     responses={400: {"description": "Bad Request - malformed multipart data"}},

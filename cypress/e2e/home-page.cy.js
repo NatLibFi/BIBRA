@@ -82,9 +82,18 @@ describe('Home Page', () => {
     // Check that results are visible
     cy.get('#results p').should('not.exist')
     cy.get('#results table').should('be.visible')
+    // Stub the clipboard: navigator.clipboard.readText() is flaky in
+    // headless Electron (it can hang and stall the page, which surfaces
+    // as a cy.screenshot() timeout). Asserting the writeText call
+    // instead is deterministic.
+    cy.window().then((win) => {
+      cy.stub(win.navigator.clipboard, 'writeText').resolves()
+    })
     // Check that copy buttons copy correct values
     cy.get('.btn-copy').eq(0).click()
-    cy.window().its('navigator.clipboard').invoke('readText').then((result) => {}).should('equal', 'en')
+    cy.window()
+      .its('navigator.clipboard.writeText')
+      .should('have.been.calledWith', 'en')
   })
 
   it('hides preview and results after clear', () => {

@@ -139,8 +139,7 @@ class TestAPIRoutes:
         assert isinstance(title, MarcField)
         assert title.subfields == [
             {"a": "Machine Learning Approaches for Software Defect Prediction"},
-            {"c": "Smith, John"},
-            {"c": "Johnson, Emily"},
+            {"c": "Smith, John ; Johnson, Emily"},
         ]
 
     async def test_convert_with_empty_metadata_returns_empty_record(self):

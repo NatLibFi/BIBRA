@@ -17,7 +17,7 @@ _DOI_024_SUBFIELD_2 = "doi"
 
 _LANGUAGE_041_IND1 = " "
 _LANGUAGE_041_IND2 = "7"
-_LANGUAGE_041_SUBFIELD_2 = "iso639-1"
+_LANGUAGE_041_SUBFIELD_2 = "bcp47"
 
 _TITLE_245_IND1 = "0"
 _TITLE_245_IND2 = "0"
@@ -105,9 +105,9 @@ def _build_pymarc_record(metadata: PublicationMetadata) -> Record:
         title_subfields.append({"a": metadata.title})
     if metadata.alt_title:
         title_subfields.append({"b": metadata.alt_title})
-    for creator in metadata.creator:
-        if creator:
-            title_subfields.append({"c": creator})
+    creators = [creator for creator in metadata.creator if creator]
+    if creators:
+        title_subfields.append({"c": " ; ".join(creators)})
     if title_subfields:
         record.add_field(
             _field(

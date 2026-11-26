@@ -77,14 +77,13 @@ def test_to_marc_full_metadata():
         [{"a": "10.1234/example.doi.12345"}, {"2": "doi"}]
     ]
     assert _indicator("024", record) == [("7", " ")]
-    assert _subfields("041", record) == [[{"a": "en"}, {"2": "iso639-1"}]]
+    assert _subfields("041", record) == [[{"a": "en"}, {"2": "bcp47"}]]
     assert _indicator("041", record) == [(" ", "7")]
     assert _subfields("245", record) == [
         [
             {"a": "A Title"},
             {"b": "An Alt Title"},
-            {"c": "Smith, John"},
-            {"c": "Doe, Jane"},
+            {"c": "Smith, John ; Doe, Jane"},
         ]
     ]
     assert _indicator("245", record) == [("0", "0")]
@@ -123,12 +122,10 @@ def test_to_marc_single_creator():
 
 
 def test_to_marc_multiple_creators():
-    """Each creator maps to a 245 subfield c in the same field."""
+    """All creators are joined into a single 245 subfield c."""
     record = to_marc(PublicationMetadata(creator=["A, One", "B, Two", "C, Three"]))
     assert _tags(record) == ["245"]
-    assert _subfields("245", record) == [
-        [{"c": "A, One"}, {"c": "B, Two"}, {"c": "C, Three"}]
-    ]
+    assert _subfields("245", record) == [[{"c": "A, One ; B, Two ; C, Three"}]]
 
 
 def test_to_marc_publisher_without_year():

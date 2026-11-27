@@ -220,6 +220,39 @@ class TestAPIRoutes:
         assert "Invalid pages" in exc_info.value.detail
         assert "Page 0" in exc_info.value.detail
 
+    async def test_extract_none_string_returns_400(self):
+        """The literal string 'None' is not a pages sentinel and is rejected."""
+        registry = MagicMock(spec=ProjectRegistry)
+        registry.get_backend.return_value = MagicMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            await extract(project_id="dummy", files=[], registry=registry, pages="None")
+
+        assert exc_info.value.status_code == 400
+        assert "Invalid pages" in exc_info.value.detail
+
+    async def test_extract_null_string_returns_400(self):
+        """The literal string 'null' is not a pages sentinel and is rejected."""
+        registry = MagicMock(spec=ProjectRegistry)
+        registry.get_backend.return_value = MagicMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            await extract(project_id="dummy", files=[], registry=registry, pages="null")
+
+        assert exc_info.value.status_code == 400
+        assert "Invalid pages" in exc_info.value.detail
+
+    async def test_extract_blank_pages_passes_none(self):
+        """A blank pages field selects the project-configured pages (None)."""
+        registry = MagicMock(spec=ProjectRegistry)
+        mock_backend = MagicMock()
+        mock_backend.extract = AsyncMock(return_value=PublicationMetadata())
+        registry.get_backend.return_value = mock_backend
+
+        await extract(project_id="dummy", files=[], registry=registry, pages="   ")
+
+        mock_backend.extract.assert_awaited_once_with([], pages=None)
+
     async def test_extract_url_returns_example_metadata(self, monkeypatch):
         """The /projects/{project_id}/extract-url endpoint should return example
         publication metadata."""
@@ -271,6 +304,44 @@ class TestAPIRoutes:
         assert exc_info.value.status_code == 400
         assert "Invalid pages" in exc_info.value.detail
         assert "Page 0" in exc_info.value.detail
+
+    async def test_extract_url_none_string_returns_400(self):
+        """The literal string 'None' is not a pages sentinel on the URL endpoint."""
+        with pytest.raises(HTTPException) as exc_info:
+            await extract_url(
+                project_id="dummy", registry=MagicMock(), url=DUMMY_URL, pages="None"
+            )
+
+        assert exc_info.value.status_code == 400
+        assert "Invalid pages" in exc_info.value.detail
+
+    async def test_extract_url_null_string_returns_400(self):
+        """The literal string 'null' is not a pages sentinel on the URL endpoint."""
+        with pytest.raises(HTTPException) as exc_info:
+            await extract_url(
+                project_id="dummy", registry=MagicMock(), url=DUMMY_URL, pages="null"
+            )
+
+        assert exc_info.value.status_code == 400
+        assert "Invalid pages" in exc_info.value.detail
+
+    async def test_extract_url_blank_pages_passes_none(self):
+        """A blank pages field selects the project-configured pages (None)."""
+        registry = MagicMock(spec=ProjectRegistry)
+        mock_backend = MagicMock()
+        mock_backend.extract_from_bytes = AsyncMock(return_value=PublicationMetadata())
+        registry.get_backend.return_value = mock_backend
+
+        with patch(
+            "bibra.api.v0.routes.fetch_file", new=AsyncMock(return_value=MOCK_PDF_BYTES)
+        ):
+            await extract_url(
+                project_id="dummy", registry=registry, url=DUMMY_URL, pages="  "
+            )
+
+        mock_backend.extract_from_bytes.assert_awaited_once_with(
+            MOCK_PDF_BYTES, pages=None
+        )
 
     def test_get_registry_returns_existing_registry(self):
         """get_registry should return the registry already on app.state."""

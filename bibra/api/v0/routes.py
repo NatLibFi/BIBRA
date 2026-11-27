@@ -22,30 +22,39 @@ from bibra.net_security import (
     load_url_fetch_policy,
     redact_url,
 )
-from bibra.pages import parse_page_spec
+from bibra.pages import PAGES_FORM_PATTERN, parse_page_spec
 from bibra.types import MarcRecord, Projects, PublicationMetadata, Version
 
-# The description is published in the OpenAPI schema as documentation of
-# the expected format; actual validation happens in _parse_pages, which
-# maps invalid values to a 400 response.
+# The pattern and description are published in the OpenAPI schema so
+# contract-test tools generate only syntactically valid specs. The
+# pattern is deliberately not enforced by the framework (it goes through
+# json_schema_extra, not a field constraint): invalid values must reach
+# _parse_pages, which maps them to a 400 response instead of a 422.
+# The page-count cap and the no-zero rule are not expressible in a
+# pattern and are likewise enforced at parse time.
 PagesForm = Annotated[
     str | None,
     Form(
         json_schema_extra={
+            "pattern": PAGES_FORM_PATTERN,
             "description": (
                 "Optional comma-separated 1-based page numbers; negative "
                 "counts from the last page; ranges allowed (e.g. "
                 "1-4,-2--1); at most 8 pages. Page 0 is not allowed. "
-                "Empty or 'None' uses the project-configured pages."
-            )
+                "Leave empty to use the project-configured pages."
+            ),
         }
     ),
 ]
 
 
 def _parse_pages(pages: str | None) -> list[int] | None:
-    """Parse an optional pages form field, raising 400 on bad input."""
-    if pages is None or pages.strip() in ("", "None"):
+    """Parse an optional pages form field, raising 400 on bad input.
+
+    Only a missing field or a blank value selects the project-configured
+    pages; every other value must be a valid page specification.
+    """
+    if pages is None or not pages.strip():
         return None
     try:
         return parse_page_spec(pages)

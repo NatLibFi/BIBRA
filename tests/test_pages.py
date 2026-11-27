@@ -1,11 +1,16 @@
 """Tests for the page selection helpers."""
 
+import re
+from typing import ClassVar
+
 import pytest
 from pydantic import BaseModel, ValidationError
 
 from bibra.pages import (
     DEFAULT_PAGES,
     MAX_PAGES,
+    PAGES_FORM_PATTERN,
+    PAGES_SPEC_PATTERN,
     PagesList,
     parse_page_spec,
     resolve_page_indices,
@@ -127,6 +132,98 @@ class TestParsePageSpec:
     def test_max_page_count_allowed(self):
         spec = ",".join(str(p) for p in range(1, MAX_PAGES + 1))
         assert parse_page_spec(spec) == list(range(1, MAX_PAGES + 1))
+
+
+class TestPagesSpecPattern:
+    """Tests that PAGES_SPEC_PATTERN agrees with the parse_page_spec grammar."""
+
+    _pattern = re.compile(PAGES_SPEC_PATTERN)
+    _form_pattern = re.compile(PAGES_FORM_PATTERN)
+
+    VALID_SPECS: ClassVar[list[str]] = [
+        "1",
+        "-1",
+        "123456789",
+        "1,2,3,4,-2,-1",
+        "1, 2 , -1",
+        " 1-4 ",
+        "1-4,-2--1",
+        "1 - 3",
+        "-2 --1",
+        "3-3",
+        "4-1",
+        f"1-{MAX_PAGES}",
+        "1000000000",
+        f"{MAX_PAGES + 1}",
+        "01",
+    ]
+
+    # Syntactically valid (pattern matches) but rejected at parse time:
+    # the no-zero and page-count-cap rules are not expressible in a regex.
+    DIVERGENT_SPECS: ClassVar[list[str]] = [
+        "0",
+        "0-3",
+        "1,0,2",
+        f"1-{MAX_PAGES + 1}",
+        ",".join(str(p) for p in range(1, MAX_PAGES + 2)),
+    ]
+
+    INVALID_SPECS: ClassVar[list[str]] = [
+        "",
+        "   ",
+        "None",
+        "null",
+        "none",
+        "1,",
+        ",1",
+        "1,,2",
+        "1,a",
+        "a",
+        "-",
+        "--",
+        "1-",
+        "-1-",
+        "1-2-3",
+        "1..2",
+        "1.5",
+        "+1",
+    ]
+
+    def test_valid_specs_match_pattern(self):
+        for spec in self.VALID_SPECS:
+            assert self._pattern.fullmatch(spec), spec
+
+    def test_valid_specs_parse(self):
+        for spec in self.VALID_SPECS:
+            parse_page_spec(spec)
+
+    def test_invalid_specs_rejected_by_pattern(self):
+        for spec in self.INVALID_SPECS:
+            assert not self._pattern.fullmatch(spec), spec
+
+    def test_invalid_specs_raise(self):
+        for spec in self.INVALID_SPECS:
+            with pytest.raises(ValueError):
+                parse_page_spec(spec)
+
+    def test_divergent_specs_match_pattern_but_fail_to_parse(self):
+        for spec in self.DIVERGENT_SPECS:
+            assert self._pattern.fullmatch(spec), spec
+            with pytest.raises(ValueError):
+                parse_page_spec(spec)
+
+    def test_form_pattern_accepts_specs_and_blank(self):
+        """The published form pattern is the spec grammar plus blank input."""
+        for spec in self.VALID_SPECS:
+            assert self._form_pattern.fullmatch(spec), spec
+        for value in ("", "   "):
+            assert self._form_pattern.fullmatch(value), value
+
+    def test_form_pattern_rejects_invalid_specs(self):
+        for spec in self.INVALID_SPECS:
+            if not spec.strip():
+                continue  # blank values are valid form input (project default)
+            assert not self._form_pattern.fullmatch(spec), spec
 
 
 class TestResolvePageIndices:

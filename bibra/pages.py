@@ -26,6 +26,21 @@ MAX_PAGES: int = 8
 # -2--1 or a bare 1000000000.
 _ITEM_RE = re.compile(r"(-?\d+)(?:\s*-\s*(-?\d+))?")
 
+# The accepted specification grammar: a comma-separated list of signed
+# numbers with optional ranges, with optional whitespace around items.
+_SPEC_CORE: str = r"-?\d+(?:\s*-\s*-?\d+)?(?:\s*,\s*-?\d+(?:\s*-\s*-?\d+)?)*"
+
+# Regex for the accepted specification grammar, mirroring parse_page_spec.
+# The page-count cap and the no-zero rule are not expressible in a pattern
+# and remain enforced at parse time.
+PAGES_SPEC_PATTERN: str = rf"^\s*{_SPEC_CORE}\s*$"
+
+# Regex published in the OpenAPI schema (json_schema_extra) for the pages
+# form field, so contract-test tools generate only values the API accepts:
+# a valid specification or a blank value (which selects the
+# project-configured pages).
+PAGES_FORM_PATTERN: str = rf"^(?:\s*{_SPEC_CORE}\s*|\s*)$"
+
 
 def _parse_item(item: str) -> list[int]:
     """Expand one comma-separated item into 1-based page numbers."""

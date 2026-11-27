@@ -3,6 +3,7 @@
 from typing import Any
 
 from bibra.backend.base import BaseBackend
+from bibra.pages import DEFAULT_PAGES
 from bibra.types import PublicationMetadata
 
 
@@ -13,15 +14,19 @@ class DummyBackend(BaseBackend[dict[str, Any]]):
 
     def __init__(self) -> None:
         """Initialize the dummy backend."""
-        self.cfg = {}
+        self.cfg: dict[str, Any] = {"pages": list(DEFAULT_PAGES)}
 
     @classmethod
     def build_config(cls, project: Any) -> dict[str, Any]:
         """Build constructor kwargs from a ProjectConfig."""
         return {}
 
-    async def extract(self, file_paths: list[str]) -> PublicationMetadata:
+    async def extract(
+        self, file_paths: list[str], pages: list[int] | None = None
+    ) -> PublicationMetadata:
         """Extract publication metadata from files."""
+        self._effective_pages(pages)
+
         return PublicationMetadata(
             language="en",
             title="Machine Learning Approaches for Software Defect Prediction",

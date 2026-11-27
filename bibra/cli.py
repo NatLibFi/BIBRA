@@ -10,7 +10,27 @@ from dotenv import load_dotenv
 from bibra.backend import BaseBackend
 from bibra.config import ConfigError, ProjectNotFoundError, ProjectRegistry
 from bibra.net_security import UrlPolicyError, fetch_file, load_url_fetch_policy
+from bibra.pages import MAX_PAGES, parse_page_spec
 from bibra.types import PublicationMetadata
+
+PAGES_HELP = (
+    "Pages to extract, 1-based and comma-separated; negative counts "
+    "from the last page; ranges allowed (e.g. 1-4,-2--1); at most "
+    f"{MAX_PAGES} pages. Page 0 is not allowed. Overrides the "
+    "project-configured pages."
+)
+
+
+def _pages_option(
+    pages: str | None,
+) -> list[int] | None:
+    """Parse the --pages option, raising a usage error on bad input."""
+    if pages is None:
+        return None
+    try:
+        return parse_page_spec(pages)
+    except ValueError as e:
+        raise click.UsageError(str(e)) from e
 
 
 def _make_list_template(column_headings: tuple, *rows: tuple) -> str:
@@ -95,6 +115,7 @@ def _emit_json(result: PublicationMetadata, output: str | None) -> None:
     default=None,
     help="Path to the project configuration file (overrides BIBRA_CONFIG).",
 )
+@click.option("--pages", default=None, help=PAGES_HELP)
 @click.option(
     "--output",
     "-o",
@@ -102,12 +123,19 @@ def _emit_json(result: PublicationMetadata, output: str | None) -> None:
     default=None,
     help="Write JSON output to file instead of stdout",
 )
-def extract(project_id: str, file_path: str, config: str | None, output: str | None):
+def extract(
+    project_id: str,
+    file_path: str,
+    config: str | None,
+    pages: str | None,
+    output: str | None,
+):
     """Extract publication metadata from a PDF or image file."""
     backend = _get_backend(project_id, config)
+    selected_pages = _pages_option(pages)
 
     try:
-        result = asyncio.run(backend.extract([file_path]))
+        result = asyncio.run(backend.extract([file_path], pages=selected_pages))
     except Exception as e:
         raise click.ClickException(f"Extraction failed: {e}") from e
 
@@ -151,6 +179,7 @@ def serve(host: str, port: int, reload: bool):
     default=None,
     help="Path to the project configuration file (overrides BIBRA_CONFIG).",
 )
+@click.option("--pages", default=None, help=PAGES_HELP)
 @click.option(
     "--output",
     "-o",
@@ -158,7 +187,13 @@ def serve(host: str, port: int, reload: bool):
     default=None,
     help="Write JSON output to file instead of stdout",
 )
-def extract_url(project_id: str, url: str, config: str | None, output: str | None):
+def extract_url(
+    project_id: str,
+    url: str,
+    config: str | None,
+    pages: str | None,
+    output: str | None,
+):
     """Extract publication metadata from a PDF file at a URL.
 
     The download is performed with the SSRF-hardened fetch layer
@@ -173,12 +208,13 @@ def extract_url(project_id: str, url: str, config: str | None, output: str | Non
     through a proxy.
     """
     backend = _get_backend(project_id, config)
+    selected_pages = _pages_option(pages)
 
     policy = load_url_fetch_policy(cli_fallback=True)
 
     async def _run() -> PublicationMetadata:
         data = await fetch_file(url, policy)
-        return await backend.extract_from_bytes(data)
+        return await backend.extract_from_bytes(data, pages=selected_pages)
 
     try:
         result = asyncio.run(_run())

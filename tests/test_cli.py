@@ -258,6 +258,100 @@ class TestExtract:
             assert result.exit_code != 0
             assert "Invalid config syntax" in result.output
 
+    def test_extract_pages_option_shown_in_help(self):
+        """The --pages option should be documented in the help output."""
+        result = self.runner.invoke(extract, ["--help"])
+        assert result.exit_code == 0
+        assert "--pages" in result.output
+
+    def test_extract_with_pages_passes_parsed_pages(self, tmp_path):
+        """--pages should be parsed and passed to the backend."""
+        test_file = tmp_path / "test.pdf"
+        test_file.write_bytes(b"dummy pdf content")
+
+        captured = {}
+        mock_result = MagicMock()
+        mock_result.model_dump_json.return_value = "{}"
+
+        async def _extract(*args, **kwargs):
+            captured.update(kwargs)
+            return mock_result
+
+        mock_backend = MagicMock()
+        mock_backend.extract.side_effect = _extract
+
+        with patch("bibra.cli.ProjectRegistry") as mock_registry_cls:
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = mock_backend
+
+            result = self.runner.invoke(
+                extract, ["dummy", str(test_file), "--pages", "1-4,-2--1"]
+            )
+
+        assert result.exit_code == 0
+        assert captured["pages"] == [1, 2, 3, 4, -2, -1]
+
+    def test_extract_without_pages_passes_none(self, tmp_path):
+        """Without --pages, None should be passed to the backend."""
+        test_file = tmp_path / "test.pdf"
+        test_file.write_bytes(b"dummy pdf content")
+
+        captured = {}
+        mock_result = MagicMock()
+        mock_result.model_dump_json.return_value = "{}"
+
+        async def _extract(*args, **kwargs):
+            captured.update(kwargs)
+            return mock_result
+
+        mock_backend = MagicMock()
+        mock_backend.extract.side_effect = _extract
+
+        with patch("bibra.cli.ProjectRegistry") as mock_registry_cls:
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = mock_backend
+
+            result = self.runner.invoke(extract, ["dummy", str(test_file)])
+
+        assert result.exit_code == 0
+        assert captured["pages"] is None
+
+    def test_extract_with_invalid_pages(self, tmp_path):
+        """An invalid --pages value should be a usage error."""
+        test_file = tmp_path / "test.pdf"
+        test_file.write_bytes(b"dummy pdf content")
+
+        with patch("bibra.cli.ProjectRegistry") as mock_registry_cls:
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = _make_backend()
+
+            result = self.runner.invoke(
+                extract, ["dummy", str(test_file), "--pages", "1,a"]
+            )
+
+        assert result.exit_code != 0
+        assert "Invalid page specification item" in result.output
+
+    def test_extract_with_page_zero_is_usage_error(self, tmp_path):
+        """--pages 0 is rejected with a usage error before any backend runs."""
+        test_file = tmp_path / "test.pdf"
+        test_file.write_bytes(b"dummy pdf content")
+
+        with patch("bibra.cli.ProjectRegistry") as mock_registry_cls:
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = _make_backend()
+
+            result = self.runner.invoke(
+                extract, ["dummy", str(test_file), "--pages", "0"]
+            )
+
+        assert result.exit_code != 0
+        assert "Page 0" in result.output
+
 
 class TestServe:
     """Tests for the serve command."""
@@ -546,6 +640,67 @@ class TestExtractUrl:
         args, _ = mock_fetch.call_args
         assert args[0] == "https://example.com/paper.pdf"
         assert args[1].proxy == "http://proxy.example.com:8080"
+
+    def test_extract_url_pages_option_shown_in_help(self):
+        """The --pages option should be documented in the help output."""
+        result = self.runner.invoke(extract_url, ["--help"])
+        assert result.exit_code == 0
+        assert "--pages" in result.output
+
+    def test_extract_url_with_pages_passes_parsed_pages(self):
+        """--pages should be parsed and passed to extract_from_bytes."""
+        captured = {}
+        mock_result = MagicMock()
+        mock_result.model_dump_json.return_value = "{}"
+
+        from bibra.backend.base import BaseBackend
+
+        mock_backend = MagicMock()
+
+        async def _extract(*args, **kwargs):
+            captured.update(kwargs)
+            return mock_result
+
+        mock_backend.extract.side_effect = _extract
+        mock_backend.extract_from_bytes = BaseBackend.extract_from_bytes.__get__(
+            mock_backend, type(mock_backend)
+        )
+
+        with (
+            patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
+            patch("bibra.cli.fetch_file", new=AsyncMock(return_value=MOCK_PDF_BYTES)),
+        ):
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = mock_backend
+
+            result = self.runner.invoke(
+                extract_url,
+                [
+                    "dummy",
+                    "https://example.com/paper.pdf",
+                    "--pages",
+                    "1,2,3,-1",
+                ],
+            )
+
+        assert result.exit_code == 0
+        assert captured["pages"] == [1, 2, 3, -1]
+
+    def test_extract_url_with_invalid_pages(self):
+        """An invalid --pages value should be a usage error."""
+        with patch("bibra.cli.ProjectRegistry") as mock_registry_cls:
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_registry.get_backend.return_value = _make_backend()
+
+            result = self.runner.invoke(
+                extract_url,
+                ["dummy", "https://example.com/paper.pdf", "--pages", "bogus"],
+            )
+
+        assert result.exit_code != 0
+        assert "Invalid page specification item" in result.output
 
     def test_extract_url_falls_back_to_direct_when_proxy_not_set(self, monkeypatch):
         """Unlike the API, the CLI is lenient: with BIBRA_URL_PROXY unset it

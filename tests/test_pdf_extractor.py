@@ -6,7 +6,6 @@ import pymupdf
 import pytest
 
 from bibra.backend.pdf_extractor import (
-    PAGES,
     PDF_METADATA_SKIP,
     TOKEN_BUDGET,
     TOKEN_MODEL,
@@ -17,6 +16,7 @@ from bibra.backend.pdf_extractor import (
     _split_text,
     extract_content,
 )
+from bibra.pages import DEFAULT_PAGES
 
 FIXTURE_DIR = os.path.join(os.path.dirname(__file__), "..", "cypress", "fixtures")
 SAMPLE_PDF = os.path.join(FIXTURE_DIR, "test-document.pdf")
@@ -186,14 +186,15 @@ class TestExtractContent:
         """extract_content should return a dict."""
         if not os.path.exists(SAMPLE_PDF):
             pytest.skip(f"Sample PDF not found: {SAMPLE_PDF}")
-        result = extract_content(SAMPLE_PDF)
+        result = extract_content(SAMPLE_PDF, pages=DEFAULT_PAGES)
         assert isinstance(result, dict)
+        assert "pages_requested" in result
 
     def test_extract_content_has_pdfinfo(self):
         """Result should contain pdfinfo key."""
         if not os.path.exists(SAMPLE_PDF):
             pytest.skip(f"Sample PDF not found: {SAMPLE_PDF}")
-        result = extract_content(SAMPLE_PDF)
+        result = extract_content(SAMPLE_PDF, pages=DEFAULT_PAGES)
         assert "pdfinfo" in result
         assert isinstance(result["pdfinfo"], dict)
 
@@ -201,7 +202,7 @@ class TestExtractContent:
         """Result should contain pages key."""
         if not os.path.exists(SAMPLE_PDF):
             pytest.skip(f"Sample PDF not found: {SAMPLE_PDF}")
-        result = extract_content(SAMPLE_PDF)
+        result = extract_content(SAMPLE_PDF, pages=DEFAULT_PAGES)
         assert "pages" in result
         assert isinstance(result["pages"], list)
 
@@ -209,7 +210,7 @@ class TestExtractContent:
         """Each page entry should have page and text keys."""
         if not os.path.exists(SAMPLE_PDF):
             pytest.skip(f"Sample PDF not found: {SAMPLE_PDF}")
-        result = extract_content(SAMPLE_PDF)
+        result = extract_content(SAMPLE_PDF, pages=DEFAULT_PAGES)
         for page_entry in result["pages"]:
             assert "page" in page_entry
             assert "text" in page_entry
@@ -220,7 +221,7 @@ class TestExtractContent:
         """Pages should be sorted by page number."""
         if not os.path.exists(SAMPLE_PDF):
             pytest.skip(f"Sample PDF not found: {SAMPLE_PDF}")
-        result = extract_content(SAMPLE_PDF)
+        result = extract_content(SAMPLE_PDF, pages=DEFAULT_PAGES)
         page_numbers = [p["page"] for p in result["pages"]]
         assert page_numbers == sorted(page_numbers)
 
@@ -228,7 +229,7 @@ class TestExtractContent:
         """Pages should use pymupdf4llm's 1-indexed page_number."""
         if not os.path.exists(SAMPLE_PDF):
             pytest.skip(f"Sample PDF not found: {SAMPLE_PDF}")
-        result = extract_content(SAMPLE_PDF)
+        result = extract_content(SAMPLE_PDF, pages=DEFAULT_PAGES)
         page_numbers = [p["page"] for p in result["pages"]]
         # PAGES = [0,1,2,3,4,5,-2,-1] → deduplicated/sorted = [0,1,2,3,4,5]
         # pymupdf4llm returns 1-indexed page_number, so result is [1,2,3,4,5,6]
@@ -238,7 +239,7 @@ class TestExtractContent:
         """Total tokens should not exceed TOKEN_BUDGET."""
         if not os.path.exists(SAMPLE_PDF):
             pytest.skip(f"Sample PDF not found: {SAMPLE_PDF}")
-        result = extract_content(SAMPLE_PDF)
+        result = extract_content(SAMPLE_PDF, pages=DEFAULT_PAGES)
         total_tokens = sum(_count_tokens(p["text"]) for p in result["pages"])
         assert total_tokens <= TOKEN_BUDGET
 
@@ -246,26 +247,70 @@ class TestExtractContent:
         """pdfinfo should not contain skipped metadata fields."""
         if not os.path.exists(SAMPLE_PDF):
             pytest.skip(f"Sample PDF not found: {SAMPLE_PDF}")
-        result = extract_content(SAMPLE_PDF)
+        result = extract_content(SAMPLE_PDF, pages=DEFAULT_PAGES)
         for key in PDF_METADATA_SKIP:
             assert key not in result["pdfinfo"]
 
     def test_extract_content_nonexistent_file(self):
         """extract_content should raise exception for non-existent file."""
         with pytest.raises(pymupdf.FileNotFoundError):
-            extract_content("/nonexistent/file.pdf")
+            extract_content("/nonexistent/file.pdf", pages=DEFAULT_PAGES)
+
+    def test_extract_content_with_explicit_pages(self):
+        """Explicit pages should limit the extracted page numbers."""
+        if not os.path.exists(SAMPLE_PDF):
+            pytest.skip(f"Sample PDF not found: {SAMPLE_PDF}")
+        result = extract_content(SAMPLE_PDF, pages=[1])
+        page_numbers = [p["page"] for p in result["pages"]]
+        assert page_numbers == [1]
+
+    def test_extract_content_with_last_page(self):
+        """Negative page numbers should count from the last page."""
+        if not os.path.exists(SAMPLE_PDF):
+            pytest.skip(f"Sample PDF not found: {SAMPLE_PDF}")
+        with pymupdf.open(SAMPLE_PDF) as doc:
+            last = len(doc)
+        result = extract_content(SAMPLE_PDF, pages=[-1])
+        page_numbers = [p["page"] for p in result["pages"]]
+        assert page_numbers == [last]
+
+    def test_extract_content_with_all_pages_out_of_range(self):
+        """If no requested page exists in the document, no page text is
+        returned (rather than an empty page list crashing pymupdf4llm)."""
+        if not os.path.exists(SAMPLE_PDF):
+            pytest.skip(f"Sample PDF not found: {SAMPLE_PDF}")
+        with pymupdf.open(SAMPLE_PDF) as doc:
+            n_pages = len(doc)
+        result = extract_content(SAMPLE_PDF, pages=[n_pages + 1, -n_pages - 1])
+        assert result["pages"] == []
+        assert result["pages_requested"] == 0
+        assert isinstance(result["pdfinfo"], dict)
+
+    def test_extract_content_with_zero_page(self):
+        """Page 0 is out of range and yields no page text."""
+        if not os.path.exists(SAMPLE_PDF):
+            pytest.skip(f"Sample PDF not found: {SAMPLE_PDF}")
+        result = extract_content(SAMPLE_PDF, pages=[0])
+        assert result["pages"] == []
+        assert result["pages_requested"] == 0
+
+    def test_extract_content_pages_requested_counts_resolved_pages(self):
+        """pages_requested should count the pages that exist in the document."""
+        if not os.path.exists(SAMPLE_PDF):
+            pytest.skip(f"Sample PDF not found: {SAMPLE_PDF}")
+        result = extract_content(SAMPLE_PDF, pages=[1, 2])
+        assert result["pages_requested"] == 2
 
 
 class TestModuleConstants:
     """Tests for module-level constants."""
 
     def test_pages_contains_expected_values(self):
-        """PAGES should contain first 6 and last 2 page indices."""
-        assert 0 in PAGES
-        assert 1 in PAGES
-        assert 5 in PAGES
-        assert -2 in PAGES
-        assert -1 in PAGES
+        """DEFAULT_PAGES should contain first 6 and last 2 pages."""
+        assert 1 in DEFAULT_PAGES
+        assert 6 in DEFAULT_PAGES
+        assert -2 in DEFAULT_PAGES
+        assert -1 in DEFAULT_PAGES
 
     def test_token_budget_positive(self):
         """TOKEN_BUDGET should be positive."""

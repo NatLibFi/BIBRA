@@ -14,6 +14,7 @@ from pydantic_ai.providers.openai import OpenAIProvider
 from bibra.backend.base import BaseBackend
 from bibra.backend.config import GlobalLLMConfig
 from bibra.backend.pdf_extractor import extract_content
+from bibra.pages import DEFAULT_PAGES, MAX_PAGES, PagesList
 from bibra.types import PublicationMetadata
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,13 @@ class GreyLitLMConfig(BaseModel):
     instructions: str = Field(
         default="Extract metadata from this document. Return as JSON.",
         description="User instructions for extraction",
+    )
+    pages: PagesList = Field(
+        default=DEFAULT_PAGES,
+        description=(
+            "1-based page numbers to extract (negative from the end); "
+            f"at most {MAX_PAGES} pages"
+        ),
     )
 
 
@@ -98,15 +106,21 @@ class GreyLitLMBackend(BaseBackend[GreyLitLMConfig]):
         cfg = GreyLitLMConfig(**project.extra)
         return {"global_cfg": global_cfg, "cfg": cfg}
 
-    async def extract(self, file_paths: list[str]) -> PublicationMetadata:
+    async def extract(
+        self, file_paths: list[str], pages: list[int] | None = None
+    ) -> PublicationMetadata:
         """Extract publication metadata from files.
 
         Args:
             file_paths: List of file paths to process. Only the first PDF is used.
+            pages: Optional 1-based page numbers to extract; overrides the
+                configured pages.
 
         Returns:
             PublicationMetadata: Extracted metadata as JSON.
         """
+        effective_pages = self._effective_pages(pages)
+
         # Process only the first PDF file
         pdf_path = None
         for path in file_paths:
@@ -120,13 +134,18 @@ class GreyLitLMBackend(BaseBackend[GreyLitLMConfig]):
 
         else:
             try:
-                content = extract_content(pdf_path)
-                content_json = json.dumps(content, ensure_ascii=False, indent=2)
-                prompt_text = f"{self._instructions}\n\n{content_json}"
-
+                content = extract_content(pdf_path, pages=effective_pages)
             except Exception:
                 logger.exception("Failed to extract PDF content: %s", pdf_path)
                 prompt_text = f"{self._instructions}\n\nFailed to extract PDF content."
+            else:
+                if content.get("pages_requested", 0) == 0:
+                    # All requested pages were out of range, so there is no
+                    # document content at all for the model to work with.
+                    logger.warning("No pages could be extracted from PDF: %s", pdf_path)
+                    return PublicationMetadata()
+                content_json = json.dumps(content, ensure_ascii=False, indent=2)
+                prompt_text = f"{self._instructions}\n\n{content_json}"
 
         result = await self.agent.run(prompt_text)
         logger.debug("Agent returned: %s", result.response)

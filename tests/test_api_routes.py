@@ -9,6 +9,7 @@ from fastapi.routing import APIRoute
 from pydantic import HttpUrl
 
 from bibra.api.v0.routes import (
+    convert,
     extract,
     extract_url,
     get_registry,
@@ -28,7 +29,7 @@ from bibra.net_security import (
     UnsupportedContentTypeError,
     UrlPolicyError,
 )
-from bibra.types import PublicationMetadata
+from bibra.types import MarcField, MarcRecord, PublicationMetadata
 
 MOCK_PDF_BYTES = b"%PDF-1.4 mock content"
 DUMMY_URL = HttpUrl("https://example.com/paper.pdf")
@@ -95,8 +96,9 @@ class TestAPIRoutes:
             ("/projects", {"GET"}),
             ("/projects/{project_id}/extract", {"POST"}),
             ("/projects/{project_id}/extract-url", {"POST"}),
+            ("/convert", {"POST"}),
         ],
-        ids=["root", "projects", "extract", "extract-url"],
+        ids=["root", "projects", "extract", "extract-url", "convert"],
     )
     def test_route_exists_with_method(self, path, methods):
         """Each documented route exists and accepts exactly the expected methods."""
@@ -116,6 +118,41 @@ class TestAPIRoutes:
         # Should have the default project from tests/projects.toml
         project_ids = [p["id"] for p in result["projects"]]
         assert "dummy" in project_ids
+
+    async def test_convert_returns_marc_record(self):
+        """The /convert endpoint should return a MarcRecord for metadata."""
+        registry = ProjectRegistry()
+        metadata = await extract(project_id="dummy", files=[], registry=registry)
+        result = await convert(metadata)
+        assert isinstance(result, MarcRecord)
+        tags = [next(iter(entry)) for entry in result.fields]
+        assert "245" in tags
+        assert "020" in tags
+        assert "024" in tags
+        title = next(entry for entry in result.fields if "245" in entry)["245"]
+        assert isinstance(title, MarcField)
+        assert title.subfields == [
+            {"a": "Machine Learning Approaches for Software Defect Prediction"},
+            {"c": "Smith, John ; Johnson, Emily"},
+        ]
+
+    async def test_convert_with_empty_metadata_returns_placeholder_record(self):
+        """The /convert endpoint should return placeholder 245/264 fields for
+        empty metadata."""
+        result = await convert(PublicationMetadata())
+        assert isinstance(result, MarcRecord)
+        tags = [next(iter(entry)) for entry in result.fields]
+        assert tags == ["245", "264"]
+        title = result.fields[0]["245"]
+        assert isinstance(title, MarcField)
+        assert title.subfields == [{"a": "[Title not identified]"}]
+        publisher = result.fields[1]["264"]
+        assert isinstance(publisher, MarcField)
+        assert publisher.subfields == [
+            {"a": "[Place of publication not identified] :"},
+            {"b": "[publisher not identified],"},
+            {"c": "[date of publication not identified]"},
+        ]
 
     async def test_extract_returns_example_metadata(self):
         """The /projects/{project_id}/extract endpoint should return example

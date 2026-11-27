@@ -46,6 +46,8 @@ dependencies = [
     "regex>=2026.11.15",
     "tiktoken>=0.12.0",
     "httpx2>=2.16.2",
+    "pymarc>=5.4.1",
+    "langcodes>=3.5.1",
 ]
 
 [project.scripts]

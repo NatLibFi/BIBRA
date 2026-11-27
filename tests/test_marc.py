@@ -132,7 +132,7 @@ def test_to_marc_partial_metadata():
     assert _subfields("100", record) == [[{"a": "Solo, A"}]]
     assert _indicator("100", record) == [("1", " ")]
     assert _subfields("245", record) == [[{"a": "A Title"}, {"c": "Solo, A"}]]
-    assert _indicator("245", record) == [("0", "0")]
+    assert _indicator("245", record) == [("1", "0")]
     assert _subfields("264", record) == [
         [
             {"a": "[Place of publication not identified] :"},
@@ -152,7 +152,7 @@ def test_to_marc_single_creator():
     assert _subfields("245", record) == [
         [{"a": "[Title not identified]"}, {"c": "Smith, John"}]
     ]
-    assert _indicator("245", record) == [("0", "0")]
+    assert _indicator("245", record) == [("1", "0")]
 
 
 def test_to_marc_multiple_creators():

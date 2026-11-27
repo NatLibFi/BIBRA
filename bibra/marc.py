@@ -24,6 +24,7 @@ _CREATOR_100_IND2 = " "
 
 _TITLE_245_IND1 = "0"
 _TITLE_245_IND2 = "0"
+_TITLE_245_IND1_WITH_CREATOR = "1"
 _TITLE_245_SUBFIELD_A = "[Title not identified]"
 
 _ALT_TITLE_246_IND1 = "3"
@@ -143,7 +144,9 @@ def _build_pymarc_record(metadata: PublicationMetadata) -> Record:
         _field(
             "245",
             title_subfields,
-            _TITLE_245_IND1,
+            _TITLE_245_IND1
+            if not record.get_fields("100")
+            else _TITLE_245_IND1_WITH_CREATOR,
             _TITLE_245_IND2,
         )
     )

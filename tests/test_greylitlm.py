@@ -222,7 +222,7 @@ class TestGreyLitLMBackend:
         metadata = {
             "language": "de",
             "title": "Titel auf Deutsch",
-            "alt_title": "Title in English",
+            "alt_title": ["Title in English"],
             "creator": ["Müller, Hans", "Schmidt, Anna"],
             "year": "2023",
             "publisher": ["Deutscher Verlag"],
@@ -250,7 +250,7 @@ class TestGreyLitLMBackend:
 
         assert result.language == "de"
         assert result.title == "Titel auf Deutsch"
-        assert result.alt_title == "Title in English"
+        assert result.alt_title == ["Title in English"]
         assert result.creator == ["Müller, Hans", "Schmidt, Anna"]
         assert result.year == "2023"
         assert result.publisher == ["Deutscher Verlag"]

@@ -40,6 +40,9 @@ def assert_dummy_metadata(result):
     assert isinstance(result, PublicationMetadata)
     assert result.language == "en"
     assert result.title == "Machine Learning Approaches for Software Defect Prediction"
+    assert result.alt_title == [
+        "Koneoppimismenetelmät ohjelmistovirheiden ennustamiseen {fi}"
+    ]
     assert result.creator == ["Smith, John", "Johnson, Emily"]
     assert result.year == "2023"
     assert result.publisher == ["Springer", "ACM"]
@@ -47,7 +50,6 @@ def assert_dummy_metadata(result):
     assert result.e_isbn == ["978-0-123456-78-9"]
     assert result.type_coar == "article"
     # Verify fields that don't have values are None or empty lists
-    assert result.alt_title is None
     assert result.p_isbn == []
     assert result.e_issn is None
 

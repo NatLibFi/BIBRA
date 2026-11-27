@@ -63,13 +63,12 @@ async def _call_extract_url(monkeypatch, proxy, url, side_effect=None):
     else:
         monkeypatch.setenv("BIBRA_URL_PROXY", proxy)
 
-    kwargs = {}
     if side_effect is not None:
-        kwargs["side_effect"] = side_effect
+        mock_fetch = AsyncMock(side_effect=side_effect)
     else:
-        kwargs["return_value"] = MOCK_PDF_BYTES
+        mock_fetch = AsyncMock(return_value=MOCK_PDF_BYTES)
 
-    with patch("bibra.api.v0.routes.fetch_file", new=AsyncMock(**kwargs)) as mock_fetch:
+    with patch("bibra.api.v0.routes.fetch_file", new=mock_fetch):
         result = await extract_url(
             project_id="dummy", registry=ProjectRegistry(), url=url
         )

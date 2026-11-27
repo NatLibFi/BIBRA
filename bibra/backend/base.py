@@ -4,15 +4,14 @@ import logging
 import os
 import tempfile
 from abc import ABC, abstractmethod
-from typing import Any, Generic, TypeVar
+from typing import Any
 
 from bibra.types import PublicationMetadata
 
-T = TypeVar("T")
 logger = logging.getLogger(__name__)
 
 
-class BaseBackend(ABC, Generic[T]):
+class BaseBackend[T](ABC):
     """Abstract base class for all backend implementations.
 
     Every backend must implement the `extract` method to process files

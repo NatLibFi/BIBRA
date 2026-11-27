@@ -38,7 +38,9 @@ def _prepare(case) -> bool:
     # The schema pattern cannot express the page-count cap, so drop cases
     # whose pages value would exceed it (they are rejected with 400).
     pages = case.body.get("pages")
-    if pages is None or (isinstance(pages, str) and pages.strip().lower() in ("", "none", "null")):
+    if pages is None or (
+        isinstance(pages, str) and pages.strip().lower() in ("", "none", "null")
+    ):
         case.body.pop("pages", None)
     elif isinstance(pages, str):
         try:

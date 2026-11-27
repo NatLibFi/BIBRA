@@ -21,7 +21,36 @@ from bibra.net_security import (
     load_url_fetch_policy,
     redact_url,
 )
+from bibra.pages import parse_page_spec
 from bibra.types import Projects, PublicationMetadata, Version
+
+# The description is published in the OpenAPI schema as documentation of
+# the expected format; actual validation happens in _parse_pages, which
+# maps invalid values to a 400 response.
+PagesForm = Annotated[
+    str | None,
+    Form(
+        json_schema_extra={
+            "description": (
+                "Optional comma-separated 1-based page numbers; negative "
+                "counts from the last page; ranges allowed (e.g. "
+                "1-4,-2--1); at most 8 pages. Page 0 is not allowed. "
+                "Empty or 'None' uses the project-configured pages."
+            )
+        }
+    ),
+]
+
+
+def _parse_pages(pages: str | None) -> list[int] | None:
+    """Parse an optional pages form field, raising 400 on bad input."""
+    if pages is None or pages.strip() in ("", "None"):
+        return None
+    try:
+        return parse_page_spec(pages)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid pages: {e}") from e
+
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +113,7 @@ async def extract(
     project_id: str,
     files: Annotated[list[UploadFile], File(...)],
     registry: Annotated[ProjectRegistry, Depends(get_registry)],
+    pages: PagesForm = None,
 ) -> PublicationMetadata:
     """
     Extract publication metadata from PDF or image files for a specific project.
@@ -91,6 +121,9 @@ async def extract(
     Args:
         project_id: The ID of the project to extract metadata for
         files: List of PDF or image files to process
+        pages: Optional pages to extract, 1-based and comma-separated;
+            negative counts from the last page; ranges allowed
+            (e.g. ``1-4,-2--1``). Overrides the project-configured pages.
 
     Returns:
         PublicationMetadata: Extracted metadata as JSON
@@ -98,9 +131,10 @@ async def extract(
     Example:
         ```
         curl -X POST "http://localhost:8000/v0/projects/my_project/extract" \
-             -F "files=@/path/to/document.pdf"
+             -F "files=@/path/to/document.pdf" -F "pages=1-4,-2,-1"
         ```
     """
+    selected_pages = _parse_pages(pages)
     temp_files: list[str] = []
     try:
         for upload_file in files:
@@ -112,7 +146,7 @@ async def extract(
         # Get backend for the project
         backend = _resolve_backend(registry, project_id)
         # Extract metadata using the backend
-        result = await backend.extract(temp_files)
+        result = await backend.extract(temp_files, pages=selected_pages)
         return result
     finally:
         # Clean up all temporary files
@@ -132,9 +166,10 @@ async def extract(
     responses={
         400: {
             "description": (
-                "Bad Request - URL or content violates the fetch policy. The "
-                "detail message is specific to the rejection (oversized "
-                "download, unsupported file type, or URL rejected by policy)."
+                "Bad Request - URL or content violates the fetch policy, or "
+                "the pages parameter is invalid. The detail message is "
+                "specific to the rejection (oversized download, unsupported "
+                "file type, URL rejected by policy, or invalid pages)."
             )
         },
         502: {"description": "Bad Gateway - download failed"},
@@ -145,6 +180,7 @@ async def extract_url(
     project_id: str,
     registry: Annotated[ProjectRegistry, Depends(get_registry)],
     url: HttpUrl = Form(...),  # noqa: B008
+    pages: PagesForm = None,
 ) -> PublicationMetadata:
     """
     Extract publication metadata from a PDF file at a given URL for a
@@ -159,6 +195,9 @@ async def extract_url(
     Args:
         project_id: The ID of the project to extract metadata for
         url: URL pointing to a file to process
+        pages: Optional pages to extract, 1-based and comma-separated;
+            negative counts from the last page; ranges allowed
+            (e.g. ``1-4,-2--1``). Overrides the project-configured pages.
 
     Returns:
         PublicationMetadata: Extracted metadata as JSON
@@ -170,6 +209,7 @@ async def extract_url(
             project is unknown, 502 if the download fails, 503 if URL
             fetching is disabled (no proxy/direct configured).
     """
+    selected_pages = _parse_pages(pages)
     backend = _resolve_backend(registry, project_id)
 
     url_str = str(url)
@@ -196,4 +236,4 @@ async def extract_url(
         logger.exception("HTTP Error downloading %s", safe_url)
         raise HTTPException(status_code=502, detail="Failed to download URL")
 
-    return await backend.extract_from_bytes(data)
+    return await backend.extract_from_bytes(data, pages=selected_pages)

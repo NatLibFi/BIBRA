@@ -125,6 +125,64 @@ class TestAPIRoutes:
         result = await extract(project_id="dummy", files=[], registry=registry)
         assert_dummy_metadata(result)
 
+    async def test_extract_passes_pages_to_backend(self):
+        """The pages form field should be parsed and passed to the backend."""
+        registry = MagicMock(spec=ProjectRegistry)
+        mock_backend = MagicMock()
+        mock_backend.extract = AsyncMock(return_value=PublicationMetadata())
+        registry.get_backend.return_value = mock_backend
+
+        await extract(
+            project_id="dummy", files=[], registry=registry, pages="1-4,-2--1"
+        )
+
+        mock_backend.extract.assert_awaited_once_with([], pages=[1, 2, 3, 4, -2, -1])
+
+    async def test_extract_without_pages_passes_none(self):
+        """Without the pages field, None should be passed to the backend."""
+        registry = MagicMock(spec=ProjectRegistry)
+        mock_backend = MagicMock()
+        mock_backend.extract = AsyncMock(return_value=PublicationMetadata())
+        registry.get_backend.return_value = mock_backend
+
+        await extract(project_id="dummy", files=[], registry=registry)
+
+        mock_backend.extract.assert_awaited_once_with([], pages=None)
+
+    async def test_extract_invalid_pages_returns_400(self):
+        """An invalid pages form field should raise HTTPException 400."""
+        registry = MagicMock(spec=ProjectRegistry)
+        registry.get_backend.return_value = MagicMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            await extract(project_id="dummy", files=[], registry=registry, pages="1,a")
+
+        assert exc_info.value.status_code == 400
+        assert "Invalid pages" in exc_info.value.detail
+
+    def test_extract_invalid_pages_returns_400_over_http(self, client):
+        """Invalid pages over HTTP must reach the parser's 400, not 422."""
+        response = client.post(
+            "/v0/projects/dummy/extract",
+            files={"files": ("empty.pdf", b"", "application/pdf")},
+            data={"pages": "1,a"},
+        )
+
+        assert response.status_code == 400
+        assert "Invalid pages" in response.json()["detail"]
+
+    async def test_extract_page_zero_returns_400(self):
+        """Page 0 is rejected with a 400, not an empty successful result."""
+        registry = MagicMock(spec=ProjectRegistry)
+        registry.get_backend.return_value = MagicMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            await extract(project_id="dummy", files=[], registry=registry, pages="0")
+
+        assert exc_info.value.status_code == 400
+        assert "Invalid pages" in exc_info.value.detail
+        assert "Page 0" in exc_info.value.detail
+
     async def test_extract_url_returns_example_metadata(self, monkeypatch):
         """The /projects/{project_id}/extract-url endpoint should return example
         publication metadata."""
@@ -136,6 +194,46 @@ class TestAPIRoutes:
         assert args[1].proxy == "direct"
 
         assert_dummy_metadata(result)
+
+    async def test_extract_url_passes_pages_to_backend(self, monkeypatch):
+        """The pages form field should be passed to extract_from_bytes."""
+        monkeypatch.setenv("BIBRA_URL_PROXY", "direct")
+        registry = MagicMock(spec=ProjectRegistry)
+        mock_backend = MagicMock()
+        mock_backend.extract_from_bytes = AsyncMock(return_value=PublicationMetadata())
+        registry.get_backend.return_value = mock_backend
+
+        with patch(
+            "bibra.api.v0.routes.fetch_file", new=AsyncMock(return_value=MOCK_PDF_BYTES)
+        ):
+            await extract_url(
+                project_id="dummy", registry=registry, url=DUMMY_URL, pages="1,2,-1"
+            )
+
+        mock_backend.extract_from_bytes.assert_awaited_once_with(
+            MOCK_PDF_BYTES, pages=[1, 2, -1]
+        )
+
+    async def test_extract_url_invalid_pages_returns_400(self):
+        """An invalid pages form field should raise HTTPException 400."""
+        with pytest.raises(HTTPException) as exc_info:
+            await extract_url(
+                project_id="dummy", registry=MagicMock(), url=DUMMY_URL, pages="bogus"
+            )
+
+        assert exc_info.value.status_code == 400
+        assert "Invalid pages" in exc_info.value.detail
+
+    async def test_extract_url_page_zero_returns_400(self):
+        """Page 0 is rejected with a 400 on the URL endpoint too."""
+        with pytest.raises(HTTPException) as exc_info:
+            await extract_url(
+                project_id="dummy", registry=MagicMock(), url=DUMMY_URL, pages="0"
+            )
+
+        assert exc_info.value.status_code == 400
+        assert "Invalid pages" in exc_info.value.detail
+        assert "Page 0" in exc_info.value.detail
 
     def test_get_registry_returns_existing_registry(self):
         """get_registry should return the registry already on app.state."""

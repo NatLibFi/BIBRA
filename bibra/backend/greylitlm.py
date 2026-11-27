@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+import pydantic_ai
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai import Agent
@@ -17,6 +18,10 @@ from bibra.backend.pdf_extractor import extract_content
 from bibra.types import PublicationMetadata
 
 logger = logging.getLogger(__name__)
+
+# The CLI owns its output; keep pydantic_ai's first-run banner out of it.
+# BANNER_ENABLED is unannotated in the library, so ty infers Literal[True].
+pydantic_ai.BANNER_ENABLED = False  # ty: ignore
 
 
 class GreyLitLMConfig(BaseModel):

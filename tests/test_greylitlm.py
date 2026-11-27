@@ -572,3 +572,17 @@ class TestGlobalLLMConfigExtraHeaders:
         monkeypatch.setenv("LLM_EXTRA_HEADERS", '{"X-Title": "from-env"}')
         cfg = GlobalLLMConfig(extra_headers={"X-Title": "explicit"})
         assert cfg.extra_headers == {"X-Title": "explicit"}
+
+
+class TestBannerSuppression:
+    """Tests for pydantic_ai first-run banner suppression."""
+
+    def test_import_disables_banner(self, monkeypatch):
+        """Importing the backend must turn the pydantic_ai banner off."""
+        import importlib
+
+        import pydantic_ai
+
+        monkeypatch.setattr(pydantic_ai, "BANNER_ENABLED", True, raising=False)
+        importlib.reload(__import__("bibra.backend.greylitlm", fromlist=["x"]))
+        assert pydantic_ai.BANNER_ENABLED is False

@@ -73,6 +73,33 @@ def _get_backend(project_id: str, config: str | None) -> BaseBackend:
         raise click.ClickException(str(e)) from None
 
 
+def _describe_exception(exc: BaseException) -> str:
+    """Format a single exception as 'TypeName: message' (or just the name)."""
+    message = str(exc)
+    return f"{type(exc).__name__}: {message}" if message else type(exc).__name__
+
+
+def _format_exception(exc: BaseException) -> str:
+    """Build a message for the exception including its cause chain.
+
+    Walks ``__cause__``/``__context__`` so that the root cause (e.g. a
+    ``ValidationError`` hidden behind ``UnexpectedModelBehavior``) is
+    surfaced in CLI error output. Each chained cause is placed on its own
+    indented line, which keeps long validation messages readable.
+    """
+    parts: list[str] = []
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        parts.append(_describe_exception(current))
+        cause = current.__cause__
+        if cause is None:
+            cause = None if current.__suppress_context__ else current.__context__
+        current = cause
+    return "\n".join([parts[0]] + [f"  (caused by) {p}" for p in parts[1:]])
+
+
 def _emit_json(result: PublicationMetadata, output: str | None) -> None:
     """Write the result as JSON to a file or stdout."""
     json_output = result.model_dump_json(indent=2)
@@ -109,7 +136,7 @@ def extract(project_id: str, file_path: str, config: str | None, output: str | N
     try:
         result = asyncio.run(backend.extract([file_path]))
     except Exception as e:
-        raise click.ClickException(f"Extraction failed: {e}") from e
+        raise click.ClickException(f"Extraction failed: {_format_exception(e)}") from e
 
     _emit_json(result, output)
 
@@ -189,6 +216,6 @@ def extract_url(project_id: str, url: str, config: str | None, output: str | Non
         # Network/download failure (DNS, connection, timeout, HTTP status).
         raise click.ClickException(f"Extraction failed (network): {e}") from e
     except Exception as e:
-        raise click.ClickException(f"Extraction failed: {e}") from e
+        raise click.ClickException(f"Extraction failed: {_format_exception(e)}") from e
 
     _emit_json(result, output)

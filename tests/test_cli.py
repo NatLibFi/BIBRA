@@ -10,8 +10,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
+from pydantic import ValidationError
+from pydantic_ai.exceptions import UnexpectedModelBehavior
 
 from bibra.cli import (
+    _format_exception,
     _make_list_template,
     cli,
     extract,
@@ -242,7 +245,7 @@ class TestExtract:
 
             result = self.runner.invoke(extract, ["dummy", str(test_file)])
             assert result.exit_code != 0
-            assert "Extraction failed: PDF corrupted" in result.output
+            assert "Extraction failed: RuntimeError: PDF corrupted" in result.output
 
     def test_extract_config_error_converted_to_click_exception(self, tmp_path):
         """Test that ConfigError in extract is converted to ClickException."""
@@ -257,6 +260,110 @@ class TestExtract:
             result = self.runner.invoke(extract, ["dummy", str(test_file)])
             assert result.exit_code != 0
             assert "Invalid config syntax" in result.output
+
+    def test_extract_shows_root_cause_of_chained_exception(self, tmp_path):
+        """Test that the __cause__ chain is surfaced in the error message."""
+        test_file = tmp_path / "test.pdf"
+        test_file.write_bytes(b"dummy pdf content")
+
+        validation_error = ValidationError.from_exception_data(
+            "PublicationMetadata",
+            [
+                {
+                    "type": "string_type",
+                    "loc": ("alt_title",),
+                    "input": ["Research projects 2006 - 2008 {en}"],
+                }
+            ],
+        )
+        chained_error = _raise_from(
+            UnexpectedModelBehavior("Exceeded maximum output retries (1)"),
+            validation_error,
+        )
+
+        with patch("bibra.cli.ProjectRegistry") as mock_registry_cls:
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_backend = MagicMock()
+            mock_registry.get_backend.return_value = mock_backend
+            mock_backend.extract.side_effect = chained_error
+
+            result = self.runner.invoke(extract, ["dummy", str(test_file)])
+            assert result.exit_code != 0
+            assert "Extraction failed: UnexpectedModelBehavior:" in result.output
+            assert "Exceeded maximum output retries (1)" in result.output
+            assert "ValidationError" in result.output
+            assert "alt_title" in result.output
+
+
+def _raise_from(exc: BaseException, cause: BaseException | None) -> BaseException:
+    """Return *exc* with its cause set as if ``raise exc from cause``.
+
+    Assigns the same attributes the ``raise ... from cause`` statement would:
+    ``__cause__`` (None for ``from None``) and ``__suppress_context__``.
+    """
+    exc.__cause__ = cause
+    exc.__suppress_context__ = True
+    return exc
+
+
+class TestFormatException:
+    """Tests for the _format_exception helper."""
+
+    def test_simple_exception(self):
+        """Test a standalone exception is formatted as 'Type: message'."""
+        exc = ValueError("something went wrong")
+        assert _format_exception(exc) == "ValueError: something went wrong"
+
+    def test_exception_without_message(self):
+        """Test an exception with an empty message shows only the type name."""
+        exc = RuntimeError()
+        assert _format_exception(exc) == "RuntimeError"
+
+    def test_chained_cause(self):
+        """Test that the __cause__ chain is included on a separate line."""
+        cause = ValueError("root cause")
+        exc = _raise_from(RuntimeError("outer failure"), cause)
+        assert _format_exception(exc) == (
+            "RuntimeError: outer failure\n  (caused by) ValueError: root cause"
+        )
+
+    def test_implied_context(self):
+        """Test that an implied __context__ (no explicit from) is included."""
+        cause = ValueError("inner")
+        outer = RuntimeError("outer")
+        outer.__context__ = cause
+        assert _format_exception(outer) == (
+            "RuntimeError: outer\n  (caused by) ValueError: inner"
+        )
+
+    def test_suppressed_context(self):
+        """Test that 'raise ... from None' suppresses the context chain."""
+        cause = ValueError("inner")
+        outer = _raise_from(RuntimeError("outer"), None)
+        outer.__context__ = cause
+        assert _format_exception(outer) == "RuntimeError: outer"
+
+    def test_deep_chain(self):
+        """Test a multi-level cause chain is fully expanded."""
+        e3 = ValueError("third")
+        e2 = _raise_from(TypeError("second"), e3)
+        e1 = _raise_from(RuntimeError("first"), e2)
+        expected = (
+            "RuntimeError: first"
+            "\n  (caused by) TypeError: second"
+            "\n  (caused by) ValueError: third"
+        )
+        assert _format_exception(e1) == expected
+
+    def test_cycle_is_safe(self):
+        """Test that a circular cause chain terminates without repeating."""
+        e1 = RuntimeError("one")
+        e2 = ValueError("two")
+        e1.__cause__ = e2
+        e2.__cause__ = e1
+        formatted = _format_exception(e1)
+        assert formatted == ("RuntimeError: one\n  (caused by) ValueError: two")
 
 
 class TestServe:
@@ -522,7 +629,54 @@ class TestExtractUrl:
             )
 
         assert result.exit_code != 0
-        assert "Extraction failed: PDF corrupted" in result.output
+        assert "Extraction failed: RuntimeError: PDF corrupted" in result.output
+
+    def test_extract_url_shows_root_cause_of_chained_exception(self):
+        """Test that the __cause__ chain is surfaced in the error message."""
+        from bibra.backend.base import BaseBackend
+
+        validation_error = ValidationError.from_exception_data(
+            "PublicationMetadata",
+            [
+                {
+                    "type": "string_type",
+                    "loc": ("alt_title",),
+                    "input": ["Research projects 2006 - 2008 {en}"],
+                }
+            ],
+        )
+        chained_error = _raise_from(
+            UnexpectedModelBehavior("Exceeded maximum output retries (1)"),
+            validation_error,
+        )
+
+        with (
+            patch("bibra.cli.ProjectRegistry") as mock_registry_cls,
+            patch("bibra.cli.fetch_file", new=AsyncMock(return_value=MOCK_PDF_BYTES)),
+            patch("bibra.backend.base.os.unlink"),
+        ):
+            mock_registry = MagicMock()
+            mock_registry_cls.return_value = mock_registry
+            mock_backend = MagicMock()
+
+            async def _extract(*args, **kwargs):
+                raise chained_error
+
+            mock_backend.extract.side_effect = _extract
+            mock_backend.extract_from_bytes = BaseBackend.extract_from_bytes.__get__(
+                mock_backend, type(mock_backend)
+            )
+            mock_registry.get_backend.return_value = mock_backend
+
+            result = self.runner.invoke(
+                extract_url, ["dummy", "https://example.com/paper.pdf"]
+            )
+
+        assert result.exit_code != 0
+        assert "Extraction failed: UnexpectedModelBehavior:" in result.output
+        assert "Exceeded maximum output retries (1)" in result.output
+        assert "ValidationError" in result.output
+        assert "alt_title" in result.output
 
     def test_extract_url_uses_configured_proxy(self):
         """Test that the fetch policy passed to fetch_file carries the proxy."""

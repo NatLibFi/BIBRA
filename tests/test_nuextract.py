@@ -575,3 +575,17 @@ class TestNuExtractBackendExtraHeaders:
 
         kwargs = NuExtractBackend.build_config(project)
         assert kwargs["global_cfg"].extra_headers == {"X-Title": "BIBRA"}
+
+
+class TestBannerSuppression:
+    """Tests for pydantic_ai first-run banner suppression."""
+
+    def test_import_disables_banner(self, monkeypatch):
+        """Importing the backend must turn the pydantic_ai banner off."""
+        import importlib
+
+        import pydantic_ai
+
+        monkeypatch.setattr(pydantic_ai, "BANNER_ENABLED", True, raising=False)
+        importlib.reload(__import__("bibra.backend.nuextract", fromlist=["x"]))
+        assert pydantic_ai.BANNER_ENABLED is False

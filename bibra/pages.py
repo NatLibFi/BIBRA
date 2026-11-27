@@ -26,20 +26,25 @@ MAX_PAGES: int = 8
 # -2--1 or a bare 1000000000.
 _ITEM_RE = re.compile(r"(-?\d+)(?:\s*-\s*(-?\d+))?")
 
-# The accepted specification grammar: a comma-separated list of signed
-# numbers with optional ranges, with optional whitespace around items.
-_SPEC_CORE: str = r"-?\d+(?:\s*-\s*-?\d+)?(?:\s*,\s*-?\d+(?:\s*-\s*-?\d+)?)*"
+# Explicit ASCII whitespace class, byte-identical in Python's re and in the
+# Rust regex engine Pydantic uses for pattern validation. Python's \s
+# additionally matches C0 controls such as U+001C-U+001F, so \s must not be
+# used in patterns that are published in the OpenAPI schema.
+_WS: str = r"[ \t\r\n]"
 
-# Regex for the accepted specification grammar, mirroring parse_page_spec.
-# The page-count cap and the no-zero rule are not expressible in a pattern
-# and remain enforced at parse time.
-PAGES_SPEC_PATTERN: str = rf"^\s*{_SPEC_CORE}\s*$"
+# A single number with an optional range.
+_ITEM_CORE: str = rf"-?\d+(?:{_WS}*-{_WS}*-?\d+)?"
 
-# Regex published in the OpenAPI schema (json_schema_extra) for the pages
-# form field, so contract-test tools generate only values the API accepts:
-# a valid specification or a blank value (which selects the
-# project-configured pages).
-PAGES_FORM_PATTERN: str = rf"^(?:\s*{_SPEC_CORE}\s*|\s*)$"
+# The accepted specification grammar: a comma-separated list of the items
+# above, with optional whitespace around items.
+_SPEC_CORE: str = rf"{_ITEM_CORE}(?:{_WS}*,{_WS}*{_ITEM_CORE})*"
+
+# Regex published in the OpenAPI schema (Form pattern) for the pages form
+# field, so contract-test tools generate only values the API accepts: a
+# valid specification or a blank value (which selects the
+# project-configured pages). The page-count cap and the no-zero rule are
+# not expressible in a pattern and remain enforced at parse time.
+PAGES_FORM_PATTERN: str = rf"^(?:{_WS}*{_SPEC_CORE}{_WS}*|{_WS}*)$"
 
 
 def _parse_item(item: str) -> list[int]:

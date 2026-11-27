@@ -7,10 +7,11 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from bibra.pages import (
+    _SPEC_CORE,
+    _WS,
     DEFAULT_PAGES,
     MAX_PAGES,
     PAGES_FORM_PATTERN,
-    PAGES_SPEC_PATTERN,
     PagesList,
     parse_page_spec,
     resolve_page_indices,
@@ -135,9 +136,11 @@ class TestParsePageSpec:
 
 
 class TestPagesSpecPattern:
-    """Tests that PAGES_SPEC_PATTERN agrees with the parse_page_spec grammar."""
+    """Tests that the spec grammar agrees with parse_page_spec."""
 
-    _pattern = re.compile(PAGES_SPEC_PATTERN)
+    # Non-blank spec grammar, composed the same way as the published form
+    # pattern (which is this grammar plus the blank alternative).
+    _pattern = re.compile(rf"^{_WS}*{_SPEC_CORE}{_WS}*$")
     _form_pattern = re.compile(PAGES_FORM_PATTERN)
 
     VALID_SPECS: ClassVar[list[str]] = [
@@ -187,6 +190,12 @@ class TestPagesSpecPattern:
         "1..2",
         "1.5",
         "+1",
+        # C0 controls: Python's \s (and str.strip) treat these as
+        # whitespace, but the published pattern's explicit class does not.
+        "\u001c",
+        "\u001d",
+        "\u001e",
+        "\u001f",
     ]
 
     def test_valid_specs_match_pattern(self):
@@ -219,11 +228,24 @@ class TestPagesSpecPattern:
         for value in ("", "   "):
             assert self._form_pattern.fullmatch(value), value
 
+    _ASCII_WS = " \t\r\n"
+
     def test_form_pattern_rejects_invalid_specs(self):
         for spec in self.INVALID_SPECS:
-            if not spec.strip():
+            if not spec.strip(self._ASCII_WS):
                 continue  # blank values are valid form input (project default)
             assert not self._form_pattern.fullmatch(spec), spec
+
+    def test_form_pattern_uses_ascii_whitespace_only(self):
+        """The published pattern must accept exactly the ASCII whitespace
+        class (space, tab, CR, LF) and reject Unicode-only whitespace
+        (e.g. NEL U+0085, NBSP U+00A0, EM SPACE U+2003) so that
+        Python's re and Pydantic's Rust regex engine agree on the accepted
+        set."""
+        for ch in self._ASCII_WS:
+            assert self._form_pattern.fullmatch(ch), repr(ch)
+        for ch in ["\u0085", "\u00a0", "\u2003"]:
+            assert not self._form_pattern.fullmatch(ch), repr(ch)
 
 
 class TestResolvePageIndices:

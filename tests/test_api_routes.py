@@ -218,6 +218,21 @@ class TestAPIRoutes:
 
         assert response.status_code == 422
 
+    @pytest.mark.parametrize(
+        "value", ["\u001c", "\u001d", "\u001e", "\u001f"], ids=["FS", "GS", "RS", "US"]
+    )
+    def test_extract_c0_control_pages_returns_422_over_http(self, client, value):
+        """C0 control characters are not whitespace per the published pattern,
+        so Pydantic's Rust regex engine must reject them with a 422 rather
+        than treating them as blank input."""
+        response = client.post(
+            "/v0/projects/dummy/extract",
+            files={"files": ("empty.pdf", b"", "application/pdf")},
+            data={"pages": value},
+        )
+
+        assert response.status_code == 422
+
     def test_extract_page_zero_returns_400_over_http(self, client):
         """Page 0 matches the pattern, so it reaches the parser's 400."""
         response = client.post(

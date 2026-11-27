@@ -1,6 +1,9 @@
 """CLI interface for BIBRA."""
 
+from __future__ import annotations
+
 import asyncio
+from typing import TYPE_CHECKING
 
 import click
 import httpx2
@@ -12,6 +15,9 @@ from bibra.config import ConfigError, ProjectNotFoundError, ProjectRegistry
 from bibra.net_security import UrlPolicyError, fetch_file, load_url_fetch_policy
 from bibra.pages import MAX_PAGES, parse_page_spec
 from bibra.types import PublicationMetadata
+
+if TYPE_CHECKING:
+    from bibraeval.aggregator import AggregationMode
 
 PAGES_HELP = (
     "Pages to extract, 1-based and comma-separated; negative counts "
@@ -54,6 +60,75 @@ def _make_list_template(column_headings: tuple, *rows: tuple) -> str:
 def cli():
     """BIBRA - Bibliographic metadata extraction tool."""
     load_dotenv()
+
+
+@cli.command("eval")
+@click.option(
+    "--ground-truth",
+    "gt_path",
+    required=True,
+    type=click.Path(exists=True, readable=True),
+    help="Ground truth JSONL file or directory of JSON metadata records.",
+)
+@click.option(
+    "--predictions",
+    "pred_path",
+    required=True,
+    type=click.Path(exists=True, readable=True),
+    help="Prediction JSONL file or directory of JSON metadata records.",
+)
+@click.option(
+    "--field-metric-config",
+    "--field_metric_config",
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+    default=None,
+    help="YAML config for metrics and weights; default: exact matching, weight 1.",
+)
+@click.option(
+    "--mode",
+    type=click.Choice(["doc-avg", "field-avg", "micro-avg"]),
+    default="field-avg",
+    show_default=True,
+    help="Aggregation mode for summary metrics.",
+)
+@click.option(
+    "--drop-mismatched-doc-ids",
+    is_flag=True,
+    help="Evaluate only shared document IDs; by default mismatches are errors.",
+)
+@click.option(
+    "--results-dir",
+    type=click.Path(file_okay=False, writable=True),
+    default=None,
+    help="Export summary YAML and comparison/intermediate CSVs to this directory.",
+)
+def evaluate(
+    gt_path: str,
+    pred_path: str,
+    field_metric_config: str | None,
+    mode: AggregationMode,
+    drop_mismatched_doc_ids: bool,
+    results_dir: str | None,
+) -> None:
+    """Evaluate BIBRA predictions against ground truth and print a summary table."""
+    # Keep scipy/polars imports off the startup path for other CLI commands.
+    from bibraeval.evaluator import Evaluator
+    from polars.exceptions import PolarsError
+    from yaml import YAMLError
+
+    try:
+        evaluator = Evaluator(
+            gt_path=gt_path,
+            pred_path=pred_path,
+            schema=PublicationMetadata,
+            mode=mode,
+            field_metric_config=field_metric_config,
+            drop_mismatched_doc_ids=drop_mismatched_doc_ids,
+        )
+        summary = evaluator.compute_metrics(results_dir=results_dir)
+    except (OSError, ValueError, TypeError, YAMLError, PolarsError) as e:
+        raise click.ClickException(f"Evaluation failed: {e}") from e
+    click.echo(summary)
 
 
 @cli.command("list-projects")

@@ -5,7 +5,7 @@ description = "Tool for bibliographic metadata extraction"
 license = "MIT"
 license-files = ["LICENSE"]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 authors = [{ name = "National Library of Finland", email = "finto-posti@helsinki.fi" }]
 maintainers = [
     { name = "Osma Suominen", email = "osma.suominen@helsinki.fi" },
@@ -46,6 +46,7 @@ dependencies = [
     "regex>=2026.11.15",
     "tiktoken>=0.12.0",
     "httpx2>=2.16.2",
+    "bibraeval>=0.1.0",
 ]
 
 [project.scripts]

@@ -68,6 +68,69 @@ Start up the API server and Web UI (add `--reload` for auto-reloading while deve
 
     uv run bibra serve
 
+### Evaluate predictions
+
+Compare extracted metadata with ground truth using
+[bibraeval](https://pypi.org/project/bibraeval/), installed with BIBRA:
+
+```bash
+> bibra eval \
+  --ground-truth GOLD-STANDARD \
+  --predictions SOME-BIBRA-OUTPUT \
+  --results-dir metrics/
+```
+
+shape: (3, 4)
+┌────────┬───────────┬──────────┬───────────┐
+│ metric ┆ mode      ┆ value    ┆ support   │
+│ ---    ┆ ---       ┆ ---      ┆ ---       │
+│ str    ┆ str       ┆ f64      ┆ f64       │
+╞════════╪═══════════╪══════════╪═══════════╡
+│ f1     ┆ field-avg ┆ 0.183378 ┆ 30.083333 │
+│ prec   ┆ field-avg ┆ 0.209394 ┆ 25.083333 │
+│ rec    ┆ field-avg ┆ 0.236272 ┆ 25.0      │
+└────────┴───────────┴──────────┴───────────┘
+
+Both inputs accept directories of JSON metadata objects (filename stems are
+document IDs) or JSONL files. Each JSONL line must wrap the metadata in a
+`record` object with a non-empty `doc_id`, for example:
+
+```json
+{"doc_id": "book-1", "record": {"title": "Example", "year": "2026"}}
+```
+
+Records are validated against BIBRA's `PublicationMetadata` schema. By default,
+all schema fields use exact matching with weight 1 and aggregation uses
+`field-avg`, matching Evaluator's defaults. Use `--mode doc-avg` or
+`--mode micro-avg` to change aggregation. Document ID mismatches are errors;
+`--drop-mismatched-doc-ids` explicitly evaluates only shared IDs.
+
+The command prints a summary table with `metric`, `mode`, `value`,
+and `support`. To save bibraeval's detailed outputs:
+
+    uv run bibra eval --ground-truth gold.jsonl --predictions predictions.jsonl \
+        --field-metric-config metrics.yaml --mode doc-avg --results-dir results/
+
+`--results-dir` writes `summary_metrics.yaml`, `comparison_matrix.csv`, and
+`intermediate_results.csv` (the last is omitted for `micro-avg`).
+`--field-metric-config` (also accepted as `--field_metric_config`) loads a flat
+YAML field mapping or one nested under `fields`. When configured, only listed
+fields are scored; use output JSON field names, such as `e-isbn`, for aliased fields.
+For example:
+
+```yaml
+title:
+  metric: Levenshtein
+  match_threshold: 0.5
+  weight: 2.0
+year:
+  metric: Exact
+  weight: 1.0
+```
+
+Levenshtein requires `match_threshold` between 0 and 1 for list alignment;
+Exact does not accept it. Weights must be positive.
+
 ## Security
 
 The `extract-url` endpoints (API and CLI) fetch a user-supplied URL, which is a

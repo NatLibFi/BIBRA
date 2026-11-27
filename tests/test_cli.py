@@ -6,9 +6,12 @@ import json
 import subprocess
 import sys
 import time
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import polars as pl
 import pytest
+import yaml
 from click.testing import CliRunner
 
 from bibra.cli import (
@@ -20,6 +23,7 @@ from bibra.cli import (
     serve,
 )
 from bibra.config import ConfigError, ProjectNotFoundError
+from bibra.types import PublicationMetadata
 
 
 class TestCli:
@@ -38,6 +42,7 @@ class TestCli:
         assert "list-projects" in result.output
         assert "extract" in result.output
         assert "serve" in result.output
+        assert "eval" in result.output
 
     def test_cli_version(self):
         """Test CLI version output."""
@@ -60,6 +65,246 @@ class TestCli:
             # instead so the cli() callback is actually invoked.
             self.runner.invoke(cli, ["list-projects"])
             mock_load_dotenv.assert_called_once()
+
+
+@pytest.fixture
+def eval_inputs(tmp_path: Path) -> tuple[Path, Path]:
+    """Create matching JSONL collections with one correct and one wrong field."""
+    gt_path = tmp_path / "gold.jsonl"
+    pred_path = tmp_path / "predictions.jsonl"
+    for path, year in ((gt_path, "2026"), (pred_path, "2025")):
+        path.write_text(
+            json.dumps({"doc_id": "book-1", "record": {"title": "Book", "year": year}})
+            + "\n",
+            encoding="utf-8",
+        )
+    return gt_path, pred_path
+
+
+def _assert_eval_summary(output: str, mode: str, value: float, support: float) -> None:
+    """Check the displayed summary against independently expected scores."""
+    expected = pl.DataFrame(
+        {
+            "metric": ["f1", "prec", "rec"],
+            "mode": [mode] * 3,
+            "value": [value] * 3,
+            "support": [support] * 3,
+        },
+        schema_overrides={"support": pl.UInt32 if mode == "doc-avg" else pl.Float64},
+    )
+    assert output.strip() == str(expected)
+
+
+class TestEvaluate:
+    """Exercise the eval command against the real bibraeval API."""
+
+    @pytest.mark.parametrize("mode", ["doc-avg", "field-avg", "micro-avg"])
+    @pytest.mark.parametrize("input_format", ["jsonl", "directory"])
+    def test_summary_and_exports(self, eval_inputs, tmp_path, mode, input_format):
+        """Validate computed scores, table output and the mode-specific exports."""
+        gt_path, pred_path = eval_inputs
+        if input_format == "directory":
+            directories = (tmp_path / "gold", tmp_path / "predictions")
+            for file_path, directory in zip(eval_inputs, directories, strict=True):
+                directory.mkdir()
+                payload = json.loads(file_path.read_text(encoding="utf-8"))
+                (directory / "book-1.json").write_text(
+                    json.dumps(payload["record"]), encoding="utf-8"
+                )
+            gt_path, pred_path = directories
+        results_dir = tmp_path / "results" / mode
+        result = CliRunner().invoke(
+            cli,
+            [
+                "eval",
+                "--ground-truth",
+                str(gt_path),
+                "--predictions",
+                str(pred_path),
+                "--mode",
+                mode,
+                "--results-dir",
+                str(results_dir),
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        support = {
+            "doc-avg": 1,
+            "field-avg": 2 / len(PublicationMetadata.model_fields),
+            "micro-avg": 2,
+        }[mode]
+        _assert_eval_summary(result.output, mode, 0.5, support)
+        summary = yaml.safe_load(
+            (results_dir / "summary_metrics.yaml").read_text(encoding="utf-8")
+        )
+        assert set(summary) == {"prec", "rec", "f1"}
+        for row in summary.values():
+            assert set(row) == {"mode", "value", "support"}
+            assert row["mode"] == mode
+            assert row["value"] == pytest.approx(0.5)
+            assert row["support"] == pytest.approx(support)
+        comparison = (results_dir / "comparison_matrix.csv").read_text(encoding="utf-8")
+        assert "cell_agreement" in comparison
+        assert "book-1" in comparison
+        assert (results_dir / "intermediate_results.csv").exists() == (
+            mode != "micro-avg"
+        )
+
+    def test_defaults_and_no_export(self, eval_inputs, tmp_path):
+        """Use Evaluator defaults without exporting files."""
+        gt_path, pred_path = eval_inputs
+        result = CliRunner().invoke(
+            cli,
+            ["eval", "--ground-truth", str(gt_path), "--predictions", str(pred_path)],
+        )
+        assert result.exit_code == 0, result.output
+        _assert_eval_summary(
+            result.output, "field-avg", 0.5, 2 / len(PublicationMetadata.model_fields)
+        )
+        assert {path.name for path in tmp_path.iterdir()} == {
+            "gold.jsonl",
+            "predictions.jsonl",
+        }
+
+    @pytest.mark.parametrize(
+        ("option", "wrapped"),
+        [("--field-metric-config", False), ("--field_metric_config", True)],
+    )
+    def test_custom_metrics(self, eval_inputs, tmp_path, option, wrapped):
+        """Accept both config spellings and YAML layouts, applying fuzzy weights."""
+        gt_path, pred_path = eval_inputs
+        pred_path.write_text(
+            json.dumps(
+                {"doc_id": "book-1", "record": {"title": "Books", "year": "2025"}}
+            ),
+            encoding="utf-8",
+        )
+        config = tmp_path / "metrics.yaml"
+        yaml_content = (
+            "title:\n  metric: Levenshtein\n  match_threshold: 0.5\n  weight: 2\n"
+            "year:\n  metric: Exact\n  weight: 1\n"
+        )
+        if wrapped:
+            yaml_content = "fields:\n" + "".join(
+                "  " + line + "\n" for line in yaml_content.splitlines()
+            )
+        config.write_text(yaml_content, encoding="utf-8")
+        result = CliRunner().invoke(
+            cli,
+            [
+                "eval",
+                "--ground-truth",
+                str(gt_path),
+                "--predictions",
+                str(pred_path),
+                option,
+                str(config),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        _assert_eval_summary(result.output, "field-avg", 2 * (8 / 9) / 3, 1)
+
+    def test_mismatched_ids_require_opt_in(self, eval_inputs):
+        """Report mismatched IDs unless the caller explicitly drops them."""
+        gt_path, pred_path = eval_inputs
+        with gt_path.open("a", encoding="utf-8") as file:
+            file.write(
+                json.dumps({"doc_id": "extra", "record": {"title": "Extra"}}) + "\n"
+            )
+        args = ["eval", "--ground-truth", str(gt_path), "--predictions", str(pred_path)]
+        result = CliRunner().invoke(cli, args)
+        assert result.exit_code == 1
+        assert "Evaluation failed" in result.output
+        assert "mismatched doc_ids" in result.output
+        result = CliRunner().invoke(cli, [*args, "--drop-mismatched-doc-ids"])
+        assert result.exit_code == 0, result.output
+        _assert_eval_summary(
+            result.output, "field-avg", 0.5, 2 / len(PublicationMetadata.model_fields)
+        )
+
+    @pytest.mark.parametrize(
+        "content",
+        [
+            "{",
+            '{"doc_id": "book-1"}',
+            '{"doc_id": "book-1", "record": {"title": 123}}',
+        ],
+    )
+    def test_invalid_records(self, eval_inputs, content):
+        """Translate ingestion and schema validation failures into CLI errors."""
+        gt_path, pred_path = eval_inputs
+        pred_path.write_text(content, encoding="utf-8")
+        result = CliRunner().invoke(
+            cli,
+            ["eval", "--ground-truth", str(gt_path), "--predictions", str(pred_path)],
+        )
+        assert result.exit_code == 1
+        assert "Error: Evaluation failed:" in result.output
+
+    @pytest.mark.parametrize(
+        "content", ["title: [", "- title", "title:\n  metric: unknown"]
+    )
+    def test_invalid_config(self, eval_inputs, tmp_path, content):
+        """Report malformed YAML, non-mappings and unsupported metrics."""
+        gt_path, pred_path = eval_inputs
+        config = tmp_path / "metrics.yaml"
+        config.write_text(content, encoding="utf-8")
+        result = CliRunner().invoke(
+            cli,
+            [
+                "eval",
+                "--ground-truth",
+                str(gt_path),
+                "--predictions",
+                str(pred_path),
+                "--field-metric-config",
+                str(config),
+            ],
+        )
+        assert result.exit_code == 1
+        assert "Error: Evaluation failed:" in result.output
+
+    @pytest.mark.parametrize(
+        "args",
+        [
+            [],
+            ["--ground-truth", "{gt}"],
+            ["--ground-truth", "{gt}", "--predictions", "missing.jsonl"],
+            ["--ground-truth", "{gt}", "--predictions", "{pred}", "--mode", "bad"],
+        ],
+    )
+    def test_invalid_options(self, eval_inputs, args):
+        """Reject missing inputs, nonexistent paths and unsupported modes."""
+        gt_path, pred_path = eval_inputs
+        result = CliRunner().invoke(
+            cli,
+            ["eval", *(arg.format(gt=gt_path, pred=pred_path) for arg in args)],
+        )
+        assert result.exit_code == 2
+        assert "Error:" in result.output
+
+    def test_export_error(self, eval_inputs):
+        """Do not print a success summary when writing results fails."""
+        gt_path, pred_path = eval_inputs
+        with patch(
+            "bibraeval.evaluator.Evaluator.save_results",
+            side_effect=PermissionError("Cannot write results"),
+        ):
+            result = CliRunner().invoke(
+                cli,
+                [
+                    "eval",
+                    "--ground-truth",
+                    str(gt_path),
+                    "--predictions",
+                    str(pred_path),
+                    "--results-dir",
+                    str(gt_path.parent / "results"),
+                ],
+            )
+        assert result.exit_code == 1
+        assert "Error: Evaluation failed: Cannot write results" in result.output
 
 
 class TestListProjects:

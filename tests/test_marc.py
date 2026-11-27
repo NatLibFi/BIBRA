@@ -293,9 +293,8 @@ def test_to_marc_type_coar():
 
 
 def test_to_marc_filters_empty_values():
-    """Empty title, publisher, year and doi produce placeholder fields; empty
-    creators are excluded from 245 subfield c, but 700 fields are still
-    emitted for every creator entry."""
+    """Empty values produce placeholder fields, and empty creators are
+    filtered out entirely."""
     record = to_marc(
         PublicationMetadata(
             title="",
@@ -305,11 +304,13 @@ def test_to_marc_filters_empty_values():
             doi="",
         )
     )
-    assert _tags(record) == ["245", "264", "700", "700"]
+    assert _tags(record) == ["100", "245", "264"]
+    assert _subfields("100", record) == [[{"a": "Valid, Name"}]]
+    assert _indicator("100", record) == [("1", " ")]
     assert _subfields("245", record) == [
         [{"a": "[Title not identified]"}, {"c": "Valid, Name"}]
     ]
-    assert _indicator("245", record) == [("0", "0")]
+    assert _indicator("245", record) == [("1", "0")]
     assert _subfields("264", record) == [
         [
             {"a": "[Place of publication not identified] :"},
@@ -318,8 +319,6 @@ def test_to_marc_filters_empty_values():
         ]
     ]
     assert _indicator("264", record) == [(" ", "1")]
-    assert _subfields("700", record) == [[{"a": ""}], [{"a": "Valid, Name"}]]
-    assert _indicator("700", record) == [("1", " "), ("1", " ")]
 
 
 def test_to_marc_data_fields_are_marc_field_instances():

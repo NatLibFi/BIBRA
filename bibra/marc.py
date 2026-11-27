@@ -118,11 +118,12 @@ def _build_pymarc_record(metadata: PublicationMetadata) -> Record:
             )
 
     # 100 - Creator ($a)
-    if metadata.creator and len(metadata.creator) == 1:
+    valid_creators = [c for c in metadata.creator if c]
+    if len(valid_creators) == 1:
         record.add_field(
             _field(
                 "100",
-                [{"a": metadata.creator[0]}],
+                [{"a": valid_creators[0]}],
                 _CREATOR_100_IND1,
                 _CREATOR_100_IND2,
             )
@@ -137,9 +138,8 @@ def _build_pymarc_record(metadata: PublicationMetadata) -> Record:
             title_subfields.append({"b": titles[1]})
     else:
         title_subfields.append({"a": _TITLE_245_SUBFIELD_A})
-    creators = [creator for creator in metadata.creator if creator]
-    if creators:
-        title_subfields.append({"c": " ; ".join(creators)})
+    if valid_creators:
+        title_subfields.append({"c": " ; ".join(valid_creators)})
     record.add_field(
         _field(
             "245",
@@ -198,8 +198,8 @@ def _build_pymarc_record(metadata: PublicationMetadata) -> Record:
         )
 
     # 700 - Creators ($a)
-    if metadata.creator and len(metadata.creator) > 1:
-        for creator in metadata.creator:
+    if len(valid_creators) > 1:
+        for creator in valid_creators:
             record.add_field(
                 _field("700", [{"a": creator}], _CREATOR_700_IND1, _CREATOR_700_IND2)
             )

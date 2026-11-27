@@ -197,16 +197,38 @@ class TestAPIRoutes:
         assert exc_info.value.status_code == 400
         assert "Invalid pages" in exc_info.value.detail
 
-    def test_extract_invalid_pages_returns_400_over_http(self, client):
-        """Invalid pages over HTTP must reach the parser's 400, not 422."""
+    def test_extract_invalid_pages_returns_422_over_http(self, client):
+        """Pages values that violate the schema pattern are rejected with a 422."""
         response = client.post(
             "/v0/projects/dummy/extract",
             files={"files": ("empty.pdf", b"", "application/pdf")},
             data={"pages": "1,a"},
         )
 
+        assert response.status_code == 422
+
+    @pytest.mark.parametrize("value", ["None", "null", "none"])
+    def test_extract_none_like_pages_returns_422_over_http(self, client, value):
+        """Sentinel-like strings are not blank and do not match the pattern."""
+        response = client.post(
+            "/v0/projects/dummy/extract",
+            files={"files": ("empty.pdf", b"", "application/pdf")},
+            data={"pages": value},
+        )
+
+        assert response.status_code == 422
+
+    def test_extract_page_zero_returns_400_over_http(self, client):
+        """Page 0 matches the pattern, so it reaches the parser's 400."""
+        response = client.post(
+            "/v0/projects/dummy/extract",
+            files={"files": ("empty.pdf", b"", "application/pdf")},
+            data={"pages": "0"},
+        )
+
         assert response.status_code == 400
         assert "Invalid pages" in response.json()["detail"]
+        assert "Page 0" in response.json()["detail"]
 
     async def test_extract_page_zero_returns_400(self):
         """Page 0 is rejected with a 400, not an empty successful result."""

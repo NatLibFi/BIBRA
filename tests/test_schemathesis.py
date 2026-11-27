@@ -35,18 +35,22 @@ def _prepare(case) -> bool:
     # Skip bodies missing the required field.
     if not (isinstance(case.body, dict) and case.body.get(required_field)):
         return False
-    # The schema pattern cannot express the page-count cap, so drop cases
-    # whose pages value would exceed it (they are rejected with 400).
-    pages = case.body.get("pages")
-    if pages is None or (
-        isinstance(pages, str) and pages.strip().lower() in ("", "none", "null")
-    ):
-        case.body.pop("pages", None)
-    elif isinstance(pages, str):
-        try:
-            parse_page_spec(pages)
-        except ValueError:
+    # Drop pages values Schemathesis generates as valid data that the API
+    # rejects: an explicit null (valid per str | None but form-serialized
+    # as the literal string "null", rejected with a 422 by the schema
+    # pattern), and any non-blank string that fails to parse (page-count
+    # cap and page 0 match the pattern but are rejected with a 400). An
+    # absent field or a blank string is accepted as the project default
+    # and must be kept.
+    if "pages" in case.body:
+        pages = case.body["pages"]
+        if pages is None:
             return False
+        if isinstance(pages, str) and pages.strip():
+            try:
+                parse_page_spec(pages)
+            except ValueError:
+                return False
     case.path = dummy_path
     return True
 

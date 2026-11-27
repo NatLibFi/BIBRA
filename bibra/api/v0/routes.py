@@ -22,30 +22,38 @@ from bibra.net_security import (
     load_url_fetch_policy,
     redact_url,
 )
-from bibra.pages import parse_page_spec
+from bibra.pages import PAGES_FORM_PATTERN, parse_page_spec
 from bibra.types import MarcRecord, Projects, PublicationMetadata, Version
 
-# The description is published in the OpenAPI schema as documentation of
-# the expected format; actual validation happens in _parse_pages, which
-# maps invalid values to a 400 response.
+# The pattern and description are published in the OpenAPI schema and
+# enforced by form validation: values that do not match the pattern
+# (e.g. "None", "null", "1,a") are rejected with a 422 before the
+# endpoint runs. The page-count cap and the no-zero rule are not
+# expressible in a pattern and remain enforced in _parse_pages, which
+# maps them to a 400 response.
 PagesForm = Annotated[
     str | None,
     Form(
-        json_schema_extra={
-            "description": (
-                "Optional comma-separated 1-based page numbers; negative "
-                "counts from the last page; ranges allowed (e.g. "
-                "1-4,-2--1); at most 8 pages. Page 0 is not allowed. "
-                "Empty or 'None' uses the project-configured pages."
-            )
-        }
+        pattern=PAGES_FORM_PATTERN,
+        description=(
+            "Optional comma-separated 1-based page numbers; negative "
+            "counts from the last page; ranges allowed (e.g. "
+            "1-4,-2--1); at most 8 pages. Page 0 is not allowed. "
+            "Leave empty to use the project-configured pages."
+        ),
     ),
 ]
 
 
 def _parse_pages(pages: str | None) -> list[int] | None:
-    """Parse an optional pages form field, raising 400 on bad input."""
-    if pages is None or pages.strip() in ("", "None"):
+    """Parse an optional pages form field, raising 400 on bad input.
+
+    Only a missing field or a blank value selects the project-configured
+    pages. Form validation already rejects values that violate the schema
+    pattern with a 422; this parser enforces the rules the pattern cannot
+    express (page-count cap, page 0) and maps them to a 400.
+    """
+    if pages is None or not pages.strip():
         return None
     try:
         return parse_page_spec(pages)
@@ -195,9 +203,12 @@ async def extract(
         400: {
             "description": (
                 "Bad Request - URL or content violates the fetch policy, or "
-                "the pages parameter is invalid. The detail message is "
-                "specific to the rejection (oversized download, unsupported "
-                "file type, URL rejected by policy, or invalid pages)."
+                "the pages parameter is syntactically valid but lists page "
+                "0 or more than 8 pages. The detail message is specific to "
+                "the rejection (oversized download, unsupported file type, "
+                "URL rejected by policy, or invalid pages). Pages values "
+                "that do not match the schema pattern are rejected with a "
+                "422."
             )
         },
         502: {"description": "Bad Gateway - download failed"},

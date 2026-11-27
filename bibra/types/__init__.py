@@ -39,7 +39,7 @@ class PublicationMetadata(BaseModel):
 
     language: str | None = None
     title: str | None = None
-    alt_title: str | None = None
+    alt_title: list[str] = []
     creator: list[str] = []
     year: str | None = None
     publisher: list[str] = []

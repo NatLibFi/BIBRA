@@ -25,6 +25,7 @@ class DummyBackend(BaseBackend[dict[str, Any]]):
         return PublicationMetadata(
             language="en",
             title="Machine Learning Approaches for Software Defect Prediction",
+            alt_title=["Koneoppimismenetelmät ohjelmistovirheiden ennustamiseen {fi}"],
             creator=["Smith, John", "Johnson, Emily"],
             year="2023",
             publisher=["Springer", "ACM"],

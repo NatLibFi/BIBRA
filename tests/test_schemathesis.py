@@ -35,11 +35,13 @@ def _prepare(case) -> bool:
     # Skip bodies missing the required field.
     if not (isinstance(case.body, dict) and case.body.get(required_field)):
         return False
-    # Drop pages values the schema cannot express but the API rejects with
-    # 400: an explicit null (form-serialized as the literal string "null")
-    # and any non-blank string that fails to parse (page-count cap, page 0,
-    # or unparseable items). An absent field or a blank string is accepted
-    # as the project default and must be kept.
+    # Drop pages values Schemathesis generates as valid data that the API
+    # rejects: an explicit null (valid per str | None but form-serialized
+    # as the literal string "null", rejected with a 422 by the schema
+    # pattern), and any non-blank string that fails to parse (page-count
+    # cap and page 0 match the pattern but are rejected with a 400). An
+    # absent field or a blank string is accepted as the project default
+    # and must be kept.
     if "pages" in case.body:
         pages = case.body["pages"]
         if pages is None:

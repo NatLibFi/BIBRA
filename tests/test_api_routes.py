@@ -153,7 +153,7 @@ class TestAPIRoutes:
             {"b": "[publisher not identified],"},
             {"c": "[date of publication not identified]"},
         ]
-        
+
     async def test_extract_returns_example_metadata(self):
         """The /projects/{project_id}/extract endpoint should return example
         publication metadata."""

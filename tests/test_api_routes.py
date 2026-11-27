@@ -142,11 +142,23 @@ class TestAPIRoutes:
             {"c": "Smith, John ; Johnson, Emily"},
         ]
 
-    async def test_convert_with_empty_metadata_returns_empty_record(self):
-        """The /convert endpoint should return an empty record for empty metadata."""
+    async def test_convert_with_empty_metadata_returns_placeholder_record(self):
+        """The /convert endpoint should return placeholder 245/264 fields for
+        empty metadata."""
         result = await convert(PublicationMetadata())
         assert isinstance(result, MarcRecord)
-        assert result.fields == []
+        tags = [next(iter(entry)) for entry in result.fields]
+        assert tags == ["245", "264"]
+        title = result.fields[0]["245"]
+        assert isinstance(title, MarcField)
+        assert title.subfields == [{"a": "[Title not identified]"}]
+        publisher = result.fields[1]["264"]
+        assert isinstance(publisher, MarcField)
+        assert publisher.subfields == [
+            {"a": "[Place of publication not identified] :"},
+            {"b": "[publisher not identified],"},
+            {"c": "[date of publication not identified]"},
+        ]
 
     async def test_extract_url_returns_example_metadata(self, monkeypatch):
         """The /projects/{project_id}/extract-url endpoint should return example

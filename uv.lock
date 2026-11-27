@@ -10,7 +10,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-11-18T07:28:02.225171874Z"
+exclude-newer = "2026-11-20T07:25:14.602852658Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -52,6 +52,7 @@ dependencies = [
     { name = "click" },
     { name = "fastapi" },
     { name = "httpx2" },
+    { name = "langcodes" },
     { name = "pydantic" },
     { name = "pydantic-ai-slim", extra = ["openai"] },
     { name = "pymarc" },
@@ -81,6 +82,7 @@ requires-dist = [
     { name = "click", specifier = ">=8.5.1" },
     { name = "fastapi", specifier = "==0.163.1" },
     { name = "httpx2", specifier = ">=2.16.2" },
+    { name = "langcodes", specifier = ">=3.5.1" },
     { name = "pydantic", specifier = ">=2.14.3" },
     { name = "pydantic-ai-slim", extras = ["openai"], specifier = ">=2.69.0" },
     { name = "pymarc", specifier = ">=5.4.1" },
@@ -856,6 +858,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/da/df/a436d16e9839f1cd2114aeabd28a665d67e9458e6f2cd5636fa3a381127d/jsonschema_rs-0.61.2-pp311-pypy311_pp73-manylinux_2_28_aarch64.whl", hash = "sha256:cc87752942887fdda62d2937637a5d178c8a5f04fc19246f1402042dd5ea4de6", size = 5898116, upload-time = "2026-11-12T08:11:50.067Z" },
     { url = "https://files.pythonhosted.org/packages/c6/2d/205a7101758efbb2710bb9bb7c7889a601092e0b2e9f6eb7fe197097fd27/jsonschema_rs-0.61.2-pp311-pypy311_pp80-macosx_10_12_x86_64.whl", hash = "sha256:d380f47d97a9cbf9e5c369b607ae62e58a15ae8285d5379326e56c1d1aaa0f8e", size = 6234174, upload-time = "2026-11-12T08:11:51.735Z" },
     { url = "https://files.pythonhosted.org/packages/1f/4d/d89881d31caa673eabffdf58ec17ff098c920fa0836b77fd2b9c405c0622/jsonschema_rs-0.61.2-pp311-pypy311_pp80-win_amd64.whl", hash = "sha256:68f94e664a09d800ba11adf588c39a8b5b90609703bcd87d289a203a3e9d7ef2", size = 6427862, upload-time = "2026-11-12T08:11:53.821Z" },
+]
+
+[[package]]
+name = "langcodes"
+version = "3.5.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a9/75/f9edc5d72945019312f359e69ded9f82392a81d49c5051ed3209b100c0d2/langcodes-3.5.1.tar.gz", hash = "sha256:40bff315e01b01d11c2ae3928dd4f5cbd74dd38f9bd912c12b9a3606c143f731", size = 191084, upload-time = "2025-12-02T16:22:01.627Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/dd/c1/d10b371bcba7abce05e2b33910e39c33cfa496a53f13640b7b8e10bb4d2b/langcodes-3.5.1-py3-none-any.whl", hash = "sha256:b6a9c25c603804e2d169165091d0cdb23934610524a21d226e4f463e8e958a72", size = 183050, upload-time = "2025-12-02T16:21:59.954Z" },
 ]
 
 [[package]]

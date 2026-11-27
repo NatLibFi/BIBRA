@@ -24,7 +24,9 @@ MAX_PAGES: int = 8
 # literal dash, so the digit runs can never be split in more than one
 # way; this keeps matching linear even on inputs of many digits, e.g.
 # -2--1 or a bare 1000000000.
-_ITEM_RE = re.compile(r"(-?\d+)(?:\s*-\s*(-?\d+))?")
+# ASCII digits only, matching the published pattern: Python's \d and
+# int() accept Unicode digits (e.g. U+0661), which the grammar rejects.
+_ITEM_RE = re.compile(r"(-?[0-9]+)(?:\s*-\s*(-?[0-9]+))?")
 
 # Explicit ASCII whitespace class, byte-identical in Python's re and in the
 # Rust regex engine Pydantic uses for pattern validation. Python's \s
@@ -32,8 +34,8 @@ _ITEM_RE = re.compile(r"(-?\d+)(?:\s*-\s*(-?\d+))?")
 # used in patterns that are published in the OpenAPI schema.
 _WS: str = r"[ \t\r\n]"
 
-# A single number with an optional range.
-_ITEM_CORE: str = rf"-?\d+(?:{_WS}*-{_WS}*-?\d+)?"
+# A single number with an optional range; ASCII digits only.
+_ITEM_CORE: str = rf"-?[0-9]+(?:{_WS}*-{_WS}*-?[0-9]+)?"
 
 # The accepted specification grammar: a comma-separated list of the items
 # above, with optional whitespace around items.

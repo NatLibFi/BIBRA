@@ -196,6 +196,11 @@ class TestPagesSpecPattern:
         "\u001d",
         "\u001e",
         "\u001f",
+        # Unicode digits: Python's \d and int() accept them, but the
+        # grammar restricts page numbers to ASCII digits.
+        "\u0661",
+        "\u0967",
+        "\uff11",
     ]
 
     def test_valid_specs_match_pattern(self):

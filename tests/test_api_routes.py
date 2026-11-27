@@ -233,6 +233,22 @@ class TestAPIRoutes:
 
         assert response.status_code == 422
 
+    @pytest.mark.parametrize(
+        "value",
+        ["\u0661", "\u0967", "\uff11"],
+        ids=["arabic", "devanagari", "fullwidth"],
+    )
+    def test_extract_unicode_digit_pages_returns_422_over_http(self, client, value):
+        """Unicode digits are not ASCII digits, so the published pattern
+        rejects them with a 422 even though Python's int() would parse them."""
+        response = client.post(
+            "/v0/projects/dummy/extract",
+            files={"files": ("empty.pdf", b"", "application/pdf")},
+            data={"pages": value},
+        )
+
+        assert response.status_code == 422
+
     def test_extract_page_zero_returns_400_over_http(self, client):
         """Page 0 matches the pattern, so it reaches the parser's 400."""
         response = client.post(

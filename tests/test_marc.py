@@ -38,7 +38,7 @@ def test_to_marc_full_metadata():
     metadata = PublicationMetadata(
         language="en",
         title="A Title",
-        alt_title="An Alt Title",
+        alt_title=["An Alt Title"],
         creator=["Smith, John", "Doe, Jane"],
         year="2023",
         publisher=["Springer"],
@@ -179,7 +179,7 @@ def test_to_marc_title_with_subtitle():
 
 def test_to_marc_alt_title():
     """An alt title maps to a 246 field with indicator 3/blank."""
-    record = to_marc(PublicationMetadata(alt_title="An Alt Title"))
+    record = to_marc(PublicationMetadata(alt_title=["An Alt Title"]))
     assert _subfields("246", record) == [[{"a": "An Alt Title"}]]
     assert _indicator("246", record) == [("3", " ")]
 

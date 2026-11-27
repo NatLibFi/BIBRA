@@ -149,11 +149,11 @@ def _build_pymarc_record(metadata: PublicationMetadata) -> Record:
     )
 
     # 246 - Alt title ($a)
-    if metadata.alt_title:
+    for alt_title in metadata.alt_title:
         record.add_field(
             _field(
                 "246",
-                [{"a": metadata.alt_title}],
+                [{"a": alt_title}],
                 _ALT_TITLE_246_IND1,
                 _ALT_TITLE_246_IND2,
             )
